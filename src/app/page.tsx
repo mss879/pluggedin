@@ -264,6 +264,9 @@ export default function Home() {
   const [cartAnimate, setCartAnimate] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
+  // FAQ State
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
   // Sync with localStorage on mount
   useEffect(() => {
     try {
@@ -1252,45 +1255,77 @@ export default function Home() {
                   <div
                     key={product.id}
                     onClick={() => setActiveProduct(product)}
-                    className="group bg-white border border-zinc-200/40 rounded-3xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.01)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.08)] hover:-translate-y-1 transition-all duration-300 flex flex-col cursor-pointer"
+                    className="group bg-white border border-zinc-100/80 rounded-3xl overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 flex flex-col cursor-pointer relative"
                   >
-                    {/* Image Container */}
-                    <div className="relative aspect-square w-full overflow-hidden bg-white border-b border-zinc-100/50">
+                    {/* Image Container with soft gradient background & elegant padding */}
+                    <div className="relative aspect-[5/4] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-6 flex items-center justify-center border-b border-zinc-100/50">
                       <img
                         src={`/products/${product.id}.png`}
                         alt={product.name}
-                        className="w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                        className="w-full h-full object-contain transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                       />
-                      {/* Hover Overlay */}
-                      <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                        <span className="bg-white/95 backdrop-blur-md text-zinc-950 text-[10px] font-bold tracking-widest px-4 py-2.5 rounded-full shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
-                          QUICK VIEW
+                      
+                      {/* Floating Discount Badge */}
+                      <div className="absolute top-3.5 left-3.5 z-10">
+                        <span className="bg-red-500 text-white text-[8px] font-black tracking-widest px-2.5 py-1 rounded-lg shadow-md shadow-red-500/10 uppercase">
+                          {product.discount}
                         </span>
+                      </div>
+
+                      {/* Floating Action Overlay: Slide-up Quick-Add Bar */}
+                      <div className="absolute bottom-3.5 left-3.5 right-3.5 translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-10 flex gap-2">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveProduct(product);
+                          }}
+                          className="flex-grow bg-white/95 backdrop-blur-md border border-zinc-200/50 hover:bg-zinc-950 hover:text-white hover:border-zinc-950 text-zinc-900 text-[10px] font-extrabold tracking-widest py-2.5 rounded-xl shadow-lg transition-all duration-200 cursor-pointer"
+                        >
+                          QUICK VIEW
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const colors = getProductColors(product);
+                            addToCart(product, 1, colors[0] || product.color);
+                          }}
+                          className="bg-purple-600 hover:bg-purple-700 text-white p-2.5 rounded-xl shadow-lg shadow-purple-600/10 transition-all duration-200 cursor-pointer border-0 flex items-center justify-center hover:scale-105 active:scale-95"
+                          title="Add to Cart"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
 
-                    {/* Content */}
-                    <div className="p-5 flex flex-col gap-1.5 flex-grow text-left">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[9px] font-bold tracking-widest text-purple-600 uppercase">
-                          {product.category}
-                        </span>
-                        <div className="flex items-center gap-1 bg-red-50 text-red-600 px-2 py-0.5 rounded-md text-[9px] font-extrabold tracking-wide border border-red-100">
-                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M7 7h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <span>{product.discount}</span>
-                        </div>
-                      </div>
-                      <h4 className="text-sm font-extrabold text-zinc-950 font-outfit group-hover:text-purple-700 transition-colors duration-200 truncate mt-0.5">
+                    {/* Content Details */}
+                    <div className="p-5 flex flex-col gap-1 flex-grow text-left">
+                      <span className="text-[8px] font-bold tracking-widest text-purple-600 uppercase">
+                        {product.category}
+                      </span>
+                      <h4 className="text-xs sm:text-sm font-extrabold text-zinc-950 font-outfit group-hover:text-purple-700 transition-colors duration-200 truncate mt-1">
                         {product.name}
                       </h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-sm sm:text-base font-black text-purple-950 font-outfit">
+                      
+                      {/* Premium Pricing presentation */}
+                      <div className="flex items-baseline gap-2 mt-2">
+                        <span className="text-base sm:text-lg font-black text-zinc-950 font-outfit tracking-tight">
                           {product.price}
                         </span>
                         <span className="text-xs text-zinc-400 line-through font-bold">
                           {product.slashedPrice}
+                        </span>
+                      </div>
+
+                      {/* Premium card divider footer */}
+                      <div className="flex justify-between items-center mt-3 pt-3 border-t border-zinc-100/70">
+                        <span className="text-[8px] font-bold text-emerald-600 tracking-wider uppercase flex items-center gap-1">
+                          <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                          Free Shipping
+                        </span>
+                        <span className="text-[8px] font-bold text-zinc-400 tracking-wider uppercase">
+                          In Stock
                         </span>
                       </div>
                     </div>
@@ -1345,45 +1380,77 @@ export default function Home() {
                   <div
                     key={product.id}
                     onClick={() => setActiveProduct(product)}
-                    className="group bg-white border border-zinc-200/40 rounded-3xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.01)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.08)] hover:-translate-y-1 transition-all duration-300 flex flex-col cursor-pointer"
+                    className="group bg-white border border-zinc-100/80 rounded-3xl overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 flex flex-col cursor-pointer relative"
                   >
-                    {/* Image Container */}
-                    <div className="relative aspect-square w-full overflow-hidden bg-white border-b border-zinc-100/50">
+                    {/* Image Container with soft gradient background & elegant padding */}
+                    <div className="relative aspect-[5/4] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-6 flex items-center justify-center border-b border-zinc-100/50">
                       <img
                         src={`/products/${product.id}.png`}
                         alt={product.name}
-                        className="w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                        className="w-full h-full object-contain transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                       />
-                      {/* Hover Overlay */}
-                      <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                        <span className="bg-white/95 backdrop-blur-md text-zinc-950 text-[10px] font-bold tracking-widest px-4 py-2.5 rounded-full shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
-                          QUICK VIEW
+                      
+                      {/* Floating Discount Badge */}
+                      <div className="absolute top-3.5 left-3.5 z-10">
+                        <span className="bg-red-500 text-white text-[8px] font-black tracking-widest px-2.5 py-1 rounded-lg shadow-md shadow-red-500/10 uppercase">
+                          {product.discount}
                         </span>
+                      </div>
+
+                      {/* Floating Action Overlay: Slide-up Quick-Add Bar */}
+                      <div className="absolute bottom-3.5 left-3.5 right-3.5 translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-10 flex gap-2">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveProduct(product);
+                          }}
+                          className="flex-grow bg-white/95 backdrop-blur-md border border-zinc-200/50 hover:bg-zinc-950 hover:text-white hover:border-zinc-950 text-zinc-900 text-[10px] font-extrabold tracking-widest py-2.5 rounded-xl shadow-lg transition-all duration-200 cursor-pointer"
+                        >
+                          QUICK VIEW
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const colors = getProductColors(product);
+                            addToCart(product, 1, colors[0] || product.color);
+                          }}
+                          className="bg-purple-600 hover:bg-purple-700 text-white p-2.5 rounded-xl shadow-lg shadow-purple-600/10 transition-all duration-200 cursor-pointer border-0 flex items-center justify-center hover:scale-105 active:scale-95"
+                          title="Add to Cart"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
 
-                    {/* Content */}
-                    <div className="p-5 flex flex-col gap-1.5 flex-grow text-left">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[9px] font-bold tracking-widest text-purple-600 uppercase">
-                          {product.category}
-                        </span>
-                        <div className="flex items-center gap-1 bg-red-50 text-red-600 px-2 py-0.5 rounded-md text-[9px] font-extrabold tracking-wide border border-red-100">
-                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M7 7h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <span>{product.discount}</span>
-                        </div>
-                      </div>
-                      <h4 className="text-xs font-extrabold text-zinc-950 font-outfit group-hover:text-purple-700 transition-colors duration-200 truncate mt-0.5">
+                    {/* Content Details */}
+                    <div className="p-5 flex flex-col gap-1 flex-grow text-left">
+                      <span className="text-[8px] font-bold tracking-widest text-purple-600 uppercase">
+                        {product.category}
+                      </span>
+                      <h4 className="text-xs sm:text-sm font-extrabold text-zinc-950 font-outfit group-hover:text-purple-700 transition-colors duration-200 truncate mt-1">
                         {product.name}
                       </h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs font-black text-purple-950 font-outfit">
+                      
+                      {/* Premium Pricing presentation */}
+                      <div className="flex items-baseline gap-2 mt-2">
+                        <span className="text-base sm:text-lg font-black text-zinc-950 font-outfit tracking-tight">
                           {product.price}
                         </span>
                         <span className="text-xs text-zinc-400 line-through font-bold">
                           {product.slashedPrice}
+                        </span>
+                      </div>
+
+                      {/* Premium card divider footer */}
+                      <div className="flex justify-between items-center mt-3 pt-3 border-t border-zinc-100/70">
+                        <span className="text-[8px] font-bold text-emerald-600 tracking-wider uppercase flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Free Shipping
+                        </span>
+                        <span className="text-[8px] font-bold text-zinc-400 tracking-wider uppercase">
+                          In Stock
                         </span>
                       </div>
                     </div>
@@ -1392,8 +1459,78 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Section 6: Lifestyle Image Gallery Banner (Full Width, No Gaps, Closes Card Drawer) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/10 overflow-hidden -mb-16 lg:-mb-20 rounded-b-[2.2rem] md:rounded-b-[3.2rem]">
+            {/* Section 5.3: Why Choose Us (Full Width) */}
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8">
+              <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
+                <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
+                  06 // OUR PROMISE
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 font-outfit tracking-tight uppercase">
+                  WHY PLUGGEDIN?
+                </h2>
+                <div className="w-12 h-[3px] bg-purple-500 mt-3 rounded-full" />
+              </div>
+
+              {/* 3 Promise Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full px-6 lg:px-8">
+                {/* Promise Card 1 */}
+                <div className="group bg-gradient-to-br from-zinc-50 to-white border border-zinc-150 rounded-3xl p-8 shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 text-left flex flex-col gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300 shadow-sm">
+                    {/* Studio-Grade Quality Icon */}
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-zinc-950 font-outfit mb-2 group-hover:text-purple-700 transition-colors duration-200 uppercase">
+                      Studio-Grade Quality
+                    </h3>
+                    <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
+                      Every element is rigorously engineered for high-performance creators. We bridge technical precision with cinematic styling.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Promise Card 2 */}
+                <div className="group bg-gradient-to-br from-zinc-50 to-white border border-zinc-150 rounded-3xl p-8 shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 text-left flex flex-col gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300 shadow-sm">
+                    {/* Free Global Shipping Icon */}
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 002 2h1.5a2.5 2.5 0 012.5 2.5v.15m-1.385.385l-.79-.79-2.122-2.122a2 2 0 00-2.828 0L9.122 13.5a2 2 0 01-2.828 0L4.793 12H3" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-zinc-950 font-outfit mb-2 group-hover:text-purple-700 transition-colors duration-200 uppercase">
+                      Free Global Shipping
+                    </h3>
+                    <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
+                      Enjoy 24-hour dispatch and free worldwide express shipping on all orders over $150, including our full premium setups.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Promise Card 3 */}
+                <div className="group bg-gradient-to-br from-zinc-50 to-white border border-zinc-150 rounded-3xl p-8 shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 text-left flex flex-col gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300 shadow-sm">
+                    {/* 30-Day Workspace Trial Icon */}
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-zinc-950 font-outfit mb-2 group-hover:text-purple-700 transition-colors duration-200 uppercase">
+                      30-Day Workspace Trial
+                    </h3>
+                    <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
+                      Integrate our products into your workflow. If it doesn't elevate your productivity, return it risk-free within 30 days.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 5.5: Lifestyle Image Gallery Banner (Full Width, No Gaps) */}
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-0 w-full">
                 {[1, 2, 3].map((num) => (
                   <div key={num} className="relative aspect-[4/3] w-full overflow-hidden group/banner">
@@ -1407,6 +1544,208 @@ export default function Home() {
                 ))}
               </div>
             </div>
+
+            {/* Section 5.7: FAQ Accordion List (Full Width) */}
+            <div id="faq" className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white py-16 px-6 lg:px-8 flex flex-col gap-8 border-b border-purple-100/30">
+              <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
+                <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
+                  07 // FAQ
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 font-outfit tracking-tight uppercase">
+                  FREQUENTLY ASKED QUESTIONS
+                </h2>
+                <div className="w-12 h-[3px] bg-purple-500 mt-3 rounded-full" />
+              </div>
+
+              {/* FAQ Accordions Container */}
+              <div className="w-full max-w-4xl mx-auto px-6 lg:px-8 flex flex-col gap-4">
+                {[
+                  {
+                    q: "Do products come with a warranty?",
+                    a: "Yes, all PluggedIn premium electronics and smart setup accessories are backed by our comprehensive 2-year warranty. It covers any manufacturing defects, hardware malfunctions, or hardware failures under normal workspace usage."
+                  },
+                  {
+                    q: "How long does shipping take?",
+                    a: "Express international delivery typically takes 3 to 5 business days depending on your region. All smart setup packages and orders over $150 benefit from free shipping and automatic 24-hour priority dispatch from our nearest hub."
+                  },
+                  {
+                    q: "Can I return items under the trial?",
+                    a: "Absolutely. We stand behind our workspace designs. We offer a 30-day workspace trial during which you can test the gear in your own setup. If it doesn't elevate your productivity, return it in original packaging for a full refund."
+                  },
+                  {
+                    q: "Do you ship internationally?",
+                    a: "Yes, we ship to over 150 countries worldwide. All international shipments are fully tracked and insured. Express shipping is free for all orders exceeding $150, or available for a flat rate of $15 on smaller items."
+                  }
+                ].map((item, idx) => {
+                  const isOpen = openFaq === idx;
+                  return (
+                    <div
+                      key={idx}
+                      className="border border-zinc-200/60 rounded-2xl overflow-hidden bg-zinc-50/50 hover:bg-zinc-50 hover:border-purple-200/60 transition-all duration-300"
+                    >
+                      <button
+                        onClick={() => setOpenFaq(isOpen ? null : idx)}
+                        className="w-full flex justify-between items-center p-5 text-left font-outfit font-extrabold text-xs sm:text-sm text-zinc-950 hover:text-purple-700 transition-colors duration-200 cursor-pointer border-0 bg-transparent outline-none"
+                      >
+                        <span className="uppercase tracking-wide">{item.q}</span>
+                        <span className={`ml-4 w-7 h-7 rounded-full bg-white border border-zinc-200 flex items-center justify-center shrink-0 transition-all duration-300 shadow-sm ${
+                          isOpen ? "rotate-45 text-purple-600 border-purple-200" : "text-zinc-500"
+                        }`}>
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                          </svg>
+                        </span>
+                      </button>
+
+                      {/* Expandable answer */}
+                      <div
+                        className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden ${
+                          isOpen ? "max-h-[300px] border-t border-zinc-200/20" : "max-h-0"
+                        }`}
+                      >
+                        <div className="p-5 text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium bg-white">
+                          {item.a}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Section 6: Premium Dark Footer (Drawer Close) */}
+            <footer className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-zinc-950 text-zinc-400 border-t border-purple-950/40 px-8 py-16 -mb-16 lg:-mb-20 rounded-b-[2.2rem] md:rounded-b-[3.2rem] flex flex-col gap-12 overflow-hidden">
+              {/* Subtle ambient purple glow */}
+              <div className="absolute top-0 right-1/4 w-[300px] h-[300px] bg-purple-600/5 blur-[120px] rounded-full pointer-events-none" />
+              <div className="absolute bottom-0 left-1/4 w-[250px] h-[250px] bg-purple-800/5 blur-[100px] rounded-full pointer-events-none" />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12 relative z-10 text-left">
+                {/* Column 1: Brand Info */}
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl font-extrabold tracking-widest text-white font-syne">
+                      PLUGGED<span className="text-purple-500">IN</span>
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
+                    A curated fusion of premium personal electronics, smart devices, and elevated setup accessories built to maximize creator potential.
+                  </p>
+                  {/* Social Icons */}
+                  <div className="flex gap-4 mt-2">
+                    {[
+                      { name: "Twitter", path: "M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" },
+                      { name: "Instagram", path: "M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z M17.5 6.5h.01" },
+                      { name: "YouTube", path: "M22.54 6.42a2.78 2.78 0 00-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 00-1.95 1.96A29 29 0 001 12a29 29 0 00.46 5.58 2.78 2.78 0 001.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 001.95-1.96A29 29 0 0023 12a29 29 0 00-.46-5.58z" }
+                    ].map((icon) => (
+                      <a
+                        key={icon.name}
+                        href="#"
+                        className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800/80 flex items-center justify-center text-zinc-500 hover:text-white hover:border-purple-500 hover:shadow-[0_0_12px_rgba(139,92,246,0.3)] transition-all duration-300 group"
+                        title={icon.name}
+                      >
+                        <svg className="w-4 h-4 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
+                          {icon.name === "Instagram" && (
+                            <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                          )}
+                          <path d={icon.path} />
+                        </svg>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Column 2: Products */}
+                <div className="flex flex-col gap-4">
+                  <h4 className="text-[10px] font-bold tracking-[0.25em] text-zinc-500 uppercase">
+                    Browse
+                  </h4>
+                  <ul className="flex flex-col gap-2.5 text-xs sm:text-sm font-semibold">
+                    {[
+                      { name: "Trending Essentials", link: "#trending" },
+                      { name: "New Arrivals", link: "#new-in" },
+                      { name: "Audio Systems", link: "#shop" },
+                      { name: "Desk Accessories", link: "#shop" }
+                    ].map((item) => (
+                      <li key={item.name}>
+                        <a href={item.link} className="hover:text-white transition-colors duration-200">
+                          {item.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Column 3: Support */}
+                <div className="flex flex-col gap-4">
+                  <h4 className="text-[10px] font-bold tracking-[0.25em] text-zinc-500 uppercase">
+                    Support
+                  </h4>
+                  <ul className="flex flex-col gap-2.5 text-xs sm:text-sm font-semibold">
+                    {[
+                      { name: "Help & FAQs", link: "#faq" },
+                      { name: "Shipping Guide", link: "#faq" },
+                      { name: "30-Day Workspace Trial", link: "#faq" },
+                      { name: "Terms of Service", link: "#" }
+                    ].map((item) => (
+                      <li key={item.name}>
+                        <a href={item.link} className="hover:text-white transition-colors duration-200">
+                          {item.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Column 4: Newsletter */}
+                <div className="flex flex-col gap-4">
+                  <h4 className="text-[10px] font-bold tracking-[0.25em] text-zinc-500 uppercase">
+                    Newsletter
+                  </h4>
+                  <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
+                    Subscribe for exclusive setup insights, early catalog access, and curated creator discounts.
+                  </p>
+                  
+                  {/* Glassmorphic Newsletter Box */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const input = document.getElementById("newsletter-email-input") as HTMLInputElement;
+                      if (input?.value) {
+                        alert(`Subscribed ${input.value} to PluggedIn catalog!`);
+                        input.value = "";
+                      }
+                    }}
+                    className="flex flex-col gap-2 w-full mt-1"
+                  >
+                    <div className="flex items-center bg-zinc-900 border border-zinc-800/80 rounded-full px-4 py-1.5 focus-within:border-purple-500 transition-all duration-300">
+                      <input
+                        id="newsletter-email-input"
+                        type="email"
+                        required
+                        placeholder="Enter your email"
+                        className="w-full bg-transparent text-xs font-semibold text-white placeholder-zinc-600 focus:outline-none py-1.5"
+                      />
+                      <button
+                        type="submit"
+                        className="bg-purple-600 hover:bg-purple-700 hover:scale-105 active:scale-95 text-white font-bold text-[10px] tracking-widest px-4 py-1.5 rounded-full transition-all duration-200 cursor-pointer shrink-0"
+                      >
+                        JOIN
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+
+              {/* Bottom Copyright & Fine Print Bar */}
+              <div className="border-t border-zinc-900/60 pt-8 mt-4 flex flex-col sm:flex-row justify-between items-center gap-4 relative z-10 text-[10px] sm:text-xs font-bold tracking-wider text-zinc-600">
+                <span>© {new Date().getFullYear()} PLUGGEDIN. ALL RIGHTS RESERVED.</span>
+                <div className="flex gap-6">
+                  <a href="#" className="hover:text-zinc-400 transition-colors duration-200">PRIVACY POLICY</a>
+                  <a href="#" className="hover:text-zinc-400 transition-colors duration-200">TERMS OF USE</a>
+                  <a href="#" className="hover:text-zinc-400 transition-colors duration-200">SITEMAP</a>
+                </div>
+              </div>
+            </footer>
 
           </div>
 
