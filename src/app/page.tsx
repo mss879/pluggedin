@@ -1459,6 +1459,22 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Section 5.5: Lifestyle Image Gallery Banner (Full Width, No Gaps) */}
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-0 w-full">
+                {[1, 2, 3].map((num) => (
+                  <div key={num} className="relative aspect-[4/3] w-full overflow-hidden group/banner">
+                    <img
+                      src={`/banner_${num}.png`}
+                      alt={`Lifestyle gallery banner ${num}`}
+                      className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/banner:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-purple-950/5 opacity-0 group-hover/banner:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Section 5.3: Why Choose Us (Full Width) */}
             <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8">
               <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
@@ -1529,24 +1545,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Section 5.5: Lifestyle Image Gallery Banner (Full Width, No Gaps) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-0 w-full">
-                {[1, 2, 3].map((num) => (
-                  <div key={num} className="relative aspect-[4/3] w-full overflow-hidden group/banner">
-                    <img
-                      src={`/banner_${num}.png`}
-                      alt={`Lifestyle gallery banner ${num}`}
-                      className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/banner:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-purple-950/5 opacity-0 group-hover/banner:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Section 5.7: FAQ Accordion List (Full Width) */}
-            <div id="faq" className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white py-16 px-6 lg:px-8 flex flex-col gap-8 border-b border-purple-100/30">
+            <div id="faq" className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white py-16 px-6 lg:px-8 flex flex-col gap-8 border-t border-b border-purple-100/30">
               <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
                 <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
                   07 // FAQ
