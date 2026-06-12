@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     siteName: "PluggedIn",
     images: [
       {
-        url: "/logo.png",
+        url: "/logo.webp",
         width: 971,
         height: 343,
         alt: "PluggedIn Logo",
@@ -66,7 +66,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "PluggedIn | Premium Workspace Essentials & Creator Gear",
     description: "Elevate your creative setup with PluggedIn's premium workspace essentials and creator gear.",
-    images: ["/logo.png"],
+    images: ["/logo.webp"],
   },
   icons: {
     icon: [

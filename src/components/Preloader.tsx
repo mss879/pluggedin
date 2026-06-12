@@ -34,7 +34,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
 
   const preloadedUrls = useRef<PreloadResult>({
     videoUrl: "/Products_drifting_in_frame_202606111905.mp4",
-    logoUrl: "/logo.png",
+    logoUrl: "/logo.webp",
   });
 
   // --- 1. Background Asset Preloading ---
@@ -105,8 +105,8 @@ export default function Preloader({ onComplete }: PreloaderProps) {
             }
           ),
           downloadAsset(
-            "/logo.png",
-            "image/png",
+            "/logo.webp",
+            "image/webp",
             (bytes) => {
               logoReceived = bytes;
               updateProgress();

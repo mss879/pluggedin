@@ -597,7 +597,7 @@ export default function Home() {
             >
               <a href="#" className="block w-full h-full hover:opacity-75 transition-opacity duration-300">
                 <img
-                  src={preloadedAssets?.logoUrl || "/logo.png"}
+                  src={preloadedAssets?.logoUrl || "/logo.webp"}
                   alt="Logo"
                   className="w-full h-full object-contain"
                 />
@@ -769,7 +769,7 @@ export default function Home() {
                               <div key={`${item.product.id}-${item.color}`} className="flex gap-2.5 items-center">
                                 <div className="w-10 h-10 rounded-lg overflow-hidden bg-zinc-50 border border-zinc-100 flex-shrink-0 flex items-center justify-center p-0.5">
                                   <img 
-                                    src={`/products/${item.product.id}.png`} 
+                                    src={`/products/${item.product.id}.webp`} 
                                     alt={item.product.name}
                                     className="w-full h-full object-contain"
                                   />
@@ -1063,7 +1063,7 @@ export default function Home() {
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <img 
-                      src="/categories/kitchen_dining.png" 
+                      src="/categories/kitchen_dining.webp" 
                       alt="Kitchen and Dining" 
                       className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
@@ -1092,7 +1092,7 @@ export default function Home() {
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <img 
-                      src="/categories/electronics_setup.png" 
+                      src="/categories/electronics_setup.webp" 
                       alt="Electronics" 
                       className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
@@ -1121,7 +1121,7 @@ export default function Home() {
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <img 
-                      src="/categories/home_care.png" 
+                      src="/categories/home_care.webp" 
                       alt="Home and Personal Care" 
                       className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
@@ -1150,7 +1150,7 @@ export default function Home() {
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <img 
-                      src="/categories/car_gear.png" 
+                      src="/categories/car_gear.webp" 
                       alt="Car and Emergency Gear" 
                       className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
@@ -1179,7 +1179,7 @@ export default function Home() {
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <img 
-                      src="/categories/tech_accessories.png" 
+                      src="/categories/tech_accessories.webp" 
                       alt="Mobile and Tech Accessories" 
                       className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
@@ -1260,7 +1260,7 @@ export default function Home() {
                     {/* Image Container with soft gradient background & elegant padding */}
                     <div className="relative aspect-[5/4] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-6 flex items-center justify-center border-b border-zinc-100/50">
                       <img
-                        src={`/products/${product.id}.png`}
+                        src={`/products/${product.id}.webp`}
                         alt={product.name}
                         className="w-full h-full object-contain transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                       />
@@ -1385,7 +1385,7 @@ export default function Home() {
                     {/* Image Container with soft gradient background & elegant padding */}
                     <div className="relative aspect-[5/4] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-6 flex items-center justify-center border-b border-zinc-100/50">
                       <img
-                        src={`/products/${product.id}.png`}
+                        src={`/products/${product.id}.webp`}
                         alt={product.name}
                         className="w-full h-full object-contain transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                       />
@@ -1465,7 +1465,7 @@ export default function Home() {
                 {[1, 2, 3].map((num) => (
                   <div key={num} className="relative aspect-[4/3] w-full overflow-hidden group/banner">
                     <img
-                      src={`/banner_${num}.png`}
+                      src={`/banner_${num}.webp`}
                       alt={`Lifestyle gallery banner ${num}`}
                       className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/banner:scale-105"
                     />
@@ -1940,7 +1940,7 @@ export default function Home() {
                   {/* Thumbnail */}
                   <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-zinc-100 flex-shrink-0 flex items-center justify-center p-1 relative">
                     <img 
-                      src={`/products/${item.product.id}.png`} 
+                      src={`/products/${item.product.id}.webp`} 
                       alt={item.product.name}
                       className="w-full h-full object-contain"
                     />
