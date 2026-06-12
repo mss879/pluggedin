@@ -659,17 +659,17 @@ export default function Home() {
             {/* Center Spacer for Logo Cutout */}
             <div className="w-[30%]" />
 
-            {/* Right Nav Block (links aligned right, next to the action icons) */}
+            {/* Right Nav Block (links centered in the gap, action icons aligned right) */}
             <div
-              className={`flex items-center justify-end w-[35%] pointer-events-auto pr-1 lg:pr-3 gap-6 lg:gap-8 transition-all duration-[800ms] delay-[550ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              className={`flex items-center w-[35%] pointer-events-auto pr-1 lg:pr-3 transition-all duration-[800ms] delay-[550ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
                 isLoading ? "opacity-0 translate-y-3" : "opacity-100 translate-y-0"
               }`}
             >
               <div 
-                className={`hidden lg:flex items-center gap-4 lg:gap-6 transition-all duration-500 ease-out origin-right ${
+                className={`hidden lg:flex flex-grow items-center justify-center gap-4 lg:gap-6 transition-all duration-500 ease-out origin-center ${
                   isSearching 
                     ? "opacity-0 -translate-x-4 pointer-events-none max-w-0 overflow-hidden" 
-                    : "opacity-100 translate-x-0 max-w-xs"
+                    : "opacity-100 translate-x-0"
                 }`}
               >
                 {["NEW IN", "CONTACT"].map((link) => (
@@ -687,7 +687,7 @@ export default function Home() {
               {/* Action Buttons (Search & Cart) / Search Input Container */}
               <div 
                 id="interactive-search-container"
-                className="relative flex items-center justify-end"
+                className="relative flex items-center justify-end ml-auto shrink-0"
               >
                 {/* Expanding Search Bar Input */}
                 <div
