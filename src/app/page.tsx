@@ -669,7 +669,7 @@ export default function Home() {
                 className={`hidden lg:flex flex-grow items-center justify-center gap-4 lg:gap-6 transition-all duration-500 ease-out origin-center ${
                   isSearching 
                     ? "opacity-0 -translate-x-4 pointer-events-none max-w-0 overflow-hidden" 
-                    : "opacity-100 translate-x-0"
+                    : "opacity-100 translate-x-4"
                 }`}
               >
                 {["NEW IN", "CONTACT"].map((link) => (
