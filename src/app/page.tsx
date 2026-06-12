@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Preloader from "../components/Preloader";
 import LazyVideo from "../components/LazyVideo";
 
@@ -250,6 +250,33 @@ const MOCK_PRODUCTS: Product[] = [
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [preloadedAssets, setPreloadedAssets] = useState<{ videoUrl: string; logoUrl: string } | null>(null);
+
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
+  const [isHeroVisible, setIsHeroVisible] = useState(true);
+
+  // Track scroll position of the bento drawer sheet relative to viewport height
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollTop = e.currentTarget.scrollTop;
+    const clientHeight = e.currentTarget.clientHeight;
+    // When the user scrolls past the viewport height, the hero background video is completely covered
+    const visible = scrollTop < clientHeight - 20; // 20px buffer before it fully disappears
+    if (visible !== isHeroVisible) {
+      setIsHeroVisible(visible);
+    }
+  };
+
+  // Play/pause the background video programmatically when it is active/covered
+  useEffect(() => {
+    if (!heroVideoRef.current) return;
+    if (isHeroVisible) {
+      heroVideoRef.current.play().catch(err => {
+        // Safe check for autoplay interrupt restrictions
+        console.log("Hero background video playback status:", err);
+      });
+    } else {
+      heroVideoRef.current.pause();
+    }
+  }, [isHeroVisible]);
 
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -555,7 +582,9 @@ export default function Home() {
       >
         {!isLoading && (
           <video
+            ref={heroVideoRef}
             className="w-full h-full object-cover"
+            style={{ display: isHeroVisible ? "block" : "none" }}
             autoPlay
             loop
             muted
@@ -584,6 +613,7 @@ export default function Home() {
 
         {/* Content Wrapper */}
         <div 
+          onScroll={handleScroll}
           className="relative z-10 w-full h-full overflow-y-auto scrollbar-thin flex flex-col p-0 min-h-0"
         >
 
