@@ -120,3 +120,9 @@ body {
   scrollbar-width: thin;
   scrollbar-color: rgba(150, 116, 235, 0.2) transparent;
 }
+
+/* Off-screen rendering optimizations (Largest Contentful Paint & INP support) */
+.content-visibility-lazy {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 500px;
+}

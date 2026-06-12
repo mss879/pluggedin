@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Preloader from "../components/Preloader";
+import LazyVideo from "../components/LazyVideo";
 
 interface Product {
   id: string;
@@ -1045,7 +1046,7 @@ export default function Home() {
             </div>
 
             {/* Section 2: Bento Grid Categories */}
-            <div className="w-full py-16 px-2 sm:px-4 flex flex-col gap-8">
+            <div className="w-full py-16 px-2 sm:px-4 flex flex-col gap-8 content-visibility-lazy">
               <div className="flex flex-col items-center text-center max-w-xl mx-auto mb-4">
                 <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
                   Curated Collections
@@ -1065,6 +1066,7 @@ export default function Home() {
                     <img 
                       src="/categories/kitchen_dining.webp" 
                       alt="Kitchen and Dining" 
+                      loading="lazy"
                       className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
@@ -1094,6 +1096,7 @@ export default function Home() {
                     <img 
                       src="/categories/electronics_setup.webp" 
                       alt="Electronics" 
+                      loading="lazy"
                       className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
@@ -1123,6 +1126,7 @@ export default function Home() {
                     <img 
                       src="/categories/home_care.webp" 
                       alt="Home and Personal Care" 
+                      loading="lazy"
                       className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
@@ -1152,6 +1156,7 @@ export default function Home() {
                     <img 
                       src="/categories/car_gear.webp" 
                       alt="Car and Emergency Gear" 
+                      loading="lazy"
                       className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
@@ -1181,6 +1186,7 @@ export default function Home() {
                     <img 
                       src="/categories/tech_accessories.webp" 
                       alt="Mobile and Tech Accessories" 
+                      loading="lazy"
                       className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
@@ -1206,9 +1212,9 @@ export default function Home() {
             </div>
 
             {/* Section 3: Full-Width Cinematic Video Banner */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 aspect-video max-h-[380px] md:max-h-[600px] mt-16 overflow-hidden border-t border-purple-100/30 group cursor-pointer">
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 aspect-video max-h-[380px] md:max-h-[600px] mt-16 overflow-hidden border-t border-purple-100/30 group cursor-pointer content-visibility-lazy">
               {/* Commercial video banner */}
-              <video 
+              <LazyVideo 
                 className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-102"
                 autoPlay
                 loop
@@ -1238,7 +1244,7 @@ export default function Home() {
             </div>
 
             {/* Section 4: Trending Products (Full Width) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 pt-16 pb-8 px-6 lg:px-8 flex flex-col gap-8">
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 pt-16 pb-8 px-6 lg:px-8 flex flex-col gap-8 content-visibility-lazy">
               <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
                 <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
                   Creator Essentials
@@ -1262,6 +1268,7 @@ export default function Home() {
                       <img
                         src={`/products/${product.id}.webp`}
                         alt={product.name}
+                        loading="lazy"
                         className="w-full h-full object-contain transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                       />
                       
@@ -1335,10 +1342,10 @@ export default function Home() {
             </div>
 
             {/* Section 4.5: Dual Video Banner (Full Width, No Gaps) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden">
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden content-visibility-lazy">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-0 w-full">
                 <div className="relative aspect-video w-full overflow-hidden">
-                  <video 
+                  <LazyVideo 
                     className="w-full h-full object-cover"
                     autoPlay
                     loop
@@ -1349,7 +1356,7 @@ export default function Home() {
                   <div className="absolute inset-0 bg-purple-950/5 pointer-events-none" />
                 </div>
                 <div className="relative aspect-video w-full overflow-hidden">
-                  <video 
+                  <LazyVideo 
                     className="w-full h-full object-cover"
                     autoPlay
                     loop
@@ -1363,7 +1370,7 @@ export default function Home() {
             </div>
 
             {/* Section 5: New In Products (Full Width) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8">
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8 content-visibility-lazy">
               <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
                 <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
                   Latest Arrivals
@@ -1387,6 +1394,7 @@ export default function Home() {
                       <img
                         src={`/products/${product.id}.webp`}
                         alt={product.name}
+                        loading="lazy"
                         className="w-full h-full object-contain transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                       />
                       
@@ -1460,13 +1468,14 @@ export default function Home() {
             </div>
 
             {/* Section 5.5: Lifestyle Image Gallery Banner (Full Width, No Gaps) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden">
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden content-visibility-lazy">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-0 w-full">
                 {[1, 2, 3].map((num) => (
                   <div key={num} className="relative aspect-[4/3] w-full overflow-hidden group/banner">
                     <img
                       src={`/banner_${num}.webp`}
                       alt={`Lifestyle gallery banner ${num}`}
+                      loading="lazy"
                       className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/banner:scale-105"
                     />
                     <div className="absolute inset-0 bg-purple-950/5 opacity-0 group-hover/banner:opacity-100 transition-opacity duration-500 pointer-events-none" />
@@ -1476,7 +1485,7 @@ export default function Home() {
             </div>
 
             {/* Section 5.3: Why Choose Us (Full Width) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8">
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8 content-visibility-lazy">
               <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
                 <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
                   06 // OUR PROMISE
@@ -1546,7 +1555,7 @@ export default function Home() {
             </div>
 
             {/* Section 5.7: FAQ Accordion List (Full Width) */}
-            <div id="faq" className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white py-16 px-6 lg:px-8 flex flex-col gap-8 border-t border-b border-purple-100/30">
+            <div id="faq" className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white py-16 px-6 lg:px-8 flex flex-col gap-8 border-t border-b border-purple-100/30 content-visibility-lazy">
               <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
                 <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
                   07 // FAQ
