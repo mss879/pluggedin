@@ -15,6 +15,54 @@ interface Product {
   icon: React.ReactNode;
 }
 
+interface CartItem {
+  product: Product;
+  quantity: number;
+  color: string;
+}
+
+const getProductColors = (product: Product): string[] => {
+  switch (product.category) {
+    case "Audio":
+      return ["Space Purple", "Matte Black", "Silver Gray"];
+    case "Charging":
+      return ["Carbon Black", "Arctic White"];
+    case "Keyboards":
+      return ["Onyx Black", "Chalk White", "Neon Purple"];
+    case "Sleeves":
+      return ["Ash Grey", "Midnight Black"];
+    case "Lighting":
+      return ["Matte Black", "Silver"];
+    case "Risers":
+      return ["Silver Gray", "Charcoal Black"];
+    case "Mouse":
+      return ["Onyx Black", "Chalk White"];
+    case "Speaker":
+      return ["Onyx Black", "Lunar Grey"];
+    case "Webcam":
+      return ["Matte Black"];
+    case "Mic":
+      return ["Onyx Black", "Frost White", "Space Purple"];
+    case "Stand":
+      return ["Onyx Black", "Lunar Grey"];
+    case "Backpack":
+      return ["Slate Grey", "Onyx Black"];
+    default:
+      return [product.color.charAt(0).toUpperCase() + product.color.slice(1)];
+  }
+};
+
+const getColorHex = (colorName: string): string => {
+  const name = colorName.toLowerCase();
+  if (name.includes("purple")) return "#8b5cf6";
+  if (name.includes("slate") || name.includes("charcoal")) return "#475569";
+  if (name.includes("grey") || name.includes("gray") || name.includes("ash")) return "#9ca3af";
+  if (name.includes("black") || name.includes("onyx") || name.includes("carbon") || name.includes("midnight")) return "#18181b";
+  if (name.includes("white") || name.includes("chalk") || name.includes("frost") || name.includes("arctic")) return "#f4f4f5";
+  if (name.includes("silver") || name.includes("lunar")) return "#e4e4e7";
+  return "#a855f7"; // fallback purple
+};
+
 const MOCK_PRODUCTS: Product[] = [
   {
     id: "headphones",
@@ -207,6 +255,107 @@ export default function Home() {
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [searchToast, setSearchToast] = useState<string | null>(null);
+
+  // Cart States
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [activeColor, setActiveColor] = useState<string>("");
+  const [activeQuantity, setActiveQuantity] = useState<number>(1);
+  const [cartAnimate, setCartAnimate] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+  // Sync with localStorage on mount
+  useEffect(() => {
+    try {
+      const savedCart = localStorage.getItem("pluggedin_cart");
+      if (savedCart) {
+        setCart(JSON.parse(savedCart));
+      }
+    } catch (e) {
+      console.error("Failed to load cart from localStorage", e);
+    }
+  }, []);
+
+  // Save to localStorage when cart changes
+  const saveCart = (newCart: CartItem[]) => {
+    setCart(newCart);
+    try {
+      localStorage.setItem("pluggedin_cart", JSON.stringify(newCart));
+    } catch (e) {
+      console.error("Failed to save cart to localStorage", e);
+    }
+  };
+
+  const addToCart = (product: Product, quantity: number, color: string) => {
+    const existingIndex = cart.findIndex(
+      (item) => item.product.id === product.id && item.color === color
+    );
+    let newCart = [...cart];
+    if (existingIndex > -1) {
+      newCart[existingIndex].quantity += quantity;
+    } else {
+      newCart.push({ product, quantity, color });
+    }
+    saveCart(newCart);
+
+    // Trigger cart badge animation
+    setCartAnimate(true);
+    setTimeout(() => setCartAnimate(false), 800);
+
+    // Toast notification
+    setSearchToast(`Added ${quantity}x ${product.name} (${color}) to cart!`);
+    setTimeout(() => setSearchToast(null), 3000);
+  };
+
+  const removeFromCart = (productId: string, color: string) => {
+    const newCart = cart.filter(
+      (item) => !(item.product.id === productId && item.color === color)
+    );
+    saveCart(newCart);
+    
+    setSearchToast(`Removed item from cart`);
+    setTimeout(() => setSearchToast(null), 3000);
+  };
+
+  const updateQuantity = (productId: string, color: string, delta: number) => {
+    const existingIndex = cart.findIndex(
+      (item) => item.product.id === productId && item.color === color
+    );
+    if (existingIndex > -1) {
+      let newCart = [...cart];
+      const newQty = newCart[existingIndex].quantity + delta;
+      if (newQty <= 0) {
+        newCart = newCart.filter(
+          (item) => !(item.product.id === productId && item.color === color)
+        );
+      } else {
+        newCart[existingIndex].quantity = newQty;
+      }
+      saveCart(newCart);
+    }
+  };
+
+  const clearCart = () => {
+    saveCart([]);
+  };
+
+  const parsePrice = (priceStr: string) => {
+    return parseFloat(priceStr.replace(/[^0-9.]/g, "")) || 0;
+  };
+
+  const cartSubtotal = cart.reduce(
+    (sum, item) => sum + parsePrice(item.product.price) * item.quantity,
+    0
+  );
+
+  // Reset active quantity and active color when active product changes
+  useEffect(() => {
+    if (activeProduct) {
+      setActiveQuantity(1);
+      const colors = getProductColors(activeProduct);
+      setActiveColor(colors[0] || activeProduct.color);
+    }
+  }, [activeProduct]);
 
   // Filter products matching search term
   const filteredProducts = MOCK_PRODUCTS.filter(product => {
@@ -572,12 +721,97 @@ export default function Home() {
                     </svg>
                   </button>
 
-                  {/* Standalone Trolley Icon (Cart) */}
-                  <button className="border-0 bg-transparent text-zinc-950 hover:text-zinc-700 hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer shrink-0 p-1">
-                    <svg className="w-7 h-7 lg:w-8 lg:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </button>
+                  {/* Cart Button Container with Hover Dropdown */}
+                  <div className="relative group/cart">
+                    <button 
+                      onClick={() => setIsCartOpen(true)}
+                      className="relative border-0 bg-transparent text-zinc-950 hover:text-zinc-700 hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer shrink-0 p-1"
+                    >
+                      <svg className="w-7 h-7 lg:w-8 lg:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      {/* Quantity Badge */}
+                      {cart.reduce((sum, item) => sum + item.quantity, 0) > 0 && (
+                        <span className={`absolute -top-1.5 -right-1.5 bg-purple-600 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center shadow-md border border-white transition-all duration-300 ${
+                          cartAnimate ? "animate-bounce scale-110 shadow-[0_0_12px_rgba(139,92,246,0.5)]" : ""
+                        }`}>
+                          {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Desktop Hover Cart Preview Dropdown */}
+                    <div className="absolute top-[35px] right-0 w-[280px] sm:w-[320px] bg-white/95 backdrop-blur-xl border border-zinc-200/50 shadow-2xl rounded-2xl overflow-hidden opacity-0 translate-y-2 pointer-events-none group-hover/cart:opacity-100 group-hover/cart:translate-y-0 group-hover/cart:pointer-events-auto transition-all duration-300 z-50 text-left origin-top-right p-4 flex flex-col gap-3">
+                      <div className="flex justify-between items-center border-b border-zinc-100 pb-2">
+                        <h4 className="text-[10px] font-bold tracking-[0.2em] text-zinc-400 uppercase">
+                          Cart Preview
+                        </h4>
+                        <span className="text-[10px] font-bold text-purple-600">
+                          {cart.reduce((sum, item) => sum + item.quantity, 0)} items
+                        </span>
+                      </div>
+
+                      {cart.length === 0 ? (
+                        <div className="py-6 flex flex-col items-center justify-center gap-2 text-zinc-400">
+                          <svg className="w-8 h-8 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                          </svg>
+                          <span className="text-xs font-semibold select-none">Your cart is empty</span>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Items List (max 3 items) */}
+                          <div className="flex flex-col gap-2.5 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin">
+                            {cart.slice(0, 3).map((item, idx) => (
+                              <div key={`${item.product.id}-${item.color}`} className="flex gap-2.5 items-center">
+                                <div className="w-10 h-10 rounded-lg overflow-hidden bg-zinc-50 border border-zinc-100 flex-shrink-0 flex items-center justify-center p-0.5">
+                                  <img 
+                                    src={`/products/${item.product.id}.png`} 
+                                    alt={item.product.name}
+                                    className="w-full h-full object-contain"
+                                  />
+                                </div>
+                                <div className="flex-grow min-w-0">
+                                  <h5 className="text-[11px] font-bold text-zinc-950 truncate">
+                                    {item.product.name}
+                                  </h5>
+                                  <p className="text-[9px] text-zinc-500 font-semibold truncate mt-0.5">
+                                    Color: {item.color} • Qty: {item.quantity}
+                                  </p>
+                                </div>
+                                <div className="text-[11px] font-bold text-purple-950 flex-shrink-0">
+                                  {item.product.price}
+                                </div>
+                              </div>
+                            ))}
+                            {cart.length > 3 && (
+                              <p className="text-[9px] text-zinc-400 font-semibold text-center italic mt-1">
+                                + {cart.length - 3} more items in cart
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Divider */}
+                          <div className="border-t border-zinc-100 pt-2 flex flex-col gap-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-bold tracking-widest text-zinc-400 uppercase">
+                                Subtotal
+                              </span>
+                              <span className="text-xs font-black text-purple-950 font-outfit">
+                                ${cartSubtotal.toFixed(2)}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => setIsCartOpen(true)}
+                              className="w-full bg-zinc-950 text-white text-[10px] font-bold tracking-widest py-2 rounded-full hover:bg-zinc-800 transition-colors cursor-pointer border-0 mt-1 shadow-md shadow-zinc-950/10"
+                            >
+                              VIEW FULL CART
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Search Dropdown / Autocomplete Results */}
@@ -1222,11 +1456,65 @@ export default function Home() {
             {activeProduct.description}
           </p>
 
+          {/* Color Variant Selector */}
+          <div className="mb-5 flex flex-col items-center">
+            <span className="text-[9px] font-extrabold tracking-widest text-zinc-400 uppercase mb-2">
+              Color: <span className="text-zinc-800 font-bold">{activeColor}</span>
+            </span>
+            <div className="flex gap-2.5 justify-center">
+              {getProductColors(activeProduct).map((col) => {
+                const hex = getColorHex(col);
+                const isWhite = hex === "#ffffff" || hex === "#f4f4f5" || hex === "#f8fafc" || hex === "#e4e4e7";
+                return (
+                  <button
+                    key={col}
+                    onClick={() => setActiveColor(col)}
+                    className={`w-7 h-7 rounded-full border transition-all duration-200 flex items-center justify-center hover:scale-105 active:scale-95 cursor-pointer ${
+                      activeColor === col 
+                        ? "border-purple-600 ring-2 ring-purple-500/20 ring-offset-1 scale-105" 
+                        : "border-zinc-200"
+                    }`}
+                    style={{ backgroundColor: hex }}
+                    title={col}
+                  >
+                    {activeColor === col && (
+                      <span className={`w-1.5 h-1.5 rounded-full ${isWhite ? 'bg-zinc-800' : 'bg-white'}`} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Quantity Selector */}
+          <div className="mb-6 flex flex-col items-center">
+            <span className="text-[9px] font-extrabold tracking-widest text-zinc-400 uppercase mb-2">
+              Quantity
+            </span>
+            <div className="flex items-center gap-1 bg-zinc-50 border border-zinc-200/60 rounded-full px-2 py-1 shadow-inner">
+              <button
+                onClick={() => setActiveQuantity((q) => Math.max(1, q - 1))}
+                className="w-7 h-7 flex items-center justify-center text-zinc-500 hover:text-zinc-800 rounded-full hover:bg-zinc-200/60 transition-colors border-0 bg-transparent text-sm font-bold cursor-pointer"
+              >
+                —
+              </button>
+              <span className="w-8 text-center text-xs font-bold text-zinc-800 select-none">
+                {activeQuantity}
+              </span>
+              <button
+                onClick={() => setActiveQuantity((q) => Math.min(10, q + 1))}
+                className="w-7 h-7 flex items-center justify-center text-zinc-500 hover:text-zinc-800 rounded-full hover:bg-zinc-200/60 transition-colors border-0 bg-transparent text-sm font-bold cursor-pointer"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
           {/* CTA Buttons */}
           <div className="flex flex-col gap-3">
             <button 
               onClick={() => {
-                alert(`Added ${activeProduct.name} to checkout!`);
+                addToCart(activeProduct, activeQuantity, activeColor);
                 setActiveProduct(null);
               }}
               className="w-full bg-zinc-950 text-white text-xs font-bold tracking-widest py-3 rounded-full hover:bg-zinc-800 transition-all duration-300 shadow-md shadow-zinc-950/10 cursor-pointer border-0"
@@ -1235,8 +1523,9 @@ export default function Home() {
             </button>
             <button 
               onClick={() => {
-                alert(`Proceeding to checkout with ${activeProduct.name}!`);
+                addToCart(activeProduct, activeQuantity, activeColor);
                 setActiveProduct(null);
+                setIsCartOpen(true);
               }}
               className="w-full bg-purple-600 text-white text-xs font-bold tracking-widest py-3 rounded-full hover:bg-purple-700 transition-all duration-300 shadow-md shadow-purple-600/15 cursor-pointer border-0"
             >
@@ -1247,10 +1536,196 @@ export default function Home() {
       </div>
     )}
 
+    {/* Slide-over Cart Drawer */}
+    {isCartOpen && (
+      <div className="fixed inset-0 z-[120] overflow-hidden">
+        {/* Backdrop Overlay */}
+        <div 
+          onClick={() => setIsCartOpen(false)}
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-500 animate-in fade-in cursor-pointer"
+        />
+
+        {/* Sliding Panel */}
+        <div className="absolute inset-y-0 right-0 max-w-md w-full bg-white flex flex-col shadow-2xl z-[121] transform animate-in slide-in-from-right duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]">
+          
+          {/* Drawer Header */}
+          <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-purple-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <h2 className="text-sm font-extrabold text-zinc-950 font-outfit uppercase tracking-widest">
+                Shopping Cart
+              </h2>
+              <span className="bg-purple-100 text-purple-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full font-outfit">
+                {cart.reduce((sum, item) => sum + item.quantity, 0)}
+              </span>
+            </div>
+            
+            <button
+              onClick={() => setIsCartOpen(false)}
+              className="bg-zinc-50 hover:bg-zinc-100 text-zinc-500 hover:text-zinc-800 rounded-full p-2 transition-colors cursor-pointer border-0"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Drawer Body: Cart Items */}
+          <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4 scrollbar-thin">
+            {cart.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-4 text-zinc-400 select-none">
+                <div className="p-6 bg-purple-50 rounded-full text-purple-300 border border-purple-100/30 shadow-inner">
+                  <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-extrabold text-zinc-950 uppercase tracking-widest font-outfit">Your cart is empty</h3>
+                <p className="text-xs text-zinc-500 text-center max-w-[240px] leading-relaxed font-medium">
+                  Looks like you haven't added any products to your setup yet.
+                </p>
+                <button
+                  onClick={() => setIsCartOpen(false)}
+                  className="bg-purple-600 text-white text-xs font-bold tracking-widest px-6 py-3 rounded-full hover:bg-purple-700 transition-all duration-300 mt-2 shadow-md shadow-purple-600/15 cursor-pointer border-0"
+                >
+                  START SHOPPING
+                </button>
+              </div>
+            ) : (
+              cart.map((item) => (
+                <div 
+                  key={`${item.product.id}-${item.color}`}
+                  className="flex gap-4 items-center bg-white border border-zinc-200/50 p-3.5 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200"
+                >
+                  {/* Thumbnail */}
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-zinc-100 flex-shrink-0 flex items-center justify-center p-1 relative">
+                    <img 
+                      src={`/products/${item.product.id}.png`} 
+                      alt={item.product.name}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+
+                  {/* Details */}
+                  <div className="flex-grow min-w-0 text-left">
+                    <span className="text-[8px] font-bold tracking-widest text-purple-600 uppercase">
+                      {item.product.category}
+                    </span>
+                    <h4 className="text-xs font-extrabold text-zinc-950 font-outfit truncate mt-0.5">
+                      {item.product.name}
+                    </h4>
+                    <p className="text-[9px] text-zinc-500 font-bold mt-0.5">
+                      Variant: <span className="text-zinc-700 font-extrabold">{item.color}</span>
+                    </p>
+                    
+                    {/* Quantity Selector inside cart item */}
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="flex items-center bg-zinc-50 border border-zinc-200/50 rounded-full px-1.5 py-0.5 shadow-inner">
+                        <button
+                          onClick={() => updateQuantity(item.product.id, item.color, -1)}
+                          className="w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-zinc-800 rounded-full hover:bg-zinc-200/50 transition-colors border-0 bg-transparent text-xs font-bold cursor-pointer"
+                        >
+                          —
+                        </button>
+                        <span className="w-6 text-center text-[10px] font-bold text-zinc-800 select-none">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => updateQuantity(item.product.id, item.color, 1)}
+                          className="w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-zinc-800 rounded-full hover:bg-zinc-200/50 transition-colors border-0 bg-transparent text-xs font-bold cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Price & Delete */}
+                  <div className="flex flex-col items-end gap-3 flex-shrink-0">
+                    <div className="text-xs font-black text-purple-950 font-outfit">
+                      ${(parsePrice(item.product.price) * item.quantity).toFixed(2)}
+                    </div>
+                    <button
+                      onClick={() => removeFromCart(item.product.id, item.color)}
+                      className="text-zinc-400 hover:text-red-500 transition-colors bg-transparent border-0 cursor-pointer p-1 rounded-lg hover:bg-red-50"
+                      title="Remove item"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Drawer Footer */}
+          {cart.length > 0 && (
+            <div className="p-6 border-t border-zinc-100 bg-zinc-50 flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between items-center text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                  <span>Subtotal</span>
+                  <span className="text-zinc-950 font-extrabold">${cartSubtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs text-zinc-500 font-semibold">
+                  <span>Shipping</span>
+                  <span className="text-emerald-600 font-extrabold text-[10px] tracking-wide">FREE</span>
+                </div>
+                <div className="flex justify-between items-center text-xs text-zinc-500 font-semibold border-b border-zinc-200/50 pb-2">
+                  <span>Estimated Taxes</span>
+                  <span className="text-zinc-800 font-bold">$0.00</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 text-sm font-extrabold text-zinc-950 font-outfit uppercase tracking-widest">
+                  <span>Total Amount</span>
+                  <span className="text-purple-950 text-base font-black font-outfit">${cartSubtotal.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 mt-2">
+                <button
+                  onClick={() => {
+                    setIsCheckingOut(true);
+                    setTimeout(() => {
+                      setIsCheckingOut(false);
+                      clearCart();
+                      setIsCartOpen(false);
+                      alert("Order Placed Successfully! Thank you for shopping with PluggedIn.");
+                    }, 2000);
+                  }}
+                  disabled={isCheckingOut}
+                  className="w-full bg-purple-600 text-white text-xs font-bold tracking-widest py-3.5 rounded-full hover:bg-purple-700 transition-all duration-300 shadow-md shadow-purple-600/15 cursor-pointer border-0 disabled:bg-purple-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isCheckingOut ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      PROCESSING...
+                    </>
+                  ) : (
+                    "PROCEED TO CHECKOUT"
+                  )}
+                </button>
+                <button
+                  onClick={() => setIsCartOpen(false)}
+                  className="w-full bg-transparent text-zinc-500 hover:text-zinc-800 text-[9px] font-bold tracking-widest py-2 rounded-full hover:bg-zinc-100 transition-colors border-0 cursor-pointer"
+                >
+                  CONTINUE SHOPPING
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
     {/* Success Notification Toast */}
     {searchToast && (
-      <div className="fixed bottom-6 right-6 bg-zinc-900 text-white text-xs font-bold tracking-widest py-3 px-6 rounded-full shadow-2xl z-50 flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300">
-        <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="fixed bottom-6 right-6 bg-zinc-900/95 backdrop-blur-md text-white text-[10px] font-bold tracking-widest py-3 px-6 rounded-full shadow-2xl z-50 flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300">
+        <svg className="w-4 h-4 text-emerald-400 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         {searchToast.toUpperCase()}
