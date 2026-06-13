@@ -128,7 +128,8 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   };
 
   const parsePrice = (priceStr: string) => {
-    return parseFloat(priceStr.replace(/[^0-9.]/g, "")) || 0;
+    const cleanStr = priceStr.replace(/rs\.?/i, "").replace(/[^0-9.]/g, "");
+    return parseFloat(cleanStr) || 0;
   };
 
   const cartSubtotal = cart.reduce(
@@ -137,7 +138,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   );
 
   return (
-    <div className="min-h-screen bg-zinc-50/50 flex flex-col font-outfit select-none relative">
+    <div className="min-h-screen bg-zinc-50/50 flex flex-col font-outfit select-none relative pb-24 md:pb-0">
 
       {/* Sticky Header Nav */}
       <header className="sticky top-0 bg-white/70 backdrop-blur-xl border-b border-zinc-200/50 px-6 lg:px-12 py-4 flex items-center justify-between z-45 relative">
@@ -156,7 +157,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
         {/* Cart Button */}
         <button 
           onClick={() => setIsCartOpen(true)}
-          className="relative border-0 bg-transparent text-zinc-950 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer p-1"
+          className="hidden md:flex relative border-0 bg-transparent text-zinc-950 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer p-1"
         >
           <svg className="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -169,6 +170,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             </span>
           )}
         </button>
+        <div className="w-8 md:hidden pointer-events-none" />
       </header>
 
       {/* Main Container */}

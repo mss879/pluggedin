@@ -17,6 +17,16 @@ body {
   background-color: #ffffff;
 }
 
+:root {
+  --card-clip-path: url(#card-clip);
+}
+
+@media (max-width: 767px) {
+  :root {
+    --card-clip-path: url(#card-clip-mobile);
+  }
+}
+
 /* Subtle background perspective lines */
 .perspective-line {
   position: absolute;

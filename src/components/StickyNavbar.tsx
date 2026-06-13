@@ -25,6 +25,7 @@ export default function StickyNavbar() {
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [searchToast, setSearchToast] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Track whether we're on an admin page (checked after all hooks)
   const isAdminPage = pathname && pathname.startsWith("/admin");
@@ -200,7 +201,8 @@ export default function StickyNavbar() {
   };
 
   const parsePrice = (priceStr: string) => {
-    return parseFloat(priceStr.replace(/[^0-9.]/g, "")) || 0;
+    const cleanStr = priceStr.replace(/rs\.?/i, "").replace(/[^0-9.]/g, "");
+    return parseFloat(cleanStr) || 0;
   };
 
   const cartSubtotal = cart.reduce(
@@ -287,33 +289,34 @@ export default function StickyNavbar() {
       {/* Non-Floating Top Sticky Navbar */}
       <div
         className={`fixed top-0 left-0 right-0 w-full z-50 rounded-none border-b border-zinc-200/40 bg-white px-6 lg:px-12 py-2.5 md:py-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          isVisible
+          (isVisible || isSearching)
             ? "opacity-100 translate-y-0 pointer-events-auto"
             : "opacity-0 -translate-y-full pointer-events-none"
         }`}
       >
         <header className="w-full flex items-center justify-between h-[50px] md:h-[60px] relative">
 
-          {/* LEFT BLOCK: ABOUT, BLOG, SHOP, TRENDING */}
           <div
             className={`flex items-center gap-2 sm:gap-4 lg:gap-6 w-[35%] justify-center -ml-4 lg:-ml-8 transition-all duration-300 ${isSearching ? "opacity-0 pointer-events-none scale-95" : "opacity-100 scale-100"
               }`}
           >
-            {[
-              { name: "ABOUT", href: "/#about" },
-              { name: "BLOG", href: "/#blog" },
-              { name: "SHOP", href: "/shop" },
-              { name: "TRENDING", href: "/shop?collection=trending" },
-            ].map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                className="text-xs sm:text-sm lg:text-[15px] font-bold tracking-widest text-black hover:text-purple-650 transition-colors duration-300 relative group"
-              >
-                {link.name}
-                <span className="absolute bottom-[-4px] left-0 w-0 h-[1.5px] bg-purple-600 transition-all duration-300 group-hover:w-full" />
-              </Link>
-            ))}
+            <div className="hidden md:flex items-center gap-2 sm:gap-4 lg:gap-6">
+              {[
+                { name: "ABOUT", href: "/#about" },
+                { name: "BLOG", href: "/#blog" },
+                { name: "SHOP", href: "/shop" },
+                { name: "TRENDING", href: "/shop?collection=trending" },
+              ].map((link) => (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  className="text-xs sm:text-sm lg:text-[15px] font-bold tracking-widest text-black hover:text-purple-650 transition-colors duration-300 relative group"
+                >
+                  {link.name}
+                  <span className="absolute bottom-[-4px] left-0 w-0 h-[1.5px] bg-purple-600 transition-all duration-300 group-hover:w-full" />
+                </Link>
+              ))}
+            </div>
           </div>
 
           {/* CENTER BLOCK: LOGO */}
@@ -398,7 +401,7 @@ export default function StickyNavbar() {
               <button
                 id="sticky-search-trigger"
                 onClick={() => setIsSearching(true)}
-                className={`bg-purple-600/10 text-purple-955 border border-purple-300/35 border-b-[3px] border-purple-600/35 p-2.5 rounded-full hover:bg-purple-600/20 transition-all duration-200 flex items-center justify-center cursor-pointer shrink-0 ${isSearching ? "opacity-0 scale-95 pointer-events-none w-0 overflow-hidden" : "opacity-100 scale-100"
+                className={`hidden md:flex bg-purple-600/10 text-purple-955 border border-purple-300/35 border-b-[3px] border-purple-600/35 p-2.5 rounded-full hover:bg-purple-600/20 transition-all duration-200 flex items-center justify-center cursor-pointer shrink-0 ${isSearching ? "opacity-0 scale-95 pointer-events-none w-0 overflow-hidden" : "opacity-100 scale-100"
                   }`}
               >
                 <svg className="w-4 h-4 lg:w-4.5 lg:h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -546,7 +549,7 @@ export default function StickyNavbar() {
 
             {/* Cart Button (with Badge) */}
             <div
-              className={`transition-all duration-300 ${isSearching ? "opacity-0 pointer-events-none w-0 overflow-hidden" : "opacity-100"
+              className={`hidden md:block transition-all duration-300 ${isSearching ? "opacity-0 pointer-events-none w-0 overflow-hidden" : "opacity-100"
                 }`}
             >
               <button
@@ -733,6 +736,234 @@ export default function StickyNavbar() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Bottom Navigation Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/85 backdrop-blur-xl border-t border-zinc-200/50 rounded-t-3xl shadow-[0_-8px_24px_rgba(0,0,0,0.05)] px-4 py-2 flex items-center justify-around pb-[calc(8px+env(safe-area-inset-bottom))]">
+        {/* Home Tab */}
+        <Link
+          href="/"
+          onClick={() => {
+            setIsMobileMenuOpen(false);
+            setIsSearching(false);
+          }}
+          className={`flex flex-col items-center gap-1 py-1 text-center flex-1 relative ${
+            pathname === "/" && !isSearching && !isCartOpen && !isMobileMenuOpen
+              ? "text-purple-650"
+              : "text-zinc-400 hover:text-zinc-600"
+          }`}
+        >
+          <svg className="w-5.5 h-5.5 transition-transform duration-200 active:scale-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          <span className="text-[9px] font-bold tracking-wider uppercase font-outfit">Home</span>
+          {pathname === "/" && !isSearching && !isCartOpen && !isMobileMenuOpen && (
+            <span className="absolute bottom-[-2px] w-1 h-1 rounded-full bg-purple-600" />
+          )}
+        </Link>
+
+        {/* Shop Tab */}
+        <Link
+          href="/shop"
+          onClick={() => {
+            setIsMobileMenuOpen(false);
+            setIsSearching(false);
+          }}
+          className={`flex flex-col items-center gap-1 py-1 text-center flex-1 relative ${
+            pathname.startsWith("/shop") && !isSearching && !isCartOpen && !isMobileMenuOpen
+              ? "text-purple-650"
+              : "text-zinc-400 hover:text-zinc-600"
+          }`}
+        >
+          <svg className="w-5.5 h-5.5 transition-transform duration-200 active:scale-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+          <span className="text-[9px] font-bold tracking-wider uppercase font-outfit">Shop</span>
+          {pathname.startsWith("/shop") && !isSearching && !isCartOpen && !isMobileMenuOpen && (
+            <span className="absolute bottom-[-2px] w-1 h-1 rounded-full bg-purple-600" />
+          )}
+        </Link>
+
+        {/* Search Tab */}
+        <button
+          onClick={() => {
+            setIsMobileMenuOpen(false);
+            setIsSearching(true);
+            setIsCartOpen(false);
+          }}
+          className={`flex flex-col items-center gap-1 py-1 text-center flex-1 border-0 bg-transparent cursor-pointer relative ${
+            isSearching ? "text-purple-650" : "text-zinc-400 hover:text-zinc-600"
+          }`}
+        >
+          <svg className="w-5.5 h-5.5 transition-transform duration-200 active:scale-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <span className="text-[9px] font-bold tracking-wider uppercase font-outfit">Search</span>
+          {isSearching && (
+            <span className="absolute bottom-[-2px] w-1 h-1 rounded-full bg-purple-600" />
+          )}
+        </button>
+
+        {/* Cart Tab */}
+        <button
+          onClick={() => {
+            setIsMobileMenuOpen(false);
+            setIsSearching(false);
+            setIsCartOpen(true);
+          }}
+          className={`flex flex-col items-center gap-1 py-1 text-center flex-1 border-0 bg-transparent cursor-pointer relative ${
+            isCartOpen ? "text-purple-650" : "text-zinc-400 hover:text-zinc-600"
+          }`}
+        >
+          <div className="relative">
+            <svg className="w-5.5 h-5.5 transition-transform duration-200 active:scale-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            {totalCartItems > 0 && (
+              <span className="absolute -top-1.5 -right-2 bg-purple-600 text-white text-[8px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center border border-white shadow-sm">
+                {totalCartItems}
+              </span>
+            )}
+          </div>
+          <span className="text-[9px] font-bold tracking-wider uppercase font-outfit">Cart</span>
+          {isCartOpen && (
+            <span className="absolute bottom-[-2px] w-1 h-1 rounded-full bg-purple-600" />
+          )}
+        </button>
+
+        {/* Menu/More Tab */}
+        <button
+          onClick={() => {
+            setIsMobileMenuOpen(true);
+            setIsSearching(false);
+            setIsCartOpen(false);
+          }}
+          className={`flex flex-col items-center gap-1 py-1 text-center flex-1 border-0 bg-transparent cursor-pointer relative ${
+            isMobileMenuOpen ? "text-purple-650" : "text-zinc-400 hover:text-zinc-600"
+          }`}
+        >
+          <svg className="w-5.5 h-5.5 transition-transform duration-200 active:scale-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          <span className="text-[9px] font-bold tracking-wider uppercase font-outfit">Menu</span>
+          {isMobileMenuOpen && (
+            <span className="absolute bottom-[-2px] w-1 h-1 rounded-full bg-purple-600" />
+          )}
+        </button>
+      </div>
+
+      {/* Mobile Bottom Sheet Menu */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-[110] md:hidden">
+          {/* Backdrop */}
+          <div
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="absolute inset-0 bg-black/45 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in cursor-pointer"
+          />
+          {/* Sheet container */}
+          <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-2xl border-t border-zinc-200/60 rounded-t-[32px] p-6 pb-[calc(24px+env(safe-area-inset-bottom))] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] z-[111] transform animate-in slide-in-from-bottom duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
+            {/* Grab handle */}
+            <div className="w-12 h-1 bg-zinc-300/80 rounded-full mx-auto mb-4" />
+            
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-xs font-black tracking-[0.2em] text-zinc-400 uppercase font-outfit">
+                Explore PluggedIn
+              </h3>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="bg-zinc-100 hover:bg-zinc-200 text-zinc-650 rounded-full p-1.5 transition-colors border-0 cursor-pointer flex items-center justify-center"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-3">
+              {[
+                {
+                  name: "ABOUT",
+                  href: "/#about",
+                  desc: "Our vision & premium standards",
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  ),
+                },
+                {
+                  name: "BLOG",
+                  href: "/#blog",
+                  desc: "Creator setup guides & industry news",
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                    </svg>
+                  ),
+                },
+                {
+                  name: "SHOP ALL",
+                  href: "/shop",
+                  desc: "Browse our entire workspace collection",
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                  ),
+                },
+                {
+                  name: "TRENDING",
+                  href: "/shop?collection=trending",
+                  desc: "Explore our most popular creator gear",
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                  ),
+                },
+                {
+                  name: "NEW ARRIVALS",
+                  href: "/shop?collection=new-in",
+                  desc: "Fresh essentials to power your desk setup",
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                  ),
+                },
+                {
+                  name: "CONTACT Support",
+                  href: "/contact",
+                  desc: "Get help from our workspace experts",
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  ),
+                },
+              ].map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-4 p-3.5 bg-zinc-50 hover:bg-purple-50/50 border border-zinc-100 rounded-2xl transition-all duration-200 text-left group"
+                >
+                  <div className="p-2.5 bg-white border border-zinc-100 text-purple-600 rounded-xl group-hover:bg-purple-600 group-hover:text-white transition-colors duration-250 shrink-0">
+                    {item.icon}
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-extrabold tracking-wider text-zinc-950 uppercase">
+                      {item.name}
+                    </div>
+                    <div className="text-[9px] text-zinc-450 mt-0.5 leading-tight">
+                      {item.desc}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       )}

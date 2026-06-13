@@ -78,7 +78,8 @@ export default function CartClient() {
   };
 
   const parsePrice = (priceStr: string) => {
-    return parseFloat(priceStr.replace(/[^0-9.]/g, "")) || 0;
+    const cleanStr = priceStr.replace(/rs\.?/i, "").replace(/[^0-9.]/g, "");
+    return parseFloat(cleanStr) || 0;
   };
 
   const cartSubtotal = cart.reduce(
@@ -98,7 +99,7 @@ export default function CartClient() {
   }
 
   return (
-    <div className="w-full h-screen overflow-y-auto scrollbar-thin bg-slate-50/50 flex flex-col font-outfit select-none relative pb-16">
+    <div className="w-full h-screen overflow-y-auto scrollbar-thin bg-slate-50/50 flex flex-col font-outfit select-none relative pb-28 md:pb-16">
       
       {/* Header Nav */}
       <header className="sticky top-0 bg-white/70 backdrop-blur-xl border-b border-zinc-200/50 px-6 lg:px-12 py-4 flex items-center justify-between z-40 relative">

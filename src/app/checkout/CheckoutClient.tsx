@@ -89,7 +89,8 @@ export default function CheckoutClient() {
   };
 
   const parsePrice = (priceStr: string) => {
-    return parseFloat(priceStr.replace(/[^0-9.]/g, "")) || 0;
+    const cleanStr = priceStr.replace(/rs\.?/i, "").replace(/[^0-9.]/g, "");
+    return parseFloat(cleanStr) || 0;
   };
 
   const cartSubtotal = cart.reduce(

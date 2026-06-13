@@ -190,7 +190,8 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
 
   // Helper to parse price string to number
   const parsePrice = (priceStr: string) => {
-    return parseFloat(priceStr.replace(/[^0-9.]/g, "")) || 0;
+    const cleanStr = priceStr.replace(/rs\.?/i, "").replace(/[^0-9.]/g, "");
+    return parseFloat(cleanStr) || 0;
   };
 
   // Cart operations
@@ -372,7 +373,7 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
     : null;
 
   return (
-    <div className="w-full h-screen overflow-y-auto scrollbar-thin bg-slate-50/50 flex flex-col font-outfit select-none relative pb-16">
+    <div className="w-full h-screen overflow-y-auto scrollbar-thin bg-slate-50/50 flex flex-col font-outfit select-none relative pb-28 md:pb-16">
       
       {/* Header Nav */}
       <header className="sticky top-0 bg-white/70 backdrop-blur-xl border-b border-zinc-200/50 px-6 lg:px-12 py-4 flex items-center justify-between z-40 relative">
@@ -389,7 +390,7 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
         </Link>
 
         {/* Action Buttons: Cart trigger */}
-        <div className="flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-4">
           <button 
             onClick={() => setIsCartOpen(true)}
             className="relative border-0 bg-transparent text-zinc-950 hover:text-zinc-700 hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer p-1"

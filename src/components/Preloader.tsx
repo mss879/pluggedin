@@ -115,6 +115,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
 
   // --- 2. Diagnostic Log Automation ---
   useEffect(() => {
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
     const logPool = [
       "COMPILING WEBGL GRAPHICS ENVIRONMENT...",
       "GENERATING CINEMATIC 3D PLUG OBJECTS...",
@@ -136,7 +137,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
         setTerminalLogs(prev => [
           ...prev, 
           `[${timestamp}] ${logPool[currentLogIndex]}`
-        ].slice(-6)); // Keep only latest 6 logs for cleaner layout
+        ].slice(isMobile ? -4 : -6)); // Keep fewer logs on mobile to prevent overflow
         currentLogIndex++;
       }
     }, 280);
@@ -216,9 +217,9 @@ export default function Preloader({ onComplete }: PreloaderProps) {
 
     const dirLight2 = new THREE.DirectionalLight(0xffffff, 1.8); // white key light
     dirLight2.position.set(4, 5, 5);
-    dirLight2.castShadow = true;
-    dirLight2.shadow.mapSize.width = isMobile ? 512 : 1024;
-    dirLight2.shadow.mapSize.height = isMobile ? 512 : 1024;
+    dirLight2.castShadow = !isMobile; // Disable shadows on mobile for performance
+    dirLight2.shadow.mapSize.width = isMobile ? 256 : 1024;
+    dirLight2.shadow.mapSize.height = isMobile ? 256 : 1024;
     dirLight2.shadow.bias = -0.0005;
     scene.add(dirLight2);
 
@@ -235,7 +236,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       color: 0xfcfcfd, // porcelain white
       roughness: 0.15,
       metalness: 0.05,
-      clearcoat: 1.0,
+      clearcoat: isMobile ? 0 : 1.0, // simplify material settings on mobile
       clearcoatRoughness: 0.05,
       reflectivity: 0.8,
     });
@@ -243,15 +244,15 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     const plugBodyGeom = new THREE.ExtrudeGeometry(plugBodyShape, {
       depth: 0.8,
       bevelEnabled: true,
-      bevelSegments: 2,
+      bevelSegments: isMobile ? 1 : 2, // reduce bevel segments on mobile
       steps: 1,
       bevelSize: 0.04,
       bevelThickness: 0.04,
     });
     const plugBodyMesh = new THREE.Mesh(plugBodyGeom, plugBodyMat);
     plugBodyMesh.position.set(0, 0, -0.4); // center along Z
-    plugBodyMesh.castShadow = true;
-    plugBodyMesh.receiveShadow = true;
+    plugBodyMesh.castShadow = !isMobile;
+    plugBodyMesh.receiveShadow = !isMobile;
     plugGroup.add(plugBodyMesh);
 
     // 2. Satin black rubber cable base collar
@@ -260,11 +261,11 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       roughness: 0.5,
       metalness: 0.1,
     });
-    const collarGeom = new THREE.CylinderGeometry(0.12, 0.16, 0.25, 12);
+    const collarGeom = new THREE.CylinderGeometry(0.12, 0.16, 0.25, isMobile ? 8 : 12);
     collarGeom.rotateX(Math.PI / 2); // align with Z-axis
     const collarMesh = new THREE.Mesh(collarGeom, collarMat);
     collarMesh.position.set(0, 0, -0.525);
-    collarMesh.castShadow = true;
+    collarMesh.castShadow = !isMobile;
     plugGroup.add(collarMesh);
 
     // 3. Three Gold Prongs (US style: 2 flat rectangular prongs, 1 round ground prong)
@@ -272,7 +273,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       color: 0xd4af37, // premium brass/gold
       metalness: 1.0,
       roughness: 0.15,
-      clearcoat: 0.5,
+      clearcoat: isMobile ? 0 : 0.5,
       clearcoatRoughness: 0.1,
     });
 
@@ -281,25 +282,25 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     
     const prongLeft = new THREE.Mesh(prongGeom, prongMat);
     prongLeft.position.set(-0.25, -0.12, 0.65); // offset left, bottom
-    prongLeft.castShadow = true;
+    prongLeft.castShadow = !isMobile;
     plugGroup.add(prongLeft);
 
     const prongRight = new THREE.Mesh(prongGeom, prongMat);
     prongRight.position.set(0.25, -0.12, 0.65); // offset right, bottom
-    prongRight.castShadow = true;
+    prongRight.castShadow = !isMobile;
     plugGroup.add(prongRight);
 
     // Rectangular ground prong (visually matched size)
     const groundProngGeom = new THREE.BoxGeometry(0.1, 0.22, 0.4);
     const prongGround = new THREE.Mesh(groundProngGeom, prongMat);
     prongGround.position.set(0, 0.22, 0.6); // offset center, top, Z aligned
-    prongGround.castShadow = true;
+    prongGround.castShadow = !isMobile;
     plugGroup.add(prongGround);
 
     scene.add(plugGroup);
 
     // --- Interactive Mouse-Responsive Ambient Dust Field ---
-    const dustCount = 80;
+    const dustCount = isMobile ? 30 : 80;
     const dustGeom = new THREE.BufferGeometry();
     const dustPos = new Float32Array(dustCount * 3);
     for (let i = 0; i < dustCount; i++) {
@@ -326,7 +327,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     window.addEventListener("mousemove", handleMouseMove);
 
     // --- Torus Connection Shockwave (Flat in screen X-Y plane) ---
-    const torusGeom = new THREE.TorusGeometry(0.1, 0.015, 6, 24);
+    const torusGeom = new THREE.TorusGeometry(0.1, 0.015, 6, isMobile ? 12 : 24);
     const torusMat = new THREE.MeshBasicMaterial({
       color: 0x9674eb,
       transparent: true,
@@ -339,13 +340,14 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     scene.add(shockwave);
 
     // --- Lightning Electric Arcs striking out to the viewport margins ---
+    const arcCount = isMobile ? 1 : 3;
     const arcLines: THREE.Line[] = [];
     const arcMat = new THREE.LineBasicMaterial({
       color: 0x8b5cf6,
       transparent: true,
       opacity: 0,
     });
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < arcCount; i++) {
       const points = [];
       points.push(new THREE.Vector3(0, 0, 0));
       points.push(new THREE.Vector3(0, 0, 0));
@@ -369,26 +371,46 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     const pulseColor = new THREE.Color();
 
     let cableMesh: THREE.Mesh | null = null;
+    let lastCableX = -9999;
+    let lastCableY = -9999;
+    let lastCableZ = -9999;
+
     const updateCable = (plugX: number, plugY: number, plugZ: number, pulseIntensity: number, progressVal: number) => {
-      // Dynamic curve trailing from deep off-screen bottom to the back collar of the plug
-      const curve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0, -6, -9),
-        new THREE.Vector3(-1.0, -4.5, -4),
-        new THREE.Vector3(-0.4, plugY - 1.2, plugZ - 2.5),
-        new THREE.Vector3(plugX, plugY, plugZ - 0.7),
-      ]);
+      const coordsChanged = Math.abs(plugX - lastCableX) > 0.001 ||
+                            Math.abs(plugY - lastCableY) > 0.001 ||
+                            Math.abs(plugZ - lastCableZ) > 0.001;
 
-      // Optimized segments: (20 segments, 5 radial) to reduce GPU memory churn
-      const newGeom = new THREE.TubeGeometry(curve, 20, 0.06, 5, false);
+      if (coordsChanged || !cableMesh) {
+        // Dynamic curve trailing from deep off-screen bottom to the back collar of the plug
+        const curve = new THREE.CatmullRomCurve3([
+          new THREE.Vector3(0, -6, -9),
+          new THREE.Vector3(-1.0, -4.5, -4),
+          new THREE.Vector3(-0.4, plugY - 1.2, plugZ - 2.5),
+          new THREE.Vector3(plugX, plugY, plugZ - 0.7),
+        ]);
 
-      if (cableMesh) {
-        cableMesh.geometry.dispose();
-        cableMesh.geometry = newGeom;
-      } else {
-        cableMesh = new THREE.Mesh(newGeom, tubeMat);
-        cableMesh.castShadow = true;
-        cableMesh.receiveShadow = true;
-        scene.add(cableMesh);
+        // Optimized segments and radial profile on mobile to prevent heap GC thrashing
+        const newGeom = new THREE.TubeGeometry(
+          curve, 
+          isMobile ? 8 : 20, 
+          0.06, 
+          isMobile ? 3 : 5, 
+          false
+        );
+
+        if (cableMesh) {
+          cableMesh.geometry.dispose();
+          cableMesh.geometry = newGeom;
+        } else {
+          cableMesh = new THREE.Mesh(newGeom, tubeMat);
+          cableMesh.castShadow = !isMobile;
+          cableMesh.receiveShadow = !isMobile;
+          scene.add(cableMesh);
+        }
+
+        lastCableX = plugX;
+        lastCableY = plugY;
+        lastCableZ = plugZ;
       }
 
       tubeMat.emissiveIntensity = pulseIntensity;
@@ -397,7 +419,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     };
 
     // --- Electric Spark Particles flying forward at the camera ---
-    const sparkCount = 45;
+    const sparkCount = isMobile ? 18 : 45;
     const sparkGeom = new THREE.BufferGeometry();
     const sparkPos = new Float32Array(sparkCount * 3);
     const sparkVels: number[] = [];
@@ -473,12 +495,12 @@ export default function Preloader({ onComplete }: PreloaderProps) {
         }
       }
 
-      // Camera positions (centered view looking down)
+      // Camera aspect-ratio sensitive framing adjustments
       const aspect = camera.aspect;
-      const startCamY = aspect < 1 ? 0.8 : 0.4;
+      const startCamY = aspect < 1 ? 0.95 : 0.4;
       const targetCamY = 0.0;
-      const startCamZ = aspect < 1 ? 7.0 : 6.0;
-      const targetCamZ = aspect < 1 ? 6.2 : 5.2;
+      const startCamZ = aspect < 1 ? 7.6 : 6.0;
+      const targetCamZ = aspect < 1 ? 6.8 : 5.2;
 
       const easeCam = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
       camera.position.x = 0;
@@ -709,7 +731,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
   return (
     <div
       ref={preloaderRef}
-      className="fixed inset-0 z-50 flex flex-col justify-between bg-[#fbfbfe] select-none text-zinc-800 font-mono transition-opacity duration-[550ms] ease-in-out"
+      className="fixed inset-0 z-50 flex flex-col justify-between bg-[#fbfbfe] select-none text-zinc-800 font-mono transition-opacity duration-[550ms] ease-in-out animate-in fade-in"
       style={{ transition: "none" }}
     >
       {/* 3D WebGL Canvas background */}
@@ -735,10 +757,10 @@ export default function Preloader({ onComplete }: PreloaderProps) {
         </div>
       </div>
 
-      {/* Futuristic HUD Sidebar / Boot Log */}
-      <div className="absolute left-6 sm:left-12 top-[22%] w-[240px] sm:w-[320px] max-h-[140px] z-10 pointer-events-none flex flex-col gap-1 text-[9px] text-zinc-500 overflow-hidden bg-white/45 backdrop-blur-md p-4 rounded-xl border border-zinc-200/50 shadow-xl shadow-zinc-200/25">
-        <div className="font-bold text-purple-600 border-b border-zinc-200/60 pb-1 mb-1.5 tracking-wider">
-          DIAGNOSTIC PROCESS MONITOR:
+      {/* Futuristic HUD Sidebar / Boot Log - Responsive layout fits mobile screens perfectly */}
+      <div className="absolute left-6 sm:left-12 top-[22%] w-[calc(100%-48px)] sm:w-[320px] max-h-[105px] sm:max-h-[140px] z-10 pointer-events-none flex flex-col gap-1 text-[8px] sm:text-[9px] text-zinc-500 overflow-hidden bg-white/45 backdrop-blur-md p-3 sm:p-4 rounded-xl border border-zinc-200/50 shadow-xl shadow-zinc-200/25">
+        <div className="font-bold text-purple-600 border-b border-zinc-200/60 pb-1 mb-1.5 tracking-wider uppercase">
+          Diagnostic Process Monitor:
         </div>
         {terminalLogs.map((log, index) => (
           <div key={index} className="truncate tracking-wide font-medium text-zinc-600">

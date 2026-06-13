@@ -98,7 +98,7 @@ export default function ContactClient() {
   }
 
   return (
-    <div className="w-full h-screen overflow-y-auto scrollbar-thin bg-slate-50/50 flex flex-col font-outfit select-none relative pb-16">
+    <div className="w-full h-screen overflow-y-auto scrollbar-thin bg-slate-50/50 flex flex-col font-outfit select-none relative pb-28 md:pb-16">
       <style>{`
         @keyframes draw-checkmark {
           100% { stroke-dashoffset: 0; }

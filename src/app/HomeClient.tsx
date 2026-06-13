@@ -309,6 +309,23 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
   const heroVideoRef = useRef<HTMLVideoElement>(null);
   const [isHeroVisible, setIsHeroVisible] = useState(true);
+  const [videoSource, setVideoSource] = useState<string>("/Products_drifting_in_frame_202606111905.mp4");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 768;
+      const src = isMobile 
+        ? "/Improve_product_movement_erratic_202606140038.mp4" 
+        : (preloadedAssets?.videoUrl || "/Products_drifting_in_frame_202606111905.mp4");
+      setVideoSource(src);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [preloadedAssets]);
 
   // Track scroll position of the bento drawer sheet relative to viewport height
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -553,7 +570,8 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
   };
 
   const parsePrice = (priceStr: string) => {
-    return parseFloat(priceStr.replace(/[^0-9.]/g, "")) || 0;
+    const cleanStr = priceStr.replace(/rs\.?/i, "").replace(/[^0-9.]/g, "");
+    return parseFloat(cleanStr) || 0;
   };
 
   const cartSubtotal = cart.reduce(
@@ -714,56 +732,109 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                    A 0.031 0.05167 0 0 1 0.032 0.00167 Z"
               />
             </clipPath>
+            <clipPath id="card-clip-mobile" clipPathUnits="objectBoundingBox">
+              <path
+                d="M 0.08 0.00167 
+                   L 0.92 0.00167 
+                   A 0.08 0.04 0 0 1 0.999 0.04167 
+                   L 0.999 0.95833 
+                   A 0.08 0.04 0 0 1 0.92 0.99833 
+                   L 0.08 0.99833 
+                   A 0.08 0.04 0 0 1 0.001 0.95833 
+                   L 0.001 0.04167 
+                   A 0.08 0.04 0 0 1 0.08 0.00167 Z"
+              />
+            </clipPath>
           </defs>
 
-          {/* 1. Back 3D Extrusion Layer (gives the card border a solid 3D slab thickness) */}
-          <path
-            d="M 32 1 
-               L 320 1 
-               C 340 1, 350 71, 370 71 
-               L 630 71 
-               C 650 71, 660 1, 680 1 
-               L 968 1 
-               A 31 31 0 0 1 999 32 
-               L 999 560 
-               A 30 30 0 0 1 969 590 
-               L 31 590 
-               A 30 30 0 0 1 1 560 
-               L 1 32 
-               A 31 31 0 0 1 32 1 Z"
-            fill="#9674eb"
-            stroke="#9674eb"
-            strokeWidth="8"
-            transform="translate(0, 8)"
-          />
+          {/* Desktop/Tablet Card Shape (with Logo Cutout) */}
+          <g className="hidden md:block">
+            {/* 1. Back 3D Extrusion Layer */}
+            <path
+              d="M 32 1 
+                 L 320 1 
+                 C 340 1, 350 71, 370 71 
+                 L 630 71 
+                 C 650 71, 660 1, 680 1 
+                 L 968 1 
+                 A 31 31 0 0 1 999 32 
+                 L 999 560 
+                 A 30 30 0 0 1 969 590 
+                 L 31 590 
+                 A 30 30 0 0 1 1 560 
+                 L 1 32 
+                 A 31 31 0 0 1 32 1 Z"
+              fill="#9674eb"
+              stroke="#9674eb"
+              strokeWidth="8"
+              transform="translate(0, 8)"
+            />
 
-          {/* 2. Main card shape front face (solid white background with light purple border) */}
-          <path
-            d="M 32 1 
-               L 320 1 
-               C 340 1, 350 71, 370 71 
-               L 630 71 
-               C 650 71, 660 1, 680 1 
-               L 968 1 
-               A 31 31 0 0 1 999 32 
-               L 999 560 
-               A 30 30 0 0 1 969 590 
-               L 31 590 
-               A 30 30 0 0 1 1 560 
-               L 1 32 
-               A 31 31 0 0 1 32 1 Z"
-            fill="white"
-            stroke="#c1a8f6"
-            strokeWidth="8"
-            opacity="0.95"
-          />
+            {/* 2. Main card shape front face */}
+            <path
+              d="M 32 1 
+                 L 320 1 
+                 C 340 1, 350 71, 370 71 
+                 L 630 71 
+                 C 650 71, 660 1, 680 1 
+                 L 968 1 
+                 A 31 31 0 0 1 999 32 
+                 L 999 560 
+                 A 30 30 0 0 1 969 590 
+                 L 31 590 
+                 A 30 30 0 0 1 1 560 
+                 L 1 32 
+                 A 31 31 0 0 1 32 1 Z"
+              fill="white"
+              stroke="#c1a8f6"
+              strokeWidth="8"
+              opacity="0.95"
+            />
+          </g>
+
+          {/* Mobile Card Shape (Clean rounded rect with shallow logo cutout) */}
+          <g className="block md:hidden">
+            {/* 1. Back 3D Extrusion Layer */}
+            <path
+              d="M 80 1 
+                 L 920 1 
+                 A 80 24 0 0 1 999 25 
+                 L 999 575 
+                 A 80 24 0 0 1 920 599 
+                 L 80 599 
+                 A 80 24 0 0 1 1 575 
+                 L 1 25 
+                 A 80 24 0 0 1 80 1 Z"
+              fill="#9674eb"
+              stroke="#9674eb"
+              strokeWidth="8"
+              transform="translate(0, 8)"
+            />
+
+            {/* 2. Main card shape front face */}
+            <path
+              d="M 80 1 
+                 L 920 1 
+                 A 80 24 0 0 1 999 25 
+                 L 999 575 
+                 A 80 24 0 0 1 920 599 
+                 L 80 599 
+                 A 80 24 0 0 1 1 575 
+                 L 1 25 
+                 A 80 24 0 0 1 80 1 Z"
+              fill="white"
+              stroke="#c1a8f6"
+              strokeWidth="8"
+              opacity="0.95"
+            />
+          </g>
         </svg>
       </div>
 
       {/* Background Video clipped to the card shape (fills container, white overlays blend it seamlessly) */}
       <div
         className="absolute inset-1.5 lg:inset-2.5 z-0 overflow-hidden pointer-events-none"
-        style={{ clipPath: "url(#card-clip)" }}
+        style={{ clipPath: "var(--card-clip-path)" }}
       >
         {!isLoading && (
           <video
@@ -774,7 +845,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
             loop
             muted
             playsInline
-            src={preloadedAssets?.videoUrl || "/Products_drifting_in_frame_202606111905.mp4"}
+            src={videoSource}
           />
         )}
         {/* Top-to-Bottom Gradient: protects the navbar options and logo area from overlapping video content */}
@@ -799,7 +870,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
         {/* Content Wrapper */}
         <div 
           onScroll={handleScroll}
-          className="relative z-10 w-full h-full overflow-y-auto scrollbar-thin flex flex-col p-0 min-h-0"
+          className="relative z-10 w-full h-full overflow-y-auto scrollbar-thin flex flex-col p-0 min-h-0 pb-20 md:pb-0"
         >
 
           {/* Sticky Hero Section Wrapper (remains fixed on first fold, covered by solid white sheet on scroll) */}
@@ -807,7 +878,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
             {/* Logo inside the card wrapper, nestled in the top center cutout (fluidly scaled with parent Y-height) */}
             <div
-              className={`absolute top-[2.0%] left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex items-center justify-center w-[20%] md:w-[22%] lg:w-[23%] h-[8.0%] transition-all duration-[1000ms] delay-[300ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              className={`absolute top-[2.2%] md:top-[2.0%] left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex items-center justify-center w-[32%] md:w-[22%] lg:w-[23%] h-[5.5%] md:h-[8.0%] transition-all duration-[1000ms] delay-[300ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
                 isLoading ? "opacity-0 -translate-y-4 scale-95" : "opacity-100 translate-y-0 scale-100"
               }`}
             >
@@ -829,32 +900,34 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                 isLoading ? "opacity-0 translate-y-3" : "opacity-100 translate-y-0"
               } ${isSearching ? "opacity-0 pointer-events-none scale-95" : ""}`}
             >
-              {[
-                { name: "ABOUT", href: "/#about", isExternal: false },
-                { name: "BLOG", href: "/#blog", isExternal: false },
-                { name: "SHOP", href: "/shop", isExternal: true },
-                { name: "TRENDING", href: "/shop?collection=trending", isExternal: true },
-              ].map((link) => (
-                link.isExternal ? (
-                  <Link
-                    key={link.name}
-                    href={link.href}
-                    className="text-[10px] sm:text-xs lg:text-sm font-bold tracking-widest text-black hover:text-zinc-600 transition-colors duration-300 relative group"
-                  >
-                    {link.name}
-                    <span className="absolute bottom-[-4px] left-0 w-0 h-[1.5px] bg-zinc-950 transition-all duration-300 group-hover:w-full" />
-                  </Link>
-                ) : (
-                  <a
-                    key={link.name}
-                    href={link.href}
-                    className="text-[10px] sm:text-xs lg:text-sm font-bold tracking-widest text-black hover:text-zinc-600 transition-colors duration-300 relative group"
-                  >
-                    {link.name}
-                    <span className="absolute bottom-[-4px] left-0 w-0 h-[1.5px] bg-zinc-950 transition-all duration-300 group-hover:w-full" />
-                  </a>
-                )
-              ))}
+              <div className="hidden md:flex items-center gap-2 sm:gap-4 lg:gap-6">
+                {[
+                  { name: "ABOUT", href: "/#about", isExternal: false },
+                  { name: "BLOG", href: "/#blog", isExternal: false },
+                  { name: "SHOP", href: "/shop", isExternal: true },
+                  { name: "TRENDING", href: "/shop?collection=trending", isExternal: true },
+                ].map((link) => (
+                  link.isExternal ? (
+                    <Link
+                      key={link.name}
+                      href={link.href}
+                      className="text-[10px] sm:text-xs lg:text-sm font-bold tracking-widest text-black hover:text-zinc-600 transition-colors duration-300 relative group"
+                    >
+                      {link.name}
+                      <span className="absolute bottom-[-4px] left-0 w-0 h-[1.5px] bg-zinc-950 transition-all duration-300 group-hover:w-full" />
+                    </Link>
+                  ) : (
+                    <a
+                      key={link.name}
+                      href={link.href}
+                      className="text-[10px] sm:text-xs lg:text-sm font-bold tracking-widest text-black hover:text-zinc-600 transition-colors duration-300 relative group"
+                    >
+                      {link.name}
+                      <span className="absolute bottom-[-4px] left-0 w-0 h-[1.5px] bg-zinc-950 transition-all duration-300 group-hover:w-full" />
+                    </a>
+                  )
+                ))}
+              </div>
             </div>
 
             {/* Center Spacer for Logo Cutout */}
@@ -953,7 +1026,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
                 {/* Standard Search Trigger and Cart Buttons */}
                 <div
-                  className={`flex items-center gap-4 lg:gap-5 transition-all duration-300 ${
+                  className={`hidden md:flex items-center gap-4 lg:gap-5 transition-all duration-300 ${
                     isSearching 
                       ? "opacity-0 scale-95 pointer-events-none w-0 overflow-hidden" 
                       : "opacity-100 scale-100"
@@ -1047,7 +1120,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                                 Subtotal
                               </span>
                               <span className="text-xs font-black text-purple-950 font-outfit">
-                                ${cartSubtotal.toFixed(2)}
+                                Rs. {cartSubtotal.toLocaleString()}
                               </span>
                             </div>
                             <button
@@ -1346,7 +1419,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
             </div>
 
             {/* Section 2: Bento Grid Categories */}
-            <div className="w-full py-16 px-2 sm:px-4 flex flex-col gap-8 content-visibility-lazy">
+            <div className="hidden md:flex w-full py-16 px-2 sm:px-4 flex-col gap-8 content-visibility-lazy">
               <div className="flex flex-col items-center text-center max-w-xl mx-auto mb-4">
                 <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
                   Curated Collections
@@ -1694,6 +1767,21 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         </span>
                       </div>
 
+                      {/* Floating Add to Cart Button for Mobile */}
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const colors = getProductColors(product);
+                          addToCart(product, 1, colors[0] || product.color);
+                        }}
+                        className="md:hidden absolute bottom-3 right-3 bg-purple-600 active:bg-purple-700 text-white p-2.5 rounded-full shadow-lg z-20 flex items-center justify-center border-0 active:scale-95 transition-all duration-150"
+                        title="Add to Cart"
+                      >
+                        <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </button>
+
                       {/* Floating Action Overlay: Slide-up Quick-Add Bar */}
                       <div className="absolute bottom-3.5 left-3.5 right-3.5 translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-10 flex gap-2">
                         <button 
@@ -1824,6 +1912,21 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                           {product.discount}
                         </span>
                       </div>
+
+                      {/* Floating Add to Cart Button for Mobile */}
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const colors = getProductColors(product);
+                          addToCart(product, 1, colors[0] || product.color);
+                        }}
+                        className="md:hidden absolute bottom-3 right-3 bg-purple-600 active:bg-purple-700 text-white p-2.5 rounded-full shadow-lg z-20 flex items-center justify-center border-0 active:scale-95 transition-all duration-150"
+                        title="Add to Cart"
+                      >
+                        <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </button>
 
                       {/* Floating Action Overlay: Slide-up Quick-Add Bar */}
                       <div className="absolute bottom-3.5 left-3.5 right-3.5 translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-10 flex gap-2">
@@ -2423,7 +2526,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   {/* Price & Delete */}
                   <div className="flex flex-col items-end gap-3 flex-shrink-0">
                     <div className="text-xs font-black text-purple-950 font-outfit">
-                      ${(parsePrice(item.product.price) * item.quantity).toFixed(2)}
+                      Rs. {(parsePrice(item.product.price) * item.quantity).toLocaleString()}
                     </div>
                     <button
                       onClick={() => removeFromCart(item.product.id, item.color)}
@@ -2446,19 +2549,19 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
               <div className="flex flex-col gap-2">
                 <div className="flex justify-between items-center text-xs font-bold text-zinc-400 uppercase tracking-widest">
                   <span>Subtotal</span>
-                  <span className="text-zinc-950 font-extrabold">${cartSubtotal.toFixed(2)}</span>
+                  <span className="text-zinc-950 font-extrabold">Rs. {cartSubtotal.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between items-center text-xs text-zinc-500 font-semibold">
+                <div className="flex justify-between items-center text-xs text-zinc-550 font-semibold">
                   <span>Shipping</span>
                   <span className="text-emerald-600 font-extrabold text-[10px] tracking-wide">FREE</span>
                 </div>
-                <div className="flex justify-between items-center text-xs text-zinc-500 font-semibold border-b border-zinc-200/50 pb-2">
+                <div className="flex justify-between items-center text-xs text-zinc-550 font-semibold border-b border-zinc-200/50 pb-2">
                   <span>Estimated Taxes</span>
-                  <span className="text-zinc-800 font-bold">$0.00</span>
+                  <span className="text-zinc-800 font-bold">Rs. 0</span>
                 </div>
                 <div className="flex justify-between items-center pt-2 text-sm font-extrabold text-zinc-950 font-outfit uppercase tracking-widest">
                   <span>Total Amount</span>
-                  <span className="text-purple-950 text-base font-black font-outfit">${cartSubtotal.toFixed(2)}</span>
+                  <span className="text-purple-950 text-base font-black font-outfit">Rs. {cartSubtotal.toLocaleString()}</span>
                 </div>
               </div>
 
