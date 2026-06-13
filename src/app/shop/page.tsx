@@ -2,7 +2,11 @@ import { Metadata } from "next";
 import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS, getCategoryIcon } from "../products";
-import ShopClient from "./ShopClient";
+import dynamic from "next/dynamic";
+
+const ShopClient = dynamic(() => import("./ShopClient"), {
+  loading: () => null,
+});
 
 async function getProducts() {
   try {

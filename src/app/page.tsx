@@ -1,7 +1,11 @@
 import { Metadata } from "next";
 import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS, getCategoryIcon } from "./products";
-import HomeClient from "./HomeClient";
+import dynamic from "next/dynamic";
+
+const HomeClient = dynamic(() => import("./HomeClient"), {
+  loading: () => null,
+});
 
 async function getProducts() {
   try {

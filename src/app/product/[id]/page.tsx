@@ -2,7 +2,11 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { MOCK_PRODUCTS, getCategoryIcon, Product } from "../../products";
-import ProductDetailClient from "./ProductDetailClient";
+import dynamic from "next/dynamic";
+
+const ProductDetailClient = dynamic(() => import("./ProductDetailClient"), {
+  loading: () => null,
+});
 
 interface Props {
   params: Promise<{ id: string }>;
