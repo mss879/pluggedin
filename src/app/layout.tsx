@@ -37,16 +37,16 @@ export const metadata: Metadata = {
     "studio microphone",
     "monitor lightbar",
     "premium tech accessories",
-    "Arc AI",
+    "ARC AI",
     "ArcAI",
     "AI Automation",
     "Software Company"
   ],
   authors: [
     { name: "PluggedIn Team", url: "https://www.pluggedin.lk" },
-    { name: "Arc AI", url: "https://www.arcai.agency" }
+    { name: "ARC AI", url: "https://www.arcai.agency" }
   ],
-  creator: "Arc AI",
+  creator: "ARC AI",
   publisher: "PluggedIn",
   robots: {
     index: true,

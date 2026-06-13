@@ -217,10 +217,10 @@ export default function PrivacyPolicyPage() {
                 target="_blank"
                 rel="noopener"
                 className="flex items-center gap-2 hover:text-purple-600 transition-colors duration-200 font-semibold text-[10px] sm:text-xs"
-                title="Arc AI - AI Automation and Software Company"
+                title="ARC AI - AI Automation and Software Company"
               >
                 <span>DESIGNED AND BUILT BY</span>
-                <img src="/black%20logo.svg" alt="Arc AI Logo" className="h-7 w-auto object-contain" />
+                <img src="/black%20logo.svg" alt="ARC AI Logo" className="h-16 w-auto object-contain" />
               </a>
               <div className="flex gap-6">
                 <Link href="/privacy-policy" className="hover:text-purple-655 transition-colors">PRIVACY POLICY</Link>

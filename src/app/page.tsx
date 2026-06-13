@@ -49,7 +49,7 @@ const websiteSchema = {
   },
   "creator": {
     "@type": "Organization",
-    "name": "Arc AI",
+    "name": "ARC AI",
     "url": "https://www.arcai.agency",
     "description": "AI Automation and Software Company"
   }
@@ -70,7 +70,7 @@ const storeSchema = {
   "priceRange": "$$",
   "creator": {
     "@type": "Organization",
-    "name": "Arc AI",
+    "name": "ARC AI",
     "url": "https://www.arcai.agency",
     "description": "AI Automation and Software Company"
   }
