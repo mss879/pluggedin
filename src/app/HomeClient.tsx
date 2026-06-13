@@ -124,8 +124,8 @@ const MOCK_PRODUCTS: Product[] = [
     id: "headphones",
     name: "Pro Noise-Cancelling Headphones",
     category: "Audio",
-    price: "$299",
-    slashedPrice: "$399",
+    price: "Rs. 90,000",
+    slashedPrice: "Rs. 120,000",
     discount: "25% OFF",
     description: "Studio-grade sound, ultimate comfort & active noise cancellation.",
     color: "purple",
@@ -139,8 +139,8 @@ const MOCK_PRODUCTS: Product[] = [
     id: "charger",
     name: "Smart Dual Wireless Charger",
     category: "Power",
-    price: "$89",
-    slashedPrice: "$120",
+    price: "Rs. 27,000",
+    slashedPrice: "Rs. 36,000",
     discount: "25% OFF",
     description: "Fast-charging pad for your phone and watch with a sleek leather surface.",
     color: "amber",
@@ -154,8 +154,8 @@ const MOCK_PRODUCTS: Product[] = [
     id: "keyboard",
     name: "Creations Mechanical Keyboard",
     category: "Gear",
-    price: "$159",
-    slashedPrice: "$210",
+    price: "Rs. 48,000",
+    slashedPrice: "Rs. 63,000",
     discount: "24% OFF",
     description: "Hot-swappable tactile switches, wooden base frame, retro keycaps.",
     color: "blue",
@@ -169,8 +169,8 @@ const MOCK_PRODUCTS: Product[] = [
     id: "sleeve",
     name: "Minimalist Tech Sleeve",
     category: "Travel",
-    price: "$45",
-    slashedPrice: "$60",
+    price: "Rs. 13,500",
+    slashedPrice: "Rs. 18,000",
     discount: "25% OFF",
     description: "Water-resistant canvas organizer for cords, power banks, and cards.",
     color: "emerald",
@@ -184,8 +184,8 @@ const MOCK_PRODUCTS: Product[] = [
     id: "lightbar",
     name: "Ambient LED Desk Bar",
     category: "Lighting",
-    price: "$79",
-    slashedPrice: "$110",
+    price: "Rs. 24,000",
+    slashedPrice: "Rs. 33,000",
     discount: "28% OFF",
     description: "Monitor-mounted lighting with smart hue adjustment and music sync.",
     color: "pink",
@@ -199,8 +199,8 @@ const MOCK_PRODUCTS: Product[] = [
     id: "riser",
     name: "Carbon Fiber Laptop Lift",
     category: "Gear",
-    price: "$65",
-    slashedPrice: "$90",
+    price: "Rs. 19,500",
+    slashedPrice: "Rs. 27,000",
     discount: "27% OFF",
     description: "Lightweight, ultra-durable carbon fiber laptop riser.",
     color: "slate",
@@ -212,10 +212,10 @@ const MOCK_PRODUCTS: Product[] = [
   },
   {
     id: "mouse",
-    name: "Precision Wireless Mouse",
+    name: "Precision Workspace Mouse",
     category: "Gear",
-    price: "$129",
-    slashedPrice: "$180",
+    price: "Rs. 39,000",
+    slashedPrice: "Rs. 54,000",
     discount: "28% OFF",
     description: "Ergonomic workspace mouse with smart scroll wheel and silent clicks.",
     color: "slate",
@@ -229,8 +229,8 @@ const MOCK_PRODUCTS: Product[] = [
     id: "speaker",
     name: "Hi-Fi Studio Monitor Speaker",
     category: "Audio",
-    price: "$349",
-    slashedPrice: "$460",
+    price: "Rs. 105,000",
+    slashedPrice: "Rs. 138,000",
     discount: "24% OFF",
     description: "High-resolution desktop monitor speakers with premium carbon cone drivers.",
     color: "purple",
@@ -244,8 +244,8 @@ const MOCK_PRODUCTS: Product[] = [
     id: "webcam",
     name: "4K Creator Webcam",
     category: "Video",
-    price: "$199",
-    slashedPrice: "$270",
+    price: "Rs. 60,000",
+    slashedPrice: "Rs. 81,000",
     discount: "26% OFF",
     description: "Ultra-wide 4K webcam with automatic framing and high dynamic range.",
     color: "blue",
@@ -259,8 +259,8 @@ const MOCK_PRODUCTS: Product[] = [
     id: "mic",
     name: "USB Condenser Microphone",
     category: "Audio",
-    price: "$179",
-    slashedPrice: "$240",
+    price: "Rs. 54,000",
+    slashedPrice: "Rs. 72,000",
     discount: "25% OFF",
     description: "Cardioid condenser microphone with dynamic noise suppression filter.",
     color: "emerald",
@@ -274,8 +274,8 @@ const MOCK_PRODUCTS: Product[] = [
     id: "stand",
     name: "MagSafe Desk Mount",
     category: "Power",
-    price: "$49",
-    slashedPrice: "$70",
+    price: "Rs. 15,000",
+    slashedPrice: "Rs. 21,000",
     discount: "30% OFF",
     description: "Magnetic phone mount machined from solid aerospace-grade aluminum.",
     color: "amber",
@@ -289,8 +289,8 @@ const MOCK_PRODUCTS: Product[] = [
     id: "backpack",
     name: "Urban Tech Backpack",
     category: "Travel",
-    price: "$139",
-    slashedPrice: "$190",
+    price: "Rs. 42,000",
+    slashedPrice: "Rs. 57,000",
     discount: "26% OFF",
     description: "Weatherproof layout with dedicated laptop compartment and luggage pass-through.",
     color: "slate",
@@ -356,14 +356,23 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
   // Sync with localStorage on mount
   useEffect(() => {
-    try {
-      const savedCart = localStorage.getItem("pluggedin_cart");
-      if (savedCart) {
-        setCart(JSON.parse(savedCart));
+    const syncCart = () => {
+      try {
+        const savedCart = localStorage.getItem("pluggedin_cart");
+        if (savedCart) {
+          setCart(JSON.parse(savedCart));
+        } else {
+          setCart([]);
+        }
+      } catch (e) {
+        console.error("Failed to load cart from localStorage", e);
       }
-    } catch (e) {
-      console.error("Failed to load cart from localStorage", e);
-    }
+    };
+    syncCart();
+    window.addEventListener("cart-updated", syncCart);
+    return () => {
+      window.removeEventListener("cart-updated", syncCart);
+    };
   }, []);
 
   // Fetch products from Supabase on mount (fall back to MOCK_PRODUCTS if offline/unconfigured)
@@ -379,8 +388,8 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
               id: item.id,
               name: item.name,
               category: item.category,
-              price: `$${Math.round(item.price)}`,
-              slashedPrice: item.slashed_price ? `$${Math.round(item.slashed_price)}` : "",
+              price: `Rs. ${Math.round(item.price).toLocaleString()}`,
+              slashedPrice: item.slashed_price ? `Rs. ${Math.round(item.slashed_price).toLocaleString()}` : "",
               discount: item.discount || "",
               description: item.description,
               color: item.color || "purple",
@@ -432,8 +441,8 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
               id: item.id,
               name: item.name,
               category: item.category,
-              price: `$${Math.round(item.price)}`,
-              slashedPrice: item.slashed_price ? `$${Math.round(item.slashed_price)}` : "",
+              price: `Rs. ${Math.round(item.price).toLocaleString()}`,
+              slashedPrice: item.slashed_price ? `Rs. ${Math.round(item.slashed_price).toLocaleString()}` : "",
               discount: item.discount || "",
               description: item.description,
               color: item.color || "purple",
@@ -478,7 +487,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
   const saveCart = (newCart: CartItem[]) => {
     setCart(newCart);
     try {
-      localStorage.setItem("pluggedin_cart", JSON.stringify(newCart));
+      // Strip non-serializable `icon` (React.ReactNode) before persisting
+      const serializableCart = newCart.map((item) => ({
+        ...item,
+        product: { ...item.product, icon: undefined },
+      }));
+      localStorage.setItem("pluggedin_cart", JSON.stringify(serializableCart));
+      window.dispatchEvent(new Event("cart-updated"));
     } catch (e) {
       console.error("Failed to save cart to localStorage", e);
     }
@@ -814,15 +829,31 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                 isLoading ? "opacity-0 translate-y-3" : "opacity-100 translate-y-0"
               } ${isSearching ? "opacity-0 pointer-events-none scale-95" : ""}`}
             >
-              {["ABOUT", "BLOG", "SHOP", "TRENDING"].map((link) => (
-                <a
-                  key={link}
-                  href={`#${link.toLowerCase()}`}
-                  className="text-[10px] sm:text-xs lg:text-sm font-bold tracking-widest text-black hover:text-zinc-600 transition-colors duration-300 relative group"
-                >
-                  {link}
-                  <span className="absolute bottom-[-4px] left-0 w-0 h-[1.5px] bg-zinc-950 transition-all duration-300 group-hover:w-full" />
-                </a>
+              {[
+                { name: "ABOUT", href: "/#about", isExternal: false },
+                { name: "BLOG", href: "/#blog", isExternal: false },
+                { name: "SHOP", href: "/shop", isExternal: true },
+                { name: "TRENDING", href: "/shop?collection=trending", isExternal: true },
+              ].map((link) => (
+                link.isExternal ? (
+                  <Link
+                    key={link.name}
+                    href={link.href}
+                    className="text-[10px] sm:text-xs lg:text-sm font-bold tracking-widest text-black hover:text-zinc-600 transition-colors duration-300 relative group"
+                  >
+                    {link.name}
+                    <span className="absolute bottom-[-4px] left-0 w-0 h-[1.5px] bg-zinc-950 transition-all duration-300 group-hover:w-full" />
+                  </Link>
+                ) : (
+                  <a
+                    key={link.name}
+                    href={link.href}
+                    className="text-[10px] sm:text-xs lg:text-sm font-bold tracking-widest text-black hover:text-zinc-600 transition-colors duration-300 relative group"
+                  >
+                    {link.name}
+                    <span className="absolute bottom-[-4px] left-0 w-0 h-[1.5px] bg-zinc-950 transition-all duration-300 group-hover:w-full" />
+                  </a>
+                )
               ))}
             </div>
 
@@ -843,7 +874,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                 }`}
               >
                 {[
-                  { name: "NEW IN", href: "#new-in", isExternal: false },
+                  { name: "NEW IN", href: "/shop?collection=new-in", isExternal: true },
                   { name: "CONTACT", href: "/contact", isExternal: true }
                 ].map((item) => (
                   item.isExternal ? (
@@ -1923,7 +1954,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       Free Global Shipping
                     </h3>
                     <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
-                      Enjoy 24-hour dispatch and free worldwide express shipping on all orders over $150, including our full premium setups.
+                      Enjoy 24-hour dispatch and free delivery on all orders over Rs. 45,000, including our full premium setups.
                     </p>
                   </div>
                 </div>
@@ -1969,7 +2000,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   },
                   {
                     q: "How long does shipping take?",
-                    a: "Express international delivery typically takes 3 to 5 business days depending on your region. All smart setup packages and orders over $150 benefit from free shipping and automatic 24-hour priority dispatch from our nearest hub."
+                    a: "Delivery typically takes 3 to 5 business days depending on your region. All smart setup packages and orders over Rs. 45,000 benefit from free shipping and automatic 24-hour priority dispatch."
                   },
                   {
                     q: "Can I return items under the trial?",
@@ -1977,7 +2008,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   },
                   {
                     q: "Do you ship internationally?",
-                    a: "Yes, we ship to over 150 countries worldwide. All international shipments are fully tracked and insured. Express shipping is free for all orders exceeding $150, or available for a flat rate of $15 on smaller items."
+                    a: "Yes, we ship islandwide. All local shipments are fully tracked and insured. Express shipping is free for all orders exceeding Rs. 45,000, or available for a flat rate of Rs. 500 on smaller items."
                   }
                 ].map((item, idx) => {
                   const isOpen = openFaq === idx;
@@ -2068,15 +2099,15 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                     </h4>
                     <ul className="flex flex-col gap-2.5 text-xs sm:text-sm font-semibold">
                       {[
-                        { name: "Trending Essentials", link: "#trending" },
-                        { name: "New Arrivals", link: "#new-in" },
-                        { name: "Audio Systems", link: "#shop" },
-                        { name: "Desk Accessories", link: "#shop" }
+                        { name: "Trending Essentials", link: "/shop?collection=trending" },
+                        { name: "New Arrivals", link: "/shop?collection=new-in" },
+                        { name: "Audio Systems", link: "/shop?category=Audio" },
+                        { name: "Desk Accessories", link: "/shop?category=Gear" }
                       ].map((item) => (
                         <li key={item.name}>
-                          <a href={item.link} className="text-zinc-650 hover:text-purple-655 transition-colors duration-200">
+                          <Link href={item.link} className="text-zinc-655 hover:text-purple-655 transition-colors duration-200">
                             {item.name}
-                          </a>
+                          </Link>
                         </li>
                       ))}
                     </ul>

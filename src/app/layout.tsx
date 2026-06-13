@@ -90,6 +90,7 @@ export const metadata: Metadata = {
 };
 
 import AnalyticsTracker from "../components/AnalyticsTracker";
+import StickyNavbar from "../components/StickyNavbar";
 
 export default function RootLayout({
   children,
@@ -103,6 +104,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-white font-outfit text-zinc-900">
         <AnalyticsTracker />
+        <div>
+          <StickyNavbar />
+        </div>
         {children}
       </body>
     </html>

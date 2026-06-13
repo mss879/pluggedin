@@ -499,11 +499,21 @@ export default function AdminDashboardPage() {
   const handleUpdateOrderStatus = async (orderId: string, newStatus: "pending" | "fulfilled" | "shipped" | "delivered") => {
     try {
       if (supabase) {
-        const { error } = await supabase
-          .from("orders")
-          .update({ status: newStatus, updated_at: new Date().toISOString() })
-          .eq("id", orderId);
-        if (error) throw error;
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        const response = await fetch("/api/orders/update-status", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": token ? `Bearer ${token}` : "",
+          },
+          body: JSON.stringify({ orderId, status: newStatus }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || "Failed to update order status on server");
+        }
       }
       setOrders(orders.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)));
     } catch (err: any) {
@@ -1947,7 +1957,13 @@ export default function AdminDashboardPage() {
                                     <span className="text-[10px] font-bold text-slate-400 font-mono">({item.color})</span>
                                   </div>
                                   <div className="text-xs font-semibold text-slate-500">
-                                    {item.quantity}x • {item.price}
+                                    {item.quantity}x • {
+                                      typeof item.price === "string"
+                                        ? (item.price.startsWith("$")
+                                            ? `Rs. ${Math.round(parseFloat(item.price.replace(/[^0-9.]/g, "")) || 0).toLocaleString()}`
+                                            : item.price)
+                                        : `Rs. ${Math.round(item.price || 0).toLocaleString()}`
+                                    }
                                   </div>
                                 </div>
                               ))}

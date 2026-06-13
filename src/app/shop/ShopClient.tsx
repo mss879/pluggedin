@@ -20,10 +20,16 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
   const initialCategory = searchParams.get("category");
   const initialTag = searchParams.get("tag");
   const initialSearch = searchParams.get("q") || searchParams.get("query") || "";
+  const initialCollection = searchParams.get("collection");
 
   // Core Product State
   const [products, setProducts] = useState<Product[]>(initialProducts || []);
   const [loading, setLoading] = useState(!initialProducts || initialProducts.length === 0);
+
+  // Collections State
+  const [collections, setCollections] = useState<any[]>([]);
+  const [collectionProducts, setCollectionProducts] = useState<any[]>([]);
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(initialCollection);
 
   // Filter & Sort State
   const [searchQuery, setSearchQuery] = useState(initialSearch);
@@ -63,6 +69,12 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
     if (initialTag) {
       setSelectedTags([initialTag.toLowerCase()]);
     }
+    const collectionParam = searchParams.get("collection");
+    if (collectionParam) {
+      setSelectedCollection(collectionParam);
+    } else {
+      setSelectedCollection(null);
+    }
 
     // Load Cart from localStorage
     try {
@@ -73,7 +85,52 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
     } catch (e) {
       console.error("Failed to load cart from localStorage", e);
     }
-  }, [initialCategory, initialTag]);
+  }, [initialCategory, initialTag, searchParams]);
+
+  // Sync Cart with event listener
+  useEffect(() => {
+    const syncCart = () => {
+      try {
+        const savedCart = localStorage.getItem("pluggedin_cart");
+        if (savedCart) {
+          setCart(JSON.parse(savedCart));
+        } else {
+          setCart([]);
+        }
+      } catch (e) {
+        console.error("Failed to load cart from localStorage", e);
+      }
+    };
+    syncCart();
+    window.addEventListener("cart-updated", syncCart);
+    return () => {
+      window.removeEventListener("cart-updated", syncCart);
+    };
+  }, []);
+
+  // Fetch collections and collection products relationships from Supabase
+  useEffect(() => {
+    const fetchCollections = async () => {
+      try {
+        if (supabase) {
+          const [collectionsRes, collectionProductsRes] = await Promise.all([
+            supabase.from("collections").select("*"),
+            supabase.from("collection_products").select("*")
+          ]);
+          
+          if (!collectionsRes.error && collectionsRes.data) {
+            setCollections(collectionsRes.data);
+          }
+          if (!collectionProductsRes.error && collectionProductsRes.data) {
+            setCollectionProducts(collectionProductsRes.data);
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to fetch collections or join table data from Supabase:", e);
+      }
+    };
+    fetchCollections();
+  }, []);
 
   // Fetch products from Supabase (offline fallback to MOCK_PRODUCTS)
   useEffect(() => {
@@ -140,7 +197,12 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
   const saveCart = (newCart: CartItem[]) => {
     setCart(newCart);
     try {
-      localStorage.setItem("pluggedin_cart", JSON.stringify(newCart));
+      const serializableCart = newCart.map((item) => ({
+        ...item,
+        product: { ...item.product, icon: undefined },
+      }));
+      localStorage.setItem("pluggedin_cart", JSON.stringify(serializableCart));
+      window.dispatchEvent(new Event("cart-updated"));
     } catch (e) {
       console.error("Failed to save cart to localStorage", e);
     }
@@ -224,6 +286,7 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
     setSelectedCategory("All");
     setSelectedTags([]);
     setSearchQuery("");
+    setSelectedCollection(null);
     if (products.length > 0) {
       const prices = products.map(p => parsePrice(p.price));
       setMaxPrice(Math.ceil(Math.max(...prices)));
@@ -247,7 +310,27 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
     const productPrice = parsePrice(p.price);
     const matchesPrice = productPrice <= maxPrice;
 
-    return matchesSearch && matchesCategory && matchesTags && matchesPrice;
+    let matchesCollection = true;
+    if (selectedCollection) {
+      const collection = collections.find(
+        (c) => c.id.toLowerCase() === selectedCollection.toLowerCase()
+      );
+      if (!collection) {
+        matchesCollection = false;
+      } else {
+        if (collection.type === "smart") {
+          const matchTags = (collection.rules?.tags || []).map((t: string) => t.toLowerCase());
+          const pTags = (p.tags || []).map((t: string) => t.toLowerCase());
+          matchesCollection = matchTags.some((t: string) => pTags.includes(t));
+        } else {
+          matchesCollection = collectionProducts.some(
+            (cp) => cp.collection_id === collection.id && cp.product_id === p.id
+          );
+        }
+      }
+    }
+
+    return matchesSearch && matchesCategory && matchesTags && matchesPrice && matchesCollection;
   });
 
   // Sorted Products
@@ -283,6 +366,10 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
       </div>
     );
   }
+
+  const activeCollectionObj = selectedCollection 
+    ? collections.find(c => c.id.toLowerCase() === selectedCollection.toLowerCase())
+    : null;
 
   return (
     <div className="w-full h-screen overflow-y-auto scrollbar-thin bg-slate-50/50 flex flex-col font-outfit select-none relative pb-16">
@@ -329,13 +416,25 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
           <div className="absolute top-0 right-0 w-[400px] h-full bg-purple-500/10 blur-[120px] rounded-full pointer-events-none" />
           <div className="relative z-10 max-w-2xl flex flex-col gap-2">
             <span className="text-[10px] font-bold tracking-[0.25em] text-purple-300 uppercase">
-              CREATOR HUB CATALOG
+              {activeCollectionObj 
+                ? `COLLECTION: ${activeCollectionObj.name}` 
+                : selectedCollection 
+                  ? `COLLECTION: ${selectedCollection}` 
+                  : "CREATOR HUB CATALOG"}
             </span>
             <h1 className="text-3xl md:text-5xl font-extrabold text-white font-syne uppercase tracking-tight leading-tight">
-              Elevate Your Workspace
+              {activeCollectionObj 
+                ? activeCollectionObj.name 
+                : selectedCollection 
+                  ? selectedCollection 
+                  : "Elevate Your Workspace"}
             </h1>
             <p className="text-purple-200/80 text-xs sm:text-sm font-medium leading-relaxed mt-1">
-              Browse our professional range of tactile gear, high-fidelity audio systems, ambient desk lights, and smart travel configurations.
+              {activeCollectionObj 
+                ? activeCollectionObj.description 
+                : selectedCollection 
+                  ? `Browse our selected products in the ${selectedCollection} collection.` 
+                  : "Browse our professional range of tactile gear, high-fidelity audio systems, ambient desk lights, and smart travel configurations."}
             </p>
           </div>
         </div>
@@ -493,7 +592,7 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
           <section className="lg:col-span-9 flex flex-col gap-6">
             
             {/* Active Filters Summary Pills */}
-            {(selectedCategory !== "All" || selectedTags.length > 0 || searchQuery) && (
+            {(selectedCategory !== "All" || selectedTags.length > 0 || searchQuery || selectedCollection) && (
               <div className="flex flex-wrap gap-2 items-center text-left">
                 <span className="text-[10px] font-bold tracking-wider text-zinc-400 uppercase">Active filters:</span>
                 
@@ -515,6 +614,13 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
                   <span className="bg-purple-50 border border-purple-200 text-purple-750 text-[10px] font-bold tracking-wide px-3 py-1 rounded-full flex items-center gap-1">
                     Search: "{searchQuery}"
                     <button onClick={() => setSearchQuery("")} className="text-purple-400 hover:text-purple-900 border-0 bg-transparent font-bold cursor-pointer">×</button>
+                  </span>
+                )}
+
+                {selectedCollection && (
+                  <span className="bg-purple-50 border border-purple-200 text-purple-750 text-[10px] font-bold tracking-wide px-3 py-1 rounded-full flex items-center gap-1">
+                    Collection: {collections.find(c => c.id.toLowerCase() === selectedCollection.toLowerCase())?.name || selectedCollection}
+                    <button onClick={() => setSelectedCollection(null)} className="text-purple-400 hover:text-purple-900 border-0 bg-transparent font-bold cursor-pointer">×</button>
                   </span>
                 )}
 
@@ -829,8 +935,8 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
               </h4>
               <ul className="flex flex-col gap-2.5 text-xs sm:text-sm font-semibold">
                 {[
-                  { name: "Trending Essentials", link: "/#trending" },
-                  { name: "New Arrivals", link: "/#new-in" },
+                  { name: "Trending Essentials", link: "/shop?collection=trending" },
+                  { name: "New Arrivals", link: "/shop?collection=new-in" },
                   { name: "Audio Systems", link: "/shop?category=Audio" },
                   { name: "Desk Accessories", link: "/shop?category=Gear" }
                 ].map((item) => (

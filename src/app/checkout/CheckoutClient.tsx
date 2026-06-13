@@ -50,10 +50,39 @@ export default function CheckoutClient() {
     }
   }, [router]);
 
+  // Sync Cart with event listener
+  useEffect(() => {
+    const syncCart = () => {
+      try {
+        const savedCart = localStorage.getItem("pluggedin_cart");
+        if (savedCart) {
+          const parsedCart = JSON.parse(savedCart) as CartItem[];
+          setCart(parsedCart);
+          if (parsedCart.length === 0) {
+            router.push("/cart");
+          }
+        } else {
+          router.push("/cart");
+        }
+      } catch (e) {
+        console.error("Failed to load cart from localStorage", e);
+      }
+    };
+    window.addEventListener("cart-updated", syncCart);
+    return () => {
+      window.removeEventListener("cart-updated", syncCart);
+    };
+  }, [router]);
+
   const saveCart = (newCart: CartItem[]) => {
     setCart(newCart);
     try {
-      localStorage.setItem("pluggedin_cart", JSON.stringify(newCart));
+      const serializableCart = newCart.map((item) => ({
+        ...item,
+        product: { ...item.product, icon: undefined },
+      }));
+      localStorage.setItem("pluggedin_cart", JSON.stringify(serializableCart));
+      window.dispatchEvent(new Event("cart-updated"));
     } catch (e) {
       console.error("Failed to save cart to localStorage", e);
     }

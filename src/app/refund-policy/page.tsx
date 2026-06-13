@@ -159,9 +159,9 @@ export default function RefundPolicyPage() {
                   Browse
                 </h4>
                 <ul className="flex flex-col gap-2.5 text-xs sm:text-sm font-semibold">
-                  <li><Link href="/#trending" className="text-zinc-660 hover:text-purple-655 transition-colors">Trending Essentials</Link></li>
-                  <li><Link href="/#new-in" className="text-zinc-660 hover:text-purple-655 transition-colors">New Arrivals</Link></li>
-                  <li><Link href="/#shop" className="text-zinc-660 hover:text-purple-655 transition-colors">Audio Systems</Link></li>
+                  <li><Link href="/shop?collection=trending" className="text-zinc-660 hover:text-purple-655 transition-colors">Trending Essentials</Link></li>
+                  <li><Link href="/shop?collection=new-in" className="text-zinc-660 hover:text-purple-655 transition-colors">New Arrivals</Link></li>
+                  <li><Link href="/shop?category=Audio" className="text-zinc-660 hover:text-purple-655 transition-colors">Audio Systems</Link></li>
                 </ul>
               </div>
 

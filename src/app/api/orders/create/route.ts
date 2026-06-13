@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { sendOrderConfirmationEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   try {
@@ -37,6 +38,22 @@ export async function POST(request: Request) {
       }
     } else {
       console.log(`[Offline Mode] Created Mock Order Reference: ${orderId}`);
+    }
+
+    // Send order confirmation email via Resend
+    try {
+      await sendOrderConfirmationEmail({
+        orderId,
+        customerName: customer_name,
+        customerEmail: customer_email,
+        phoneNumber: phone_number,
+        shippingAddress: shipping_address,
+        items,
+        totalAmount: total_amount,
+        paymentMethod: payment_method || "cash_on_delivery",
+      });
+    } catch (emailErr) {
+      console.error("Order created but failed to send confirmation email:", emailErr);
     }
 
     return NextResponse.json({ success: true, orderId });

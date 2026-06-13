@@ -19,20 +19,34 @@ export default function CartClient() {
   // Prevent hydration mismatch
   useEffect(() => {
     setMounted(true);
-    try {
-      const savedCart = localStorage.getItem("pluggedin_cart");
-      if (savedCart) {
-        setCart(JSON.parse(savedCart));
+    const syncCart = () => {
+      try {
+        const savedCart = localStorage.getItem("pluggedin_cart");
+        if (savedCart) {
+          setCart(JSON.parse(savedCart));
+        } else {
+          setCart([]);
+        }
+      } catch (e) {
+        console.error("Failed to load cart from localStorage", e);
       }
-    } catch (e) {
-      console.error("Failed to load cart from localStorage", e);
-    }
+    };
+    syncCart();
+    window.addEventListener("cart-updated", syncCart);
+    return () => {
+      window.removeEventListener("cart-updated", syncCart);
+    };
   }, []);
 
   const saveCart = (newCart: CartItem[]) => {
     setCart(newCart);
     try {
-      localStorage.setItem("pluggedin_cart", JSON.stringify(newCart));
+      const serializableCart = newCart.map((item) => ({
+        ...item,
+        product: { ...item.product, icon: undefined },
+      }));
+      localStorage.setItem("pluggedin_cart", JSON.stringify(serializableCart));
+      window.dispatchEvent(new Event("cart-updated"));
     } catch (e) {
       console.error("Failed to save cart to localStorage", e);
     }
