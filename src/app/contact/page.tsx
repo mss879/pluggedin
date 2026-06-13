@@ -143,14 +143,14 @@ export default function ContactPage() {
 
       {/* Main Container */}
       <main className="flex-grow max-w-6xl w-full mx-auto px-6 py-8 md:py-12 z-10 flex flex-col gap-8 md:gap-12">
-        <div className="flex flex-col gap-1.5 text-left max-w-xl">
-          <span className="text-[9px] font-black tracking-widest text-purple-600 uppercase">
+        <div className="flex flex-col gap-2.5 text-left max-w-2xl">
+          <span className="text-xs font-bold tracking-widest text-purple-600 uppercase">
             GET IN TOUCH
           </span>
           <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-950 font-syne uppercase tracking-tight">
             We'd love to hear from you.
           </h1>
-          <p className="text-zinc-500 text-xs sm:text-sm font-semibold leading-relaxed">
+          <p className="text-zinc-600 text-sm sm:text-base font-medium leading-relaxed">
             Have a question about our premium workspace setup tools, shipping logistics, or customized collection bundles? Send a message and our support desk will respond shortly.
           </p>
         </div>
@@ -167,11 +167,11 @@ export default function ContactPage() {
                 </svg>
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-[9px] font-black tracking-widest text-zinc-400 uppercase">Support Email</span>
-                <a href="mailto:pluggedin58@gmail.com" className="text-sm font-black text-zinc-900 hover:text-purple-600 transition-colors">
+                <span className="text-[11px] font-bold tracking-wider text-zinc-450 uppercase">Support Email</span>
+                <a href="mailto:pluggedin58@gmail.com" className="text-base font-bold text-zinc-900 hover:text-purple-600 transition-colors">
                   pluggedin58@gmail.com
                 </a>
-                <span className="text-[10px] text-zinc-450 font-semibold leading-relaxed">
+                <span className="text-xs sm:text-sm text-zinc-500 font-medium leading-relaxed">
                   Submit a query 24/7. We guarantee a detailed reply within 24 hours.
                 </span>
               </div>
@@ -185,11 +185,11 @@ export default function ContactPage() {
                 </svg>
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-[9px] font-black tracking-widest text-zinc-400 uppercase">Helpdesk Phone</span>
-                <a href="tel:+94756314262" className="text-sm font-black text-zinc-900 hover:text-purple-600 transition-colors">
+                <span className="text-[11px] font-bold tracking-wider text-zinc-450 uppercase">Helpdesk Phone</span>
+                <a href="tel:+94756314262" className="text-base font-bold text-zinc-900 hover:text-purple-600 transition-colors">
                   +94756314262
                 </a>
-                <span className="text-[10px] text-zinc-450 font-semibold leading-relaxed">
+                <span className="text-xs sm:text-sm text-zinc-500 font-medium leading-relaxed">
                   Available Monday to Friday, 9:00 AM to 6:00 PM for instant setup support.
                 </span>
               </div>
@@ -204,11 +204,11 @@ export default function ContactPage() {
                 </svg>
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-[9px] font-black tracking-widest text-zinc-400 uppercase">Design Studio</span>
-                <span className="text-sm font-black text-zinc-900 leading-normal">
+                <span className="text-[11px] font-bold tracking-wider text-zinc-450 uppercase">Design Studio</span>
+                <span className="text-base font-bold text-zinc-900 leading-normal">
                   10, Athapaththu road, Dehiwala
                 </span>
-                <span className="text-[10px] text-zinc-450 font-semibold leading-relaxed">
+                <span className="text-xs sm:text-sm text-zinc-500 font-medium leading-relaxed">
                   Visiting our design showroom requires booking a reservation in advance.
                 </span>
               </div>
@@ -229,24 +229,24 @@ export default function ContactPage() {
                       <path className="anim-checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
                     </svg>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <h3 className="text-lg font-black text-zinc-950 font-syne uppercase tracking-tight">
+                  <div className="flex flex-col gap-2.5">
+                    <h3 className="text-xl font-extrabold text-zinc-950 font-syne uppercase tracking-tight">
                       Message Sent!
                     </h3>
-                    <p className="text-zinc-550 text-xs font-semibold leading-relaxed max-w-xs mx-auto">
+                    <p className="text-zinc-655 text-sm font-medium leading-relaxed max-w-md mx-auto">
                       Thank you for contacting us. Your message has been successfully logged in our administration records. We will review your query and get back to you shortly.
                     </p>
                   </div>
                   <button
                     onClick={() => setSuccess(false)}
-                    className="bg-zinc-950 hover:bg-zinc-800 text-white text-[10px] font-black tracking-widest px-6 py-3.5 rounded-full transition-all border-0 cursor-pointer shadow-sm shadow-zinc-950/10"
+                    className="bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-bold tracking-widest px-6 py-4 rounded-full transition-all border-0 cursor-pointer shadow-sm shadow-zinc-950/10"
                   >
                     SEND ANOTHER MESSAGE
                   </button>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-                  <h2 className="text-xs font-black tracking-widest text-zinc-400 uppercase border-b border-zinc-100 pb-2">
+                  <h2 className="text-sm font-bold tracking-wider text-zinc-400 uppercase border-b border-zinc-100 pb-2">
                     Inquiry Form
                   </h2>
 
@@ -257,8 +257,8 @@ export default function ContactPage() {
                   )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black tracking-widest text-zinc-400 uppercase ml-1">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold tracking-wider text-zinc-450 uppercase ml-1">
                         Your Name
                       </label>
                       <input
@@ -267,12 +267,12 @@ export default function ContactPage() {
                         placeholder="e.g. John Doe"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3.5 text-xs font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full"
+                        className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3.5 text-sm font-medium text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full"
                       />
                     </div>
 
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black tracking-widest text-zinc-400 uppercase ml-1">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold tracking-wider text-zinc-450 uppercase ml-1">
                         Email Address
                       </label>
                       <input
@@ -281,19 +281,19 @@ export default function ContactPage() {
                         placeholder="e.g. john@example.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3.5 text-xs font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full"
+                        className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3.5 text-sm font-medium text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full"
                       />
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[9px] font-black tracking-widest text-zinc-400 uppercase ml-1">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold tracking-wider text-zinc-450 uppercase ml-1">
                       Reason for Inquiry
                     </label>
                     <select
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
-                      className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3.5 text-xs font-semibold text-zinc-900 focus:outline-none transition-all w-full cursor-pointer"
+                      className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3.5 text-sm font-medium text-zinc-900 focus:outline-none transition-all w-full cursor-pointer"
                     >
                       <option value="general_inquiries">General Inquiries</option>
                       <option value="product_inquiries">Product Inquiries</option>
@@ -301,8 +301,8 @@ export default function ContactPage() {
                     </select>
                   </div>
 
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[9px] font-black tracking-widest text-zinc-400 uppercase ml-1">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold tracking-wider text-zinc-450 uppercase ml-1">
                       Message Content
                     </label>
                     <textarea
@@ -311,14 +311,14 @@ export default function ContactPage() {
                       placeholder="Write your inquiries details here..."
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
-                      className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3.5 text-xs font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full h-32 resize-none"
+                      className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3.5 text-sm font-medium text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full h-32 resize-none"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full bg-purple-600 text-white text-xs font-bold tracking-widest py-4.5 rounded-full hover:bg-purple-750 transition-all duration-300 shadow-md shadow-purple-600/15 cursor-pointer border-0 mt-2 flex items-center justify-center gap-2"
+                    className="w-full bg-purple-600 text-white text-sm font-bold tracking-widest py-4 rounded-full hover:bg-purple-750 transition-all duration-300 shadow-md shadow-purple-600/15 cursor-pointer border-0 mt-2 flex items-center justify-center gap-2"
                   >
                     {submitting ? (
                       <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
