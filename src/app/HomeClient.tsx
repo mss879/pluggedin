@@ -305,7 +305,7 @@ const MOCK_PRODUCTS: Product[] = [
 export default function HomeClient({ initialProducts }: { initialProducts: Product[] }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [preloadedAssets, setPreloadedAssets] = useState<{ videoUrl: string; logoUrl: string } | null>(null);
+  const [preloadedAssets, setPreloadedAssets] = useState<{ videoUrl: string; logoUrl: string; isVideoMobile: boolean } | null>(null);
 
   const heroVideoRef = useRef<HTMLVideoElement>(null);
   const [isHeroVisible, setIsHeroVisible] = useState(true);
@@ -316,10 +316,19 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
     const handleResize = () => {
       const isMobile = window.innerWidth < 768;
-      const src = isMobile 
-        ? "/Improve_product_movement_erratic_202606140038.mp4" 
-        : (preloadedAssets?.videoUrl || "/Products_drifting_in_frame_202606111905.mp4");
-      setVideoSource(src);
+      if (isMobile) {
+        setVideoSource(
+          preloadedAssets?.isVideoMobile
+            ? preloadedAssets.videoUrl
+            : "/Improve_product_movement_erratic_202606140038.mp4"
+        );
+      } else {
+        setVideoSource(
+          (preloadedAssets && !preloadedAssets.isVideoMobile)
+            ? preloadedAssets.videoUrl
+            : "/Products_drifting_in_frame_202606111905.mp4"
+        );
+      }
     };
 
     handleResize();

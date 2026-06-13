@@ -6,6 +6,7 @@ import * as THREE from "three";
 interface PreloadResult {
   videoUrl: string;
   logoUrl: string;
+  isVideoMobile: boolean;
 }
 
 interface PreloaderProps {
@@ -35,16 +36,24 @@ export default function Preloader({ onComplete }: PreloaderProps) {
   const preloadedUrls = useRef<PreloadResult>({
     videoUrl: "/Products_drifting_in_frame_202606111905.mp4",
     logoUrl: "/logo.webp",
+    isVideoMobile: false,
   });
 
   // --- 1. Background Asset Preloading ---
   useEffect(() => {
     let active = true;
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
     let logoReceived = 0;
+    let videoReceived = 0;
+
     const logoLength = 54842;
+    const videoLength = 2422890; // Size of mobile video: 2,422,890 bytes (2.31 MB)
+    const totalLength = isMobile ? logoLength + videoLength : logoLength;
 
     const updateProgress = () => {
-      downloadPctRef.current = Math.min(logoReceived / logoLength, 0.99);
+      const totalReceived = isMobile ? logoReceived + videoReceived : logoReceived;
+      downloadPctRef.current = Math.min(totalReceived / totalLength, 0.99);
     };
 
     const downloadAsset = async (
@@ -91,11 +100,28 @@ export default function Preloader({ onComplete }: PreloaderProps) {
           }
         );
 
+        let videoUrl = "/Products_drifting_in_frame_202606111905.mp4";
+        let isVideoMobile = false;
+
+        if (isMobile && active) {
+          // Preload mobile video
+          videoUrl = await downloadAsset(
+            "/Improve_product_movement_erratic_202606140038.mp4",
+            "video/mp4",
+            (bytes) => {
+              videoReceived = bytes;
+              updateProgress();
+            }
+          );
+          isVideoMobile = true;
+        }
+
         if (active) {
           downloadPctRef.current = 1.0;
           preloadedUrls.current = {
-            videoUrl: "/Products_drifting_in_frame_202606111905.mp4", // Stream video progressively (faster site entry!)
+            videoUrl,
             logoUrl: logoBlobUrl,
+            isVideoMobile,
           };
         }
       } catch (err) {
