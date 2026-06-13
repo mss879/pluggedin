@@ -2288,7 +2288,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                     title="Arc AI - AI Automation and Software Company"
                   >
                     <span>DESIGNED AND BUILT BY</span>
-                    <img src="/black%20logo.svg" alt="Arc AI Logo" className="h-4 w-auto object-contain" />
+                    <img src="/black%20logo.svg" alt="Arc AI Logo" className="h-7 w-auto object-contain" />
                   </a>
                   <div className="flex gap-6">
                     <Link href="/privacy-policy" className="hover:text-purple-650 transition-colors duration-200">PRIVACY POLICY</Link>
