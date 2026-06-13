@@ -413,7 +413,8 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
       <main className="flex-grow max-w-7xl w-full mx-auto px-6 py-8 md:py-12 z-10 flex flex-col gap-6 md:gap-8">
         
         {/* Page Banner Title */}
-        <div className="relative rounded-[2rem] overflow-hidden bg-gradient-to-r from-purple-900 via-indigo-955 to-slate-900 px-8 py-10 md:py-14 text-left shadow-lg border border-purple-950/20">
+        {/* Desktop Banner */}
+        <div className="hidden md:block relative rounded-[2rem] overflow-hidden bg-gradient-to-r from-purple-900 via-indigo-955 to-slate-900 px-8 py-10 md:py-14 text-left shadow-lg border border-purple-950/20">
           <div className="absolute top-0 right-0 w-[400px] h-full bg-purple-500/10 blur-[120px] rounded-full pointer-events-none" />
           <div className="relative z-10 max-w-2xl flex flex-col gap-2">
             <span className="text-[10px] font-bold tracking-[0.25em] text-purple-300 uppercase">
@@ -438,6 +439,31 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
                   : "Browse our professional range of tactile gear, high-fidelity audio systems, ambient desk lights, and smart travel configurations."}
             </p>
           </div>
+        </div>
+
+        {/* Mobile Simple Banner */}
+        <div className="block md:hidden text-left px-2 py-1 flex flex-col gap-1">
+          <span className="text-[9px] font-extrabold tracking-widest text-purple-650 uppercase">
+            {activeCollectionObj 
+              ? `Collection` 
+              : selectedCollection 
+                ? `Collection` 
+                : "Catalog"}
+          </span>
+          <h1 className="text-2xl font-black text-zinc-950 font-outfit uppercase tracking-tight leading-tight">
+            {activeCollectionObj 
+              ? activeCollectionObj.name 
+              : selectedCollection 
+                ? selectedCollection 
+                : "Elevate Your Workspace"}
+          </h1>
+          <p className="text-zinc-500 text-xs leading-relaxed font-medium">
+            {activeCollectionObj 
+              ? activeCollectionObj.description 
+              : selectedCollection 
+                ? `Browse our selected products in the ${selectedCollection} collection.` 
+                : "Browse our professional range of tactile gear, audio systems, and desk setup essentials."}
+          </p>
         </div>
 
         {/* Search & Sort Panel */}

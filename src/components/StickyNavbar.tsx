@@ -159,7 +159,32 @@ export default function StickyNavbar() {
       if (input) {
         setTimeout(() => input.focus(), 150);
       }
+      const mobileInput = document.getElementById("mobile-search-input") as HTMLInputElement;
+      if (mobileInput) {
+        setTimeout(() => mobileInput.focus(), 150);
+      }
       setFocusedIndex(-1);
+    }
+  }, [isSearching]);
+
+  // Lock body scroll when mobile search is open
+  useEffect(() => {
+    if (isSearching) {
+      const handleResize = () => {
+        if (window.innerWidth < 768) {
+          document.body.style.overflow = "hidden";
+        } else {
+          document.body.style.overflow = "";
+        }
+      };
+      handleResize();
+      window.addEventListener("resize", handleResize);
+      return () => {
+        window.removeEventListener("resize", handleResize);
+        document.body.style.overflow = "";
+      };
+    } else {
+      document.body.style.overflow = "";
     }
   }, [isSearching]);
 
@@ -411,7 +436,7 @@ export default function StickyNavbar() {
 
               {/* Autocomplete Dropdown */}
               <div
-                className={`absolute top-[calc(100%+12px)] right-0 w-[calc(100vw-60px)] sm:w-[320px] md:w-[380px] lg:w-[440px] bg-white/95 backdrop-blur-xl border border-zinc-200/50 shadow-2xl rounded-2xl overflow-hidden transition-all duration-300 z-50 text-left origin-top-right flex flex-col max-h-[400px] ${isSearching ? "opacity-100 translate-y-0 scale-100 pointer-events-auto" : "opacity-0 -translate-y-4 scale-95 pointer-events-none"
+                className={`hidden md:flex flex-col absolute top-[calc(100%+12px)] right-0 md:w-[380px] lg:w-[440px] bg-white/95 backdrop-blur-xl border border-zinc-200/50 shadow-2xl rounded-2xl overflow-hidden transition-all duration-300 z-50 text-left origin-top-right max-h-[400px] ${isSearching ? "opacity-100 translate-y-0 scale-100 pointer-events-auto" : "opacity-0 -translate-y-4 scale-95 pointer-events-none"
                   }`}
               >
                 {!searchQuery.trim() && (
@@ -964,6 +989,276 @@ export default function StickyNavbar() {
                 </Link>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Full-Screen Search Overlay */}
+      {isSearching && (
+        <div className="fixed inset-0 z-[60] bg-zinc-50 flex flex-col md:hidden animate-in fade-in duration-350 ease-out">
+          {/* Header Row */}
+          <div className="bg-white border-b border-zinc-200/60 px-4 py-3 flex items-center gap-3 shrink-0 shadow-sm">
+            {/* Back Button */}
+            <button
+              onClick={() => {
+                setIsSearching(false);
+                setSearchQuery("");
+              }}
+              className="text-zinc-600 hover:text-zinc-900 p-2 -ml-2 rounded-full hover:bg-zinc-100 transition-colors border-0 bg-transparent cursor-pointer flex items-center justify-center"
+              aria-label="Back"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            {/* Input Wrapper */}
+            <div className="flex-1 flex items-center bg-zinc-100 border border-zinc-200/80 rounded-full px-3 py-1.5 shadow-inner">
+              <svg className="w-4 h-4 text-purple-600 shrink-0 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                id="mobile-search-input"
+                type="text"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-full bg-transparent text-sm font-semibold text-zinc-950 placeholder-zinc-400 focus:outline-none"
+                autoComplete="off"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="text-zinc-400 hover:text-zinc-650 p-1.5 transition-colors cursor-pointer border-0 bg-transparent flex items-center justify-center"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Scrollable Body */}
+          <div className="flex-grow overflow-y-auto p-5 pb-10 flex flex-col gap-6">
+            {!searchQuery.trim() ? (
+              <>
+                {/* Categories Grid */}
+                <div>
+                  <h3 className="text-xs font-black tracking-widest text-zinc-450 uppercase mb-3 font-outfit">
+                    Shop by Category
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      {
+                        name: "Audio",
+                        bg: "bg-purple-50 border-purple-100/60 text-purple-700",
+                        desc: "Headphones & Speakers",
+                        icon: (
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                        )
+                      },
+                      {
+                        name: "Power",
+                        bg: "bg-amber-50 border-amber-100/60 text-amber-700",
+                        desc: "Wireless Chargers",
+                        icon: (
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        )
+                      },
+                      {
+                        name: "Gear",
+                        bg: "bg-blue-50 border-blue-100/60 text-blue-700",
+                        desc: "Mechanical Keyboards",
+                        icon: (
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                          </svg>
+                        )
+                      },
+                      {
+                        name: "Travel",
+                        bg: "bg-zinc-100 border-zinc-200/60 text-zinc-700",
+                        desc: "Tech Sleeves & Packs",
+                        icon: (
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                          </svg>
+                        )
+                      },
+                      {
+                        name: "Lighting",
+                        bg: "bg-pink-50 border-pink-100/60 text-pink-700",
+                        desc: "Monitor Lightbars",
+                        icon: (
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                          </svg>
+                        )
+                      },
+                      {
+                        name: "Video",
+                        bg: "bg-emerald-50 border-emerald-100/60 text-emerald-700",
+                        desc: "Streamer Essentials",
+                        icon: (
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )
+                      }
+                    ].map((cat) => (
+                      <button
+                        key={cat.name}
+                        onClick={() => {
+                          setIsSearching(false);
+                          setSearchQuery("");
+                          router.push(`/shop?category=${cat.name}`);
+                        }}
+                        className={`flex flex-col items-start p-4 rounded-2xl border text-left transition-all duration-200 active:scale-[0.98] ${cat.bg} cursor-pointer hover:shadow-md`}
+                      >
+                        <div className="p-2 bg-white rounded-xl shadow-sm mb-3">
+                          {cat.icon}
+                        </div>
+                        <span className="text-sm font-extrabold tracking-wide font-outfit uppercase">
+                          {cat.name}
+                        </span>
+                        <span className="text-[10px] opacity-75 mt-0.5 leading-tight font-medium">
+                          {cat.desc}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Recent Searches */}
+                {recentSearches.length > 0 && (
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-xs font-black tracking-widest text-zinc-450 uppercase font-outfit">
+                        Recent Searches
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setRecentSearches([]);
+                          try {
+                            localStorage.removeItem("pluggedin_recent_searches");
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className="text-[10px] font-bold text-zinc-400 hover:text-purple-650 transition-colors uppercase tracking-widest border-0 bg-transparent cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {recentSearches.map((term) => (
+                        <button
+                          key={term}
+                          onClick={() => {
+                            setSearchQuery(term);
+                          }}
+                          className="text-xs font-semibold px-4 py-2 bg-white border border-zinc-200 text-zinc-700 rounded-full transition-all active:scale-95 duration-200 cursor-pointer flex items-center gap-1.5 shadow-sm"
+                        >
+                          <svg className="w-3.5 h-3.5 text-zinc-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {term}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Trending Searches */}
+                <div>
+                  <h3 className="text-xs font-black tracking-widest text-zinc-450 uppercase mb-3 font-outfit">
+                    Trending Right Now
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {["Headphones", "Mechanical Keyboard", "Wireless Charger", "Tech Sleeve", "Laptop Lift", "Studio Mic"].map((term) => (
+                      <button
+                        key={term}
+                        onClick={() => {
+                          setSearchQuery(term);
+                        }}
+                        className="text-xs font-semibold px-4 py-2 bg-purple-500/[0.03] hover:bg-purple-50 hover:text-purple-700 text-zinc-700 rounded-full transition-all active:scale-95 duration-200 cursor-pointer border border-purple-200/30 shadow-sm"
+                      >
+                        {term}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Search Results */}
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-zinc-200/60 mb-3">
+                    <span className="text-[10px] font-black tracking-widest text-zinc-450 uppercase font-outfit">
+                      Search Results ({searchResults.length})
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    {searchResults.length > 0 ? (
+                      searchResults.map((product, index) => {
+                        const colorMap: Record<string, string> = {
+                          purple: "bg-purple-100 text-purple-600",
+                          amber: "bg-amber-100 text-amber-600",
+                          blue: "bg-blue-100 text-blue-600",
+                          emerald: "bg-emerald-100 text-emerald-600",
+                          pink: "bg-pink-100 text-pink-600",
+                          slate: "bg-slate-100 text-slate-600",
+                        };
+
+                        return (
+                          <button
+                            key={product.id}
+                            onClick={() => handleSelectProduct(product)}
+                            className="w-full flex items-center p-3 text-left transition-all duration-200 active:scale-[0.98] bg-white border border-zinc-200/60 rounded-2xl shadow-sm hover:shadow-md cursor-pointer outline-none"
+                          >
+                            <div className={`p-2.5 rounded-xl shrink-0 mr-3.5 ${colorMap[product.color] || "bg-zinc-100"}`}>
+                              {getCategoryIcon(product.category, product.id)}
+                            </div>
+                            <div className="flex-grow min-w-0 pr-2">
+                              <h5 className="text-sm font-extrabold text-zinc-950 truncate mb-0.5 font-outfit">
+                                {highlightMatch(product.name, searchQuery)}
+                              </h5>
+                              <span className="inline-block text-[9px] font-black tracking-widest text-zinc-400 uppercase font-outfit">
+                                {product.category}
+                              </span>
+                            </div>
+                            <span className="text-sm font-black text-purple-950 shrink-0 font-syne">
+                              {product.price}
+                            </span>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="py-12 px-4 text-center flex flex-col items-center justify-center">
+                        <div className="p-4 bg-purple-50 rounded-full text-purple-400 mb-4">
+                          <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                        </div>
+                        <h5 className="text-sm font-extrabold text-zinc-800 mb-1.5 font-outfit">
+                          No creator essentials match
+                        </h5>
+                        <p className="text-xs text-zinc-500 max-w-[240px] leading-relaxed">
+                          Try searching for headphones, keyboard, or wireless charger.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
