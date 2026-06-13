@@ -37,13 +37,52 @@ async function getProducts() {
   }));
 }
 
+const websiteSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "PluggedIn",
+  "url": "https://www.pluggedin.lk",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://www.pluggedin.lk/shop?search={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+};
+
+const storeSchema = {
+  "@context": "https://schema.org",
+  "@type": "Store",
+  "name": "PluggedIn",
+  "url": "https://www.pluggedin.lk",
+  "logo": "https://www.pluggedin.lk/logo.webp",
+  "image": "https://www.pluggedin.lk/banner_1.webp",
+  "description": "Elevate your creative setup with PluggedIn's premium creator gear. From tactile mechanical keyboards and smart desktop chargers to broadcast-quality microphones and studio monitors, we craft space-saving, premium essentials to power your productivity.",
+  "address": {
+    "@type": "PostalAddress",
+    "addressCountry": "LK"
+  },
+  "priceRange": "$$"
+};
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://pluggedin.lk"),
+  metadataBase: new URL("https://www.pluggedin.lk"),
   title: "PluggedIn | Premium Workspace Essentials & Creator Gear",
   description: "Elevate your creative setup with PluggedIn's premium creator gear. From tactile mechanical keyboards and smart desktop chargers to broadcast-quality microphones and studio monitors, we craft space-saving, premium essentials to power your productivity.",
 };
 
 export default async function Page() {
   const products = await getProducts();
-  return <HomeClient initialProducts={products as any} />;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(storeSchema) }}
+      />
+      <HomeClient initialProducts={products as any} />
+    </>
+  );
 }

@@ -37,23 +37,54 @@ async function getProducts() {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://pluggedin.lk"),
+  metadataBase: new URL("https://www.pluggedin.lk"),
   title: "Shop All Essentials | PluggedIn Premium Creator Workspace",
   description: "Browse our curated range of tactile mechanical keyboards, smart desktop chargers, studio monitor speakers, and workspace lighting.",
+  openGraph: {
+    title: "Shop All Essentials | PluggedIn Premium Creator Workspace",
+    description: "Browse our curated range of tactile mechanical keyboards, smart desktop chargers, studio monitor speakers, and workspace lighting.",
+    url: "https://www.pluggedin.lk/shop",
+    images: ["/banner_1.webp"],
+  },
 };
 
 export default async function ShopPage() {
   const products = await getProducts();
+  
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Shop All Essentials | PluggedIn",
+    "url": "https://www.pluggedin.lk/shop",
+    "description": "Browse our curated range of tactile mechanical keyboards, smart desktop chargers, studio monitor speakers, and workspace lighting.",
+    "mainEntity": {
+      "@type": "ItemList",
+      "numberOfItems": products.length,
+      "itemListElement": products.map((product: any, index: number) => ({
+        "@type": "ListItem",
+        "position": index + 1,
+        "url": `https://www.pluggedin.lk/product/${product.id}`,
+        "name": product.name
+      }))
+    }
+  };
+
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-slate-50/50 flex items-center justify-center font-outfit">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
-          <span className="text-[10px] font-bold tracking-widest uppercase text-zinc-400">Loading catalog...</span>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      />
+      <Suspense fallback={
+        <div className="min-h-screen bg-slate-50/50 flex items-center justify-center font-outfit">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
+            <span className="text-[10px] font-bold tracking-widest uppercase text-zinc-400">Loading catalog...</span>
+          </div>
         </div>
-      </div>
-    }>
-      <ShopClient initialProducts={products as any} />
-    </Suspense>
+      }>
+        <ShopClient initialProducts={products as any} />
+      </Suspense>
+    </>
   );
 }

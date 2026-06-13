@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://pluggedin.lk"),
+  metadataBase: new URL("https://www.pluggedin.lk"),
   title: "Refund & Return Policy | 30-Day Workspace Trial | PluggedIn",
   description: "Learn about the PluggedIn 30-Day Workspace Trial, refund processing timelines, return conditions, and shipping logistics.",
 };

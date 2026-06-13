@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://pluggedin.lk"),
+  metadataBase: new URL("https://www.pluggedin.lk"),
   title: "Privacy Policy | Data Protection Assurances | PluggedIn",
   description: "Read the PluggedIn Privacy Policy to understand how we collect, process, and safeguard your personal shipping and checkout details.",
 };

@@ -60,12 +60,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: titleText,
     description: product.description,
     alternates: {
-      canonical: `https://pluggedin.lk/product/${product.id}`,
+      canonical: `https://www.pluggedin.lk/product/${product.id}`,
     },
     openGraph: {
       title: titleText,
       description: product.description,
-      url: `https://pluggedin.lk/product/${product.id}`,
+      url: `https://www.pluggedin.lk/product/${product.id}`,
       type: "website",
       images: product.images && product.images.length > 0 ? [product.images[0]] : ["/logo.webp"],
     },
@@ -86,5 +86,38 @@ export default async function ProductDetailPage({ params }: Props) {
     notFound();
   }
 
-  return <ProductDetailClient product={product} />;
+  // Parse numeric price for schema
+  const numericPrice = typeof product.price === "string"
+    ? parseFloat(product.price.replace(/[^\d.]/g, ""))
+    : product.price;
+
+  const absoluteImages = product.images && product.images.length > 0
+    ? product.images.map((img) => img.startsWith("http") ? img : `https://www.pluggedin.lk${img}`)
+    : ["https://www.pluggedin.lk/logo.webp"];
+
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.name,
+    "description": product.description,
+    "image": absoluteImages,
+    "offers": {
+      "@type": "Offer",
+      "url": `https://www.pluggedin.lk/product/${product.id}`,
+      "priceCurrency": "LKR",
+      "price": numericPrice,
+      "availability": "https://schema.org/InStock",
+      "priceValidUntil": "2027-12-31"
+    }
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      />
+      <ProductDetailClient product={product} />
+    </>
+  );
 }
