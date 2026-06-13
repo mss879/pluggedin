@@ -218,8 +218,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
           <div className="lg:col-span-6 flex flex-col justify-center gap-6 text-left lg:pt-10">
             <div>
               <span 
-                className="text-xs font-black tracking-[0.3em] uppercase block mb-1"
-                style={{ color: activeColorHex }}
+                className="text-xs font-black tracking-[0.3em] uppercase block mb-1 text-purple-600"
               >
                 {product.category}
               </span>
@@ -321,8 +320,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                   addToCart(activeQuantity, activeColor);
                   router.push("/cart");
                 }}
-                className="flex-1 text-white text-xs font-bold tracking-widest py-4 rounded-full hover:brightness-95 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-lg cursor-pointer border-0"
-                style={{ backgroundColor: activeColorHex }}
+                className="flex-1 bg-zinc-950 text-white text-xs font-bold tracking-widest py-4 rounded-full hover:bg-zinc-800 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-lg cursor-pointer border-0"
               >
                 BUY NOW
               </button>
