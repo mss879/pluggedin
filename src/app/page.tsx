@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Preloader from "../components/Preloader";
 import LazyVideo from "../components/LazyVideo";
+import { supabase } from "../lib/supabase";
 
 interface Product {
   id: string;
@@ -62,6 +65,58 @@ const getColorHex = (colorName: string): string => {
   if (name.includes("white") || name.includes("chalk") || name.includes("frost") || name.includes("arctic")) return "#f4f4f5";
   if (name.includes("silver") || name.includes("lunar")) return "#e4e4e7";
   return "#a855f7"; // fallback purple
+};
+
+const getIconForProduct = (id: string, category: string, color: string): React.ReactNode => {
+  // Find in MOCK_PRODUCTS if ID matches
+  const match = MOCK_PRODUCTS.find(p => p.id === id);
+  if (match) return match.icon;
+
+  // Otherwise, default icons based on category
+  const lowerCat = category.toLowerCase();
+  const iconColor = color ? `text-${color}-600` : "text-purple-600";
+  
+  if (lowerCat.includes("audio")) {
+    return (
+      <svg className={`w-5 h-5 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+      </svg>
+    );
+  }
+  if (lowerCat.includes("power") || lowerCat.includes("charg")) {
+    return (
+      <svg className={`w-5 h-5 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    );
+  }
+  if (lowerCat.includes("travel") || lowerCat.includes("bag")) {
+    return (
+      <svg className={`w-5 h-5 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+      </svg>
+    );
+  }
+  if (lowerCat.includes("light")) {
+    return (
+      <svg className={`w-5 h-5 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+      </svg>
+    );
+  }
+  if (lowerCat.includes("video") || lowerCat.includes("cam")) {
+    return (
+      <svg className={`w-5 h-5 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+      </svg>
+    );
+  }
+  // Default fallback (Gear icon)
+  return (
+    <svg className={`w-5 h-5 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+    </svg>
+  );
 };
 
 const MOCK_PRODUCTS: Product[] = [
@@ -283,6 +338,10 @@ export default function Home() {
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [searchToast, setSearchToast] = useState<string | null>(null);
+  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [isSearchingDb, setIsSearchingDb] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   // Cart States
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -306,6 +365,112 @@ export default function Home() {
       console.error("Failed to load cart from localStorage", e);
     }
   }, []);
+
+  // Fetch products from Supabase on mount (fall back to MOCK_PRODUCTS if offline/unconfigured)
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        if (supabase) {
+          const { data, error } = await supabase
+            .from("products")
+            .select("*");
+          if (!error && data && data.length > 0) {
+            const mapped = data.map((item: any) => ({
+              id: item.id,
+              name: item.name,
+              category: item.category,
+              price: `$${Math.round(item.price)}`,
+              slashedPrice: item.slashed_price ? `$${Math.round(item.slashed_price)}` : "",
+              discount: item.discount || "",
+              description: item.description,
+              color: item.color || "purple",
+              icon: getIconForProduct(item.id, item.category, item.color)
+            }));
+            setProducts(mapped);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load storefront products from Supabase, using mock fallback:", err);
+      }
+    };
+    fetchProducts();
+
+    // Load recent searches
+    try {
+      const saved = localStorage.getItem("pluggedin_recent_searches");
+      if (saved) {
+        setRecentSearches(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error("Failed to load recent searches", e);
+    }
+  }, []);
+
+  // Debounced search querying Supabase backend
+  useEffect(() => {
+    const performSearch = async () => {
+      const trimmedQuery = searchQuery.trim();
+      if (!trimmedQuery) {
+        setSearchResults([]);
+        setFocusedIndex(-1);
+        return;
+      }
+
+      setIsSearchingDb(true);
+      try {
+        if (supabase) {
+          const { data, error } = await supabase
+            .from("products")
+            .select("*")
+            .or(`name.ilike.%${trimmedQuery}%,category.ilike.%${trimmedQuery}%,description.ilike.%${trimmedQuery}%`);
+
+          if (error) throw error;
+
+          if (data) {
+            const mapped = data.map((item: any) => ({
+              id: item.id,
+              name: item.name,
+              category: item.category,
+              price: `$${Math.round(item.price)}`,
+              slashedPrice: item.slashed_price ? `$${Math.round(item.slashed_price)}` : "",
+              discount: item.discount || "",
+              description: item.description,
+              color: item.color || "purple",
+              icon: getIconForProduct(item.id, item.category, item.color)
+            }));
+            setSearchResults(mapped);
+          }
+        } else {
+          // Local fallback filter if Supabase not configured
+          const q = trimmedQuery.toLowerCase();
+          const localResults = products.filter(p => 
+            p.name.toLowerCase().includes(q) ||
+            p.category.toLowerCase().includes(q) ||
+            p.description.toLowerCase().includes(q)
+          );
+          setSearchResults(localResults);
+        }
+      } catch (err) {
+        console.warn("Supabase search error, falling back to local:", err);
+        const q = trimmedQuery.toLowerCase();
+        const localResults = products.filter(p => 
+          p.name.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q)
+        );
+        setSearchResults(localResults);
+      } finally {
+        setIsSearchingDb(false);
+        setFocusedIndex(-1);
+      }
+    };
+
+    const delayDebounce = setTimeout(() => {
+      performSearch();
+    }, 150);
+
+    return () => clearTimeout(delayDebounce);
+  }, [searchQuery, products]);
 
   // Save to localStorage when cart changes
   const saveCart = (newCart: CartItem[]) => {
@@ -388,20 +553,22 @@ export default function Home() {
     }
   }, [activeProduct]);
 
-  // Filter products matching search term
-  const filteredProducts = MOCK_PRODUCTS.filter(product => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return false;
-    return (
-      product.name.toLowerCase().includes(q) ||
-      product.category.toLowerCase().includes(q) ||
-      product.description.toLowerCase().includes(q)
-    );
-  });
-
   const handleSelectProduct = (product: Product) => {
     setActiveProduct(product);
     setIsSearching(false);
+    
+    // Save to recent searches if query was typed
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim();
+      const updated = [q, ...recentSearches.filter(s => s.toLowerCase() !== q.toLowerCase())].slice(0, 5);
+      setRecentSearches(updated);
+      try {
+        localStorage.setItem("pluggedin_recent_searches", JSON.stringify(updated));
+      } catch (e) {
+        console.error("Failed to save recent searches", e);
+      }
+    }
+    
     setSearchQuery("");
     
     // Show a quick success toast
@@ -419,23 +586,23 @@ export default function Home() {
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
       setFocusedIndex((prev) => {
-        const count = filteredProducts.length;
+        const count = searchResults.length;
         if (count === 0) return -1;
         return prev < count - 1 ? prev + 1 : 0;
       });
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setFocusedIndex((prev) => {
-        const count = filteredProducts.length;
+        const count = searchResults.length;
         if (count === 0) return -1;
         return prev > 0 ? prev - 1 : count - 1;
       });
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (focusedIndex >= 0 && focusedIndex < filteredProducts.length) {
-        handleSelectProduct(filteredProducts[focusedIndex]);
-      } else if (filteredProducts.length > 0) {
-        handleSelectProduct(filteredProducts[0]);
+      if (focusedIndex >= 0 && focusedIndex < searchResults.length) {
+        handleSelectProduct(searchResults[focusedIndex]);
+      } else if (searchResults.length > 0) {
+        handleSelectProduct(searchResults[0]);
       }
     }
   };
@@ -859,7 +1026,49 @@ export default function Home() {
                   {/* Suggestions State (Empty query) */}
                   {!searchQuery.trim() && (
                     <div className="p-5 flex flex-col gap-4">
-                      <div>
+                      {recentSearches.length > 0 && (
+                        <div>
+                          <div className="flex justify-between items-center mb-2.5">
+                            <h4 className="text-[10px] font-bold tracking-[0.25em] text-zinc-400 uppercase">
+                              Recent Searches
+                            </h4>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRecentSearches([]);
+                                try {
+                                  localStorage.removeItem("pluggedin_recent_searches");
+                                } catch (err) {
+                                  console.error(err);
+                                }
+                              }}
+                              className="text-[9px] font-bold text-zinc-400 hover:text-purple-650 transition-colors uppercase tracking-widest cursor-pointer border-0 bg-transparent"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {recentSearches.map((term) => (
+                              <button
+                                key={term}
+                                onClick={() => {
+                                  setSearchQuery(term);
+                                  const input = document.getElementById("interactive-search-input") as HTMLInputElement;
+                                  if (input) input.focus();
+                                }}
+                                className="text-[11px] sm:text-xs font-semibold px-3 py-1.5 bg-purple-500/[0.03] border border-purple-200/30 text-zinc-700 rounded-full transition-all duration-200 cursor-pointer flex items-center gap-1.5 hover:bg-purple-50 hover:text-purple-700"
+                              >
+                                <svg className="w-3 h-3 text-zinc-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                {term}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className={recentSearches.length > 0 ? "border-t border-zinc-100 pt-4" : ""}>
                         <h4 className="text-[10px] font-bold tracking-[0.2em] text-zinc-400 uppercase mb-2.5">
                           Trending Searches
                         </h4>
@@ -914,16 +1123,29 @@ export default function Home() {
                     <>
                       <div className="p-3 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
                         <span className="text-[9px] font-bold tracking-widest text-zinc-400 uppercase">
-                          Search Results ({filteredProducts.length})
+                          {isSearchingDb ? "Searching..." : `Search Results (${searchResults.length})`}
                         </span>
-                        <span className="text-[9px] text-zinc-400 hidden sm:inline-block">
-                          Use ↑↓ to navigate • Enter to view
-                        </span>
+                        {!isSearchingDb && (
+                          <span className="text-[9px] text-zinc-400 hidden sm:inline-block">
+                            Use ↑↓ to navigate • Enter to view
+                          </span>
+                        )}
                       </div>
 
                       <div className="overflow-y-auto flex-1 max-h-[350px] divide-y divide-zinc-100/50">
-                        {filteredProducts.length > 0 ? (
-                          filteredProducts.map((product, index) => {
+                        {isSearchingDb ? (
+                          <div className="py-12 flex flex-col items-center justify-center gap-3">
+                            {/* Beautiful Glassmorphic Loader */}
+                            <div className="relative w-8 h-8">
+                              <div className="absolute inset-0 rounded-full border-2 border-purple-500/10"></div>
+                              <div className="absolute inset-0 rounded-full border-2 border-t-purple-600 animate-spin"></div>
+                            </div>
+                            <span className="text-[10px] font-bold tracking-widest text-zinc-450 uppercase animate-pulse">
+                              Searching database...
+                            </span>
+                          </div>
+                        ) : searchResults.length > 0 ? (
+                          searchResults.map((product, index) => {
                             const isFocused = focusedIndex === index;
                             
                             // Category colors setup
@@ -973,7 +1195,7 @@ export default function Home() {
                           <div className="py-8 px-4 text-center flex flex-col items-center justify-center">
                             <div className="p-3 bg-zinc-50 rounded-full text-zinc-400 mb-3 border border-zinc-200/20">
                               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             </div>
                             <h5 className="text-xs sm:text-sm font-bold text-zinc-700 mb-1">
@@ -1287,7 +1509,7 @@ export default function Home() {
 
               {/* Product Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full px-6 lg:px-8">
-                {MOCK_PRODUCTS.filter(p => ["headphones", "charger", "keyboard", "sleeve", "lightbar", "riser", "mouse"].includes(p.id)).map((product) => (
+                {products.filter(p => ["headphones", "charger", "keyboard", "sleeve", "lightbar", "riser", "mouse"].includes(p.id)).map((product) => (
                   <div
                     key={product.id}
                     onClick={() => setActiveProduct(product)}
@@ -1329,8 +1551,13 @@ export default function Home() {
                           className="bg-purple-600 hover:bg-purple-700 text-white p-2.5 rounded-xl shadow-lg shadow-purple-600/10 transition-all duration-200 cursor-pointer border-0 flex items-center justify-center hover:scale-105 active:scale-95"
                           title="Add to Cart"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 32 32">
+                            <g transform="translate(-156,-196)">
+                              <path fillRule="evenodd" d="m 159,198.00586 c -0.55228,0 -1,0.44772 -1,1 0,0.55228 0.44772,1 1,1 h 1.18945 l 3.83203,18.20703 c 0.0979,0.46231 0.50597,0.79302 0.97852,0.79297 h 17 c 0.55228,0 1,-0.44772 1,-1 0,-0.55228 -0.44772,-1 -1,-1 h -16.18945 l -0.42188,-2 H 181 c 0.45916,1.8e-4 0.85946,-0.31232 0.9707,-0.75781 l 1.29492,-5.21485 C 184.90874,207.96028 186,206.10519 186,204.00586 c 0,-3.30186 -2.69814,-6 -6,-6 -2.60121,0 -4.8265,1.67494 -5.6543,4 h -11.69336 l -0.67382,-3.20508 C 161.88145,198.33756 161.47315,198.006 161,198.00586 Z m 21,2 c 2.22098,0 4,1.77902 4,4 0,2.22098 -1.77902,4 -4,4 -2.22098,0 -4,-1.77902 -4,-4 0,-2.22098 1.77902,-4 4,-4 z m -16.92578,4 H 174 c 0,3.30186 2.69814,6 6,6 0.33554,0 0.6635,-0.0305 0.98438,-0.084 l -0.76563,3.08398 H 165 c -0.01,0.002 -0.0196,0.004 -0.0293,0.006 z" />
+                              <path fillRule="evenodd" d="m 169,220.00586 c -1.64501,0 -3,1.35499 -3,3 0,1.64501 1.35499,3 3,3 1.64501,0 3,-1.35499 3,-3 0,-1.64501 -1.35499,-3 -3,-3 z m 0,2 c 0.56413,0 1,0.43587 1,1 0,0.56413 -0.43587,1 -1,1 -0.56413,0 -1,-0.43587 -1,-1 0,-0.56413 0.43587,-1 1,-1 z" />
+                              <path fillRule="evenodd" d="m 179,220.00586 c -1.64501,0 -3,1.35499 -3,3 0,1.64501 1.35499,3 3,3 1.64501,0 3,-1.35499 3,-3 0,-1.64501 -1.35499,-3 -3,-3 z m 0,2 c 0.56413,0 1,0.43587 1,1 0,0.56413 -0.43587,1 -1,1 -0.56413,0 -1,-0.43587 -1,-1 0,-0.56413 0.43587,-1 1,-1 z" />
+                              <path fillRule="evenodd" d="m 180,201.00586 a 1,1 0 0 0 -1,1 v 1 h -1 a 1,1 0 0 0 -1,1 1,1 0 0 0 1,1 h 1 v 1 a 1,1 0 0 0 1,1 1,1 0 0 0 1,-1 v -1 h 1 a 1,1 0 0 0 1,-1 1,1 0 0 0 -1,-1 h -1 v -1 a 1,1 0 0 0 -1,-1 z" />
+                            </g>
                           </svg>
                         </button>
                       </div>
@@ -1413,7 +1640,7 @@ export default function Home() {
 
               {/* Product Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 w-full px-6 lg:px-8">
-                {MOCK_PRODUCTS.filter(p => ["speaker", "webcam", "mic", "stand", "backpack"].includes(p.id)).map((product) => (
+                {products.filter(p => ["speaker", "webcam", "mic", "stand", "backpack"].includes(p.id)).map((product) => (
                   <div
                     key={product.id}
                     onClick={() => setActiveProduct(product)}
@@ -1455,8 +1682,13 @@ export default function Home() {
                           className="bg-purple-600 hover:bg-purple-700 text-white p-2.5 rounded-xl shadow-lg shadow-purple-600/10 transition-all duration-200 cursor-pointer border-0 flex items-center justify-center hover:scale-105 active:scale-95"
                           title="Add to Cart"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 32 32">
+                            <g transform="translate(-156,-196)">
+                              <path fillRule="evenodd" d="m 159,198.00586 c -0.55228,0 -1,0.44772 -1,1 0,0.55228 0.44772,1 1,1 h 1.18945 l 3.83203,18.20703 c 0.0979,0.46231 0.50597,0.79302 0.97852,0.79297 h 17 c 0.55228,0 1,-0.44772 1,-1 0,-0.55228 -0.44772,-1 -1,-1 h -16.18945 l -0.42188,-2 H 181 c 0.45916,1.8e-4 0.85946,-0.31232 0.9707,-0.75781 l 1.29492,-5.21485 C 184.90874,207.96028 186,206.10519 186,204.00586 c 0,-3.30186 -2.69814,-6 -6,-6 -2.60121,0 -4.8265,1.67494 -5.6543,4 h -11.69336 l -0.67382,-3.20508 C 161.88145,198.33756 161.47315,198.006 161,198.00586 Z m 21,2 c 2.22098,0 4,1.77902 4,4 0,2.22098 -1.77902,4 -4,4 -2.22098,0 -4,-1.77902 -4,-4 0,-2.22098 1.77902,-4 4,-4 z m -16.92578,4 H 174 c 0,3.30186 2.69814,6 6,6 0.33554,0 0.6635,-0.0305 0.98438,-0.084 l -0.76563,3.08398 H 165 c -0.01,0.002 -0.0196,0.004 -0.0293,0.006 z" />
+                              <path fillRule="evenodd" d="m 169,220.00586 c -1.64501,0 -3,1.35499 -3,3 0,1.64501 1.35499,3 3,3 1.64501,0 3,-1.35499 3,-3 0,-1.64501 -1.35499,-3 -3,-3 z m 0,2 c 0.56413,0 1,0.43587 1,1 0,0.56413 -0.43587,1 -1,1 -0.56413,0 -1,-0.43587 -1,-1 0,-0.56413 0.43587,-1 1,-1 z" />
+                              <path fillRule="evenodd" d="m 179,220.00586 c -1.64501,0 -3,1.35499 -3,3 0,1.64501 1.35499,3 3,3 1.64501,0 3,-1.35499 3,-3 0,-1.64501 -1.35499,-3 -3,-3 z m 0,2 c 0.56413,0 1,0.43587 1,1 0,0.56413 -0.43587,1 -1,1 -0.56413,0 -1,-0.43587 -1,-1 0,-0.56413 0.43587,-1 1,-1 z" />
+                              <path fillRule="evenodd" d="m 180,201.00586 a 1,1 0 0 0 -1,1 v 1 h -1 a 1,1 0 0 0 -1,1 1,1 0 0 0 1,1 h 1 v 1 a 1,1 0 0 0 1,1 1,1 0 0 0 1,-1 v -1 h 1 a 1,1 0 0 0 1,-1 1,1 0 0 0 -1,-1 h -1 v -1 a 1,1 0 0 0 -1,-1 z" />
+                            </g>
                           </svg>
                         </button>
                       </div>
@@ -1652,139 +1884,143 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Section 6: Premium Dark Footer (Drawer Close) */}
-            <footer className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-zinc-950 text-zinc-400 border-t border-purple-950/40 px-8 py-16 -mb-16 lg:-mb-20 rounded-b-[2.2rem] md:rounded-b-[3.2rem] flex flex-col gap-12 overflow-hidden">
-              {/* Subtle ambient purple glow */}
-              <div className="absolute top-0 right-1/4 w-[300px] h-[300px] bg-purple-600/5 blur-[120px] rounded-full pointer-events-none" />
-              <div className="absolute bottom-0 left-1/4 w-[250px] h-[250px] bg-purple-800/5 blur-[100px] rounded-full pointer-events-none" />
+            {/* Section 6: Premium Dark Footer (            {/* Section 6: Premium Floating 3D Footer */}
+            <div className="relative z-20 w-full mt-16 -mb-10 lg:-mb-12 shrink-0">
+              {/* Back 3D Slab Extrusion Layer */}
+              <div 
+                className="absolute inset-0 bg-[#9674eb] rounded-[2.2rem] md:rounded-[3.2rem] translate-y-2.5"
+              ></div>
+              
+              {/* Main Card Shape Front Face */}
+              <footer className="relative bg-white/95 backdrop-blur-2xl border-[3px] sm:border-[4px] border-[#c1a8f6] rounded-[2.2rem] md:rounded-[3.2rem] text-zinc-650 px-6 sm:px-10 py-12 md:py-16 flex flex-col gap-10 md:gap-12 overflow-hidden shadow-[0_12px_24px_rgba(0,0,0,0.08)]">
+                {/* Subtle ambient light glows */}
+                <div className="absolute top-0 right-1/4 w-[300px] h-[300px] bg-purple-200/20 blur-[100px] rounded-full pointer-events-none" />
+                <div className="absolute bottom-0 left-1/4 w-[250px] h-[250px] bg-purple-300/10 blur-[90px] rounded-full pointer-events-none" />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12 relative z-10 text-left">
-                {/* Column 1: Brand Info */}
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl font-extrabold tracking-widest text-white font-syne">
-                      PLUGGED<span className="text-purple-500">IN</span>
-                    </span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
-                    A curated fusion of premium personal electronics, smart devices, and elevated setup accessories built to maximize creator potential.
-                  </p>
-                  {/* Social Icons */}
-                  <div className="flex gap-4 mt-2">
-                    {[
-                      { name: "Twitter", path: "M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" },
-                      { name: "Instagram", path: "M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z M17.5 6.5h.01" },
-                      { name: "YouTube", path: "M22.54 6.42a2.78 2.78 0 00-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 00-1.95 1.96A29 29 0 001 12a29 29 0 00.46 5.58 2.78 2.78 0 001.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 001.95-1.96A29 29 0 0023 12a29 29 0 00-.46-5.58z" }
-                    ].map((icon) => (
-                      <a
-                        key={icon.name}
-                        href="#"
-                        className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800/80 flex items-center justify-center text-zinc-500 hover:text-white hover:border-purple-500 hover:shadow-[0_0_12px_rgba(139,92,246,0.3)] transition-all duration-300 group"
-                        title={icon.name}
-                      >
-                        <svg className="w-4 h-4 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
-                          {icon.name === "Instagram" && (
-                            <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-                          )}
-                          <path d={icon.path} />
-                        </svg>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Column 2: Products */}
-                <div className="flex flex-col gap-4">
-                  <h4 className="text-[10px] font-bold tracking-[0.25em] text-zinc-500 uppercase">
-                    Browse
-                  </h4>
-                  <ul className="flex flex-col gap-2.5 text-xs sm:text-sm font-semibold">
-                    {[
-                      { name: "Trending Essentials", link: "#trending" },
-                      { name: "New Arrivals", link: "#new-in" },
-                      { name: "Audio Systems", link: "#shop" },
-                      { name: "Desk Accessories", link: "#shop" }
-                    ].map((item) => (
-                      <li key={item.name}>
-                        <a href={item.link} className="hover:text-white transition-colors duration-200">
-                          {item.name}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Column 3: Support */}
-                <div className="flex flex-col gap-4">
-                  <h4 className="text-[10px] font-bold tracking-[0.25em] text-zinc-500 uppercase">
-                    Support
-                  </h4>
-                  <ul className="flex flex-col gap-2.5 text-xs sm:text-sm font-semibold">
-                    {[
-                      { name: "Help & FAQs", link: "#faq" },
-                      { name: "Shipping Guide", link: "#faq" },
-                      { name: "30-Day Workspace Trial", link: "#faq" },
-                      { name: "Terms of Service", link: "#" }
-                    ].map((item) => (
-                      <li key={item.name}>
-                        <a href={item.link} className="hover:text-white transition-colors duration-200">
-                          {item.name}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Column 4: Newsletter */}
-                <div className="flex flex-col gap-4">
-                  <h4 className="text-[10px] font-bold tracking-[0.25em] text-zinc-500 uppercase">
-                    Newsletter
-                  </h4>
-                  <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
-                    Subscribe for exclusive setup insights, early catalog access, and curated creator discounts.
-                  </p>
-                  
-                  {/* Glassmorphic Newsletter Box */}
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const input = document.getElementById("newsletter-email-input") as HTMLInputElement;
-                      if (input?.value) {
-                        alert(`Subscribed ${input.value} to PluggedIn catalog!`);
-                        input.value = "";
-                      }
-                    }}
-                    className="flex flex-col gap-2 w-full mt-1"
-                  >
-                    <div className="flex items-center bg-zinc-900 border border-zinc-800/80 rounded-full px-4 py-1.5 focus-within:border-purple-500 transition-all duration-300">
-                      <input
-                        id="newsletter-email-input"
-                        type="email"
-                        required
-                        placeholder="Enter your email"
-                        className="w-full bg-transparent text-xs font-semibold text-white placeholder-zinc-600 focus:outline-none py-1.5"
-                      />
-                      <button
-                        type="submit"
-                        className="bg-purple-600 hover:bg-purple-700 hover:scale-105 active:scale-95 text-white font-bold text-[10px] tracking-widest px-4 py-1.5 rounded-full transition-all duration-200 cursor-pointer shrink-0"
-                      >
-                        JOIN
-                      </button>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12 relative z-10 text-left">
+                  {/* Column 1: Brand Info */}
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-2">
+                      <img src="/logo.webp" alt="PluggedIn Logo" className="h-8 object-contain" />
                     </div>
-                  </form>
-                </div>
-              </div>
+                    <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-semibold">
+                      A curated fusion of premium personal electronics, smart devices, and elevated setup accessories built to maximize creator potential.
+                    </p>
+                    {/* Social Icons */}
+                    <div className="flex gap-3.5 mt-2">
+                      {[
+                        { name: "X (Twitter)", viewBox: "0 0 24 24", path: "M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" },
+                        { name: "Instagram", viewBox: "0 0 24 24", path: "M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" },
+                        { name: "YouTube", viewBox: "0 0 24 24", path: "M23.498 6.163a3.003 3.003 0 00-2.11-2.11C19.517 3.545 12 3.545 12 3.545s-7.517 0-9.388.508a3.003 3.003 0 00-2.11 2.11C0 8.033 0 12 0 12s0 3.967.502 5.837a3.003 3.003 0 002.11 2.11c1.871.508 9.388.508 9.388.508s7.517 0 9.388-.508a3.002 3.002 0 002.11-2.11C24 15.967 24 12 24 12s0-3.967-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" },
+                        { name: "TikTok", viewBox: "0 0 24 24", path: "M12.53.02C13.82 0 15.14.01 16.46 0c.08 1.56.54 3.06 1.39 4.37.95.84 2.14 1.27 3.39 1.48v3.07a8.553 8.553 0 01-4.78-1.7c-.01 3.82.01 7.64-.02 11.46-.08 3.54-2.58 6.55-5.97 7.14-3.83.77-7.66-1.57-8.38-5.39-.77-3.83 1.57-7.66 5.39-8.38 1.05-.2 2.13-.1 3.13.28v3.19a5.352 5.352 0 00-3.13-.39c-1.8.35-3.07 2.05-2.88 3.88.19 1.83 1.83 3.16 3.66 2.97 1.83-.19 3.16-1.83 2.97-3.66V0h3.29v.02z" }
+                      ].map((icon) => (
+                        <a
+                          key={icon.name}
+                          href="#"
+                          className="w-10 h-10 rounded-xl bg-slate-50 border border-zinc-200/80 flex items-center justify-center text-zinc-500 hover:text-purple-600 hover:border-purple-300 hover:bg-purple-50/20 hover:shadow-[0_4px_12px_rgba(139,92,246,0.1)] transition-all duration-300 group"
+                          title={icon.name}
+                        >
+                          <svg className="w-5 h-5 fill-current" viewBox={icon.viewBox}>
+                            <path d={icon.path} />
+                          </svg>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Bottom Copyright & Fine Print Bar */}
-              <div className="border-t border-zinc-900/60 pt-8 mt-4 flex flex-col sm:flex-row justify-between items-center gap-4 relative z-10 text-[10px] sm:text-xs font-bold tracking-wider text-zinc-600">
-                <span>© {new Date().getFullYear()} PLUGGEDIN. ALL RIGHTS RESERVED.</span>
-                <div className="flex gap-6">
-                  <a href="#" className="hover:text-zinc-400 transition-colors duration-200">PRIVACY POLICY</a>
-                  <a href="#" className="hover:text-zinc-400 transition-colors duration-200">TERMS OF USE</a>
-                  <a href="#" className="hover:text-zinc-400 transition-colors duration-200">SITEMAP</a>
+                  {/* Column 2: Products */}
+                  <div className="flex flex-col gap-4">
+                    <h4 className="text-[10px] font-bold tracking-[0.25em] text-zinc-400 uppercase">
+                      Browse
+                    </h4>
+                    <ul className="flex flex-col gap-2.5 text-xs sm:text-sm font-semibold">
+                      {[
+                        { name: "Trending Essentials", link: "#trending" },
+                        { name: "New Arrivals", link: "#new-in" },
+                        { name: "Audio Systems", link: "#shop" },
+                        { name: "Desk Accessories", link: "#shop" }
+                      ].map((item) => (
+                        <li key={item.name}>
+                          <a href={item.link} className="text-zinc-650 hover:text-purple-655 transition-colors duration-200">
+                            {item.name}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Column 3: Support */}
+                  <div className="flex flex-col gap-4">
+                    <h4 className="text-[10px] font-bold tracking-[0.25em] text-zinc-400 uppercase">
+                      Support
+                    </h4>
+                    <ul className="flex flex-col gap-2.5 text-xs sm:text-sm font-semibold">
+                      {[
+                        { name: "Contact Support", link: "/contact" },
+                        { name: "Privacy Policy", link: "/privacy-policy" },
+                        { name: "Refund Policy", link: "/refund-policy" },
+                        { name: "Help & FAQs", link: "#faq" }
+                      ].map((item) => (
+                        <li key={item.name}>
+                          <Link href={item.link} className="text-zinc-650 hover:text-purple-655 transition-colors duration-200">
+                            {item.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Column 4: Newsletter */}
+                  <div className="flex flex-col gap-4">
+                    <h4 className="text-[10px] font-bold tracking-[0.25em] text-zinc-400 uppercase">
+                      Newsletter
+                    </h4>
+                    <p className="text-xs sm:text-sm text-zinc-550 leading-relaxed font-semibold">
+                      Subscribe for exclusive setup insights, early catalog access, and curated creator discounts.
+                    </p>
+                    
+                    {/* Glassmorphic Newsletter Box */}
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const input = document.getElementById("newsletter-email-input") as HTMLInputElement;
+                        if (input?.value) {
+                          alert(`Subscribed ${input.value} to PluggedIn catalog!`);
+                          input.value = "";
+                        }
+                      }}
+                      className="flex flex-col gap-2 w-full mt-1"
+                    >
+                      <div className="flex items-center bg-purple-600/[0.03] border border-purple-300/30 border-b-[3px] border-purple-600/30 rounded-full px-4 py-1.5 focus-within:border-purple-500/50 focus-within:bg-white transition-all duration-300 shadow-[inset_0_1px_2px_rgba(139,92,246,0.05)]">
+                        <input
+                          id="newsletter-email-input"
+                          type="email"
+                          required
+                          placeholder="Enter your email"
+                          className="w-full bg-transparent text-xs font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none py-1.5"
+                        />
+                        <button
+                          type="submit"
+                          className="bg-purple-600 hover:bg-purple-700 hover:scale-105 active:scale-95 text-white font-bold text-[10px] tracking-widest px-4 py-1.5 rounded-full transition-all duration-200 cursor-pointer shrink-0 border-0 shadow-sm"
+                        >
+                          JOIN
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 </div>
-              </div>
-            </footer>
+
+                {/* Bottom Copyright & Fine Print Bar */}
+                <div className="border-t border-zinc-200/80 pt-8 mt-4 flex flex-col sm:flex-row justify-between items-center gap-4 relative z-10 text-[10px] sm:text-xs font-bold tracking-wider text-zinc-450">
+                  <span>© {new Date().getFullYear()} PLUGGEDIN. ALL RIGHTS RESERVED.</span>
+                  <div className="flex gap-6">
+                    <Link href="/privacy-policy" className="hover:text-purple-650 transition-colors duration-200">PRIVACY POLICY</Link>
+                    <Link href="/refund-policy" className="hover:text-purple-650 transition-colors duration-200">REFUND POLICY</Link>
+                    <a href="#" className="hover:text-purple-650 transition-colors duration-200">SITEMAP</a>
+                  </div>
+                </div>
+              </footer>
+            </div>
 
           </div>
 

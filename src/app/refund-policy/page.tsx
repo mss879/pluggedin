@@ -1,0 +1,242 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Link from "next/link";
+
+export default function RefundPolicyPage() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-slate-50/50 flex items-center justify-center font-outfit">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
+          <span className="text-[10px] font-bold tracking-widest uppercase text-zinc-400">Loading Refund Policy...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50/50 flex flex-col font-outfit select-none relative pb-16">
+      
+      {/* Header Nav */}
+      <header className="sticky top-0 bg-white/70 backdrop-blur-xl border-b border-zinc-200/50 px-6 lg:px-12 py-4 flex items-center justify-between z-40 relative">
+        <Link href="/" className="flex items-center gap-1.5 text-zinc-900 hover:text-purple-600 transition-colors uppercase font-bold text-[10px] sm:text-xs tracking-widest group">
+          <svg className="w-4 h-4 transform group-hover:-translate-x-0.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+          </svg>
+          BACK TO STOREFRONT
+        </Link>
+
+        {/* Center Logo */}
+        <Link href="/" className="w-32 h-8 block hover:opacity-75 transition-opacity">
+          <img src="/logo.webp" alt="Logo" className="w-full h-full object-contain" />
+        </Link>
+
+        {/* Status Pill */}
+        <span className="text-[9px] font-black tracking-widest text-zinc-400 uppercase">
+          POLICIES
+        </span>
+      </header>
+
+      {/* Main Container */}
+      <main className="flex-grow max-w-4xl w-full mx-auto px-6 py-8 md:py-12 z-10 flex flex-col gap-8 text-left">
+        
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[9px] font-black tracking-widest text-purple-650 uppercase">
+            SATISFACTION GUARANTEES
+          </span>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-950 font-syne uppercase tracking-tight">
+            Refund & Return Policy
+          </h1>
+          <p className="text-zinc-500 text-xs sm:text-sm font-semibold uppercase tracking-wider">
+            Last Updated: June 13, 2026
+          </p>
+        </div>
+
+        {/* Policy Content */}
+        <div className="bg-white border border-zinc-200/60 rounded-[2rem] p-8 md:p-10 shadow-sm flex flex-col gap-6 text-zinc-650 text-sm leading-relaxed font-semibold">
+          
+          <section className="flex flex-col gap-3">
+            <h2 className="text-zinc-950 font-extrabold uppercase font-syne text-xs tracking-widest border-b border-zinc-100 pb-2">
+              1. 30-Day Workspace Trial
+            </h2>
+            <p>
+              We want you to build your dream desk setup with absolute confidence. PluggedIn offers a <strong className="text-zinc-900">30-day workspace trial</strong> on all standard catalog items, including our mechanical keyboards, studio monitors, dual wireless chargers, and carbon fiber monitor risers.
+            </p>
+            <p>
+              If a product doesn't elevate your productivity or fit your aesthetic, you are eligible to request a full refund or exchange within 30 days of receiving your package.
+            </p>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="text-zinc-950 font-extrabold uppercase font-syne text-xs tracking-widest border-b border-zinc-100 pb-2">
+              2. Return Conditions & Packaging
+            </h2>
+            <p>
+              To qualify for a refund, returned items must satisfy the following criteria:
+            </p>
+            <ul className="list-disc pl-5 flex flex-col gap-1.5 text-xs text-zinc-500 font-medium">
+              <li>Items must be in like-new, fully operational condition with zero structural blemishes or physical scuffs.</li>
+              <li>Returns must be accompanied by the original box, product manuals, connection cords, and custom accessories included in the initial shipping package.</li>
+              <li>A valid Order Reference Code (e.g. `ORD-20260613-XXXX`) must be provided during application.</li>
+            </ul>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="text-zinc-950 font-extrabold uppercase font-syne text-xs tracking-widest border-b border-zinc-100 pb-2">
+              3. Refund Processing Timelines
+            </h2>
+            <p>
+              Once your return package arrives at our design studio, our QA engineers inspect the components. This evaluation takes 2 to 3 business days. Following approval, refunds are issued immediately.
+            </p>
+            <p>
+              For orders paid via <strong className="text-zinc-850">Direct Bank Transfer</strong>, we will request your account coordinates to return the funds. For cash payments, refunds are handled through verified bank wires or store credits. Please allow 5 to 10 business days for the transaction to reflect in your account.
+            </p>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="text-zinc-950 font-extrabold uppercase font-syne text-xs tracking-widest border-b border-zinc-100 pb-2">
+              4. Return Shipping Logistics
+            </h2>
+            <p>
+              PluggedIn covers return shipping costs for defective gear or shipping errors. For returns based on personal style changes, customers are responsible for covering return courier fees. We recommend using a trackable courier service, as we cannot issue refunds for packages lost in transit.
+            </p>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="text-zinc-950 font-extrabold uppercase font-syne text-xs tracking-widest border-b border-zinc-100 pb-2">
+              5. How to Initiate a Return
+            </h2>
+            <p>
+              To start a return request, please contact our helpdesk through the <Link href="/contact" className="text-purple-650 hover:underline">Contact Form</Link> choosing the reason <strong className="text-zinc-800">"Product Inquiries"</strong> or email us at <a href="mailto:hello@pluggedin.co" className="text-purple-655 font-bold hover:underline">hello@pluggedin.co</a> quoting your order code.
+            </p>
+          </section>
+
+        </div>
+
+      </main>
+
+      {/* Footer */}
+      <div className="relative z-20 w-full max-w-6xl mx-auto px-6 mt-16 -mb-12">
+        {/* Back 3D Slab Extrusion Layer */}
+        <div 
+          className="absolute inset-0 mx-6 bg-[#9674eb] rounded-[2.2rem] md:rounded-[3.2rem] translate-y-2.5" 
+          style={{ content: '""' }}
+        />
+        
+        {/* Main Card Shape Front Face */}
+        <footer className="relative bg-white/95 backdrop-blur-2xl border-[3px] sm:border-[4px] border-[#c1a8f6] rounded-[2.2rem] md:rounded-[3.2rem] text-zinc-650 px-6 sm:px-10 py-12 md:py-16 flex flex-col gap-10 md:gap-12 overflow-hidden shadow-[0_12px_24px_rgba(0,0,0,0.08)]">
+          {/* Subtle ambient light glows */}
+          <div className="absolute top-0 right-1/4 w-[300px] h-[300px] bg-purple-200/20 blur-[100px] rounded-full pointer-events-none" />
+          <div className="absolute bottom-0 left-1/4 w-[250px] h-[250px] bg-purple-300/10 blur-[90px] rounded-full pointer-events-none" />
+
+          <div className="max-w-6xl w-full mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12 relative z-10 text-left">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <img src="/logo.webp" alt="PluggedIn Logo" className="h-8 object-contain" />
+              </div>
+              <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-semibold">
+                A curated fusion of premium personal electronics, smart devices, and elevated setup accessories built to maximize creator potential.
+              </p>
+              {/* Social Icons */}
+              <div className="flex gap-3.5 mt-2">
+                {[
+                  { name: "X (Twitter)", viewBox: "0 0 24 24", path: "M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" },
+                  { name: "Instagram", viewBox: "0 0 24 24", path: "M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" },
+                  { name: "YouTube", viewBox: "0 0 24 24", path: "M23.498 6.163a3.003 3.003 0 00-2.11-2.11C19.517 3.545 12 3.545 12 3.545s-7.517 0-9.388.508a3.003 3.003 0 00-2.11 2.11C0 8.033 0 12 0 12s0 3.967.502 5.837a3.003 3.003 0 002.11 2.11c1.871.508 9.388.508 9.388.508s7.517 0 9.388-.508a3.002 3.002 0 002.11-2.11C24 15.967 24 12 24 12s0-3.967-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" },
+                  { name: "TikTok", viewBox: "0 0 24 24", path: "M12.53.02C13.82 0 15.14.01 16.46 0c.08 1.56.54 3.06 1.39 4.37.95.84 2.14 1.27 3.39 1.48v3.07a8.553 8.553 0 01-4.78-1.7c-.01 3.82.01 7.64-.02 11.46-.08 3.54-2.58 6.55-5.97 7.14-3.83.77-7.66-1.57-8.38-5.39-.77-3.83 1.57-7.66 5.39-8.38 1.05-.2 2.13-.1 3.13.28v3.19a5.352 5.352 0 00-3.13-.39c-1.8.35-3.07 2.05-2.88 3.88.19 1.83 1.83 3.16 3.66 2.97 1.83-.19 3.16-1.83 2.97-3.66V0h3.29v.02z" }
+                ].map((icon) => (
+                  <a
+                    key={icon.name}
+                    href="#"
+                    className="w-10 h-10 rounded-xl bg-slate-50 border border-zinc-200/80 flex items-center justify-center text-zinc-500 hover:text-purple-600 hover:border-purple-300 hover:bg-purple-50/20 hover:shadow-[0_4px_12px_rgba(139,92,246,0.1)] transition-all duration-300 group"
+                    title={icon.name}
+                  >
+                    <svg className="w-5 h-5 fill-current" viewBox={icon.viewBox}>
+                      <path d={icon.path} />
+                    </svg>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <h4 className="text-[10px] font-bold tracking-[0.25em] text-zinc-400 uppercase">
+                Browse
+              </h4>
+              <ul className="flex flex-col gap-2.5 text-xs sm:text-sm font-semibold">
+                <li><Link href="/#trending" className="text-zinc-660 hover:text-purple-655 transition-colors">Trending Essentials</Link></li>
+                <li><Link href="/#new-in" className="text-zinc-660 hover:text-purple-655 transition-colors">New Arrivals</Link></li>
+                <li><Link href="/#shop" className="text-zinc-660 hover:text-purple-655 transition-colors">Audio Systems</Link></li>
+              </ul>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <h4 className="text-[10px] font-bold tracking-[0.25em] text-zinc-400 uppercase">
+                Support
+              </h4>
+              <ul className="flex flex-col gap-2.5 text-xs sm:text-sm font-semibold">
+                <li><Link href="/contact" className="text-zinc-660 hover:text-purple-655 transition-colors">Contact Support</Link></li>
+                <li><Link href="/privacy-policy" className="text-zinc-660 hover:text-purple-655 transition-colors">Privacy Policy</Link></li>
+                <li><Link href="/refund-policy" className="text-zinc-660 hover:text-purple-655 transition-colors">Refund Policy</Link></li>
+              </ul>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <h4 className="text-[10px] font-bold tracking-[0.25em] text-zinc-400 uppercase">
+                Newsletter
+              </h4>
+              <p className="text-xs sm:text-sm text-zinc-555 leading-relaxed font-semibold">
+                Subscribe for exclusive setup insights and creator discounts.
+              </p>
+              
+              {/* Glassmorphic Newsletter Box */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const input = document.getElementById("newsletter-email-input") as HTMLInputElement;
+                  if (input?.value) {
+                    alert(`Subscribed ${input.value} to PluggedIn catalog!`);
+                    input.value = "";
+                  }
+                }}
+                className="flex flex-col gap-2 w-full mt-1"
+              >
+                <div className="flex items-center bg-purple-600/[0.03] border border-purple-300/30 border-b-[3px] border-purple-600/30 rounded-full px-4 py-1.5 focus-within:border-purple-500/50 focus-within:bg-white transition-all duration-300 shadow-[inset_0_1px_2px_rgba(139,92,246,0.05)]">
+                  <input
+                    id="newsletter-email-input"
+                    type="email"
+                    required
+                    placeholder="Enter your email"
+                    className="w-full bg-transparent text-xs font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none py-1.5"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-purple-600 hover:bg-purple-700 hover:scale-105 active:scale-95 text-white font-bold text-[10px] tracking-widest px-4 py-1.5 rounded-full transition-all duration-200 cursor-pointer shrink-0 border-0 shadow-sm"
+                  >
+                    JOIN
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div className="max-w-6xl w-full mx-auto border-t border-zinc-200/80 pt-8 mt-4 flex flex-col sm:flex-row justify-between items-center gap-4 relative z-10 text-[10px] sm:text-xs font-bold tracking-wider text-zinc-450">
+            <span>© {new Date().getFullYear()} PLUGGEDIN. ALL RIGHTS RESERVED.</span>
+            <div className="flex gap-6">
+              <Link href="/privacy-policy" className="hover:text-purple-650 transition-colors">PRIVACY POLICY</Link>
+              <Link href="/refund-policy" className="hover:text-purple-650 transition-colors">REFUND POLICY</Link>
+            </div>
+          </div>
+        </footer>
+      </div>
+
+    </div>
+  );
+}

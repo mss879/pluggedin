@@ -40,15 +40,11 @@ export default function Preloader({ onComplete }: PreloaderProps) {
   // --- 1. Background Asset Preloading ---
   useEffect(() => {
     let active = true;
-    let videoReceived = 0;
     let logoReceived = 0;
-    let videoLength = 12343695;
-    let logoLength = 514345;
+    const logoLength = 54842;
 
     const updateProgress = () => {
-      const totalContentLength = videoLength + logoLength;
-      const totalReceived = videoReceived + logoReceived;
-      downloadPctRef.current = Math.min(totalReceived / totalContentLength, 0.99);
+      downloadPctRef.current = Math.min(logoReceived / logoLength, 0.99);
     };
 
     const downloadAsset = async (
@@ -59,16 +55,6 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       const response = await fetch(url);
       if (!response.body) {
         throw new Error(`Failed to fetch ${url}: no response body`);
-      }
-
-      const contentLengthHeader = response.headers.get("Content-Length");
-      const contentLength = contentLengthHeader ? +contentLengthHeader : 0;
-      if (contentLength > 0) {
-        if (url.includes(".mp4")) {
-          videoLength = contentLength;
-        } else if (url.includes("logo.png")) {
-          logoLength = contentLength;
-        }
       }
 
       const reader = response.body.getReader();
@@ -95,29 +81,20 @@ export default function Preloader({ onComplete }: PreloaderProps) {
 
     const preload = async () => {
       try {
-        const [videoBlobUrl, logoBlobUrl] = await Promise.all([
-          downloadAsset(
-            "/Products_drifting_in_frame_202606111905.mp4",
-            "video/mp4",
-            (bytes) => {
-              videoReceived = bytes;
-              updateProgress();
-            }
-          ),
-          downloadAsset(
-            "/logo.webp",
-            "image/webp",
-            (bytes) => {
-              logoReceived = bytes;
-              updateProgress();
-            }
-          ),
-        ]);
+        // Preload logo (critical visual)
+        const logoBlobUrl = await downloadAsset(
+          "/logo.webp",
+          "image/webp",
+          (bytes) => {
+            logoReceived = bytes;
+            updateProgress();
+          }
+        );
 
         if (active) {
           downloadPctRef.current = 1.0;
           preloadedUrls.current = {
-            videoUrl: videoBlobUrl,
+            videoUrl: "/Products_drifting_in_frame_202606111905.mp4", // Stream video progressively (faster site entry!)
             logoUrl: logoBlobUrl,
           };
         }
@@ -140,14 +117,14 @@ export default function Preloader({ onComplete }: PreloaderProps) {
   useEffect(() => {
     const logPool = [
       "COMPILING WEBGL GRAPHICS ENVIRONMENT...",
+      "GENERATING CINEMATIC 3D PLUG OBJECTS...",
       "STABILIZING VOLTAGE DYNAMICS [120V / 60HZ]...",
       "RESOLVING AUDIO LATENCY SCHEMAS...",
-      "SYNCHRONIZING DESK LIGHT EMISSION...",
       "DOWNLOADING SECURE CONTENT BUNDLES...",
       "POLISHING OBSIDIAN GLASS SURFACES...",
       "ESTABLISHING SECURE GATEWAY TUNNEL...",
       "ENCRYPTING CACHED PAYLOAD CHANNELS...",
-      "GRID STABILITY VERIFIED [99.8%]...",
+      "ALIGNING 3-PIN PLUG PRONGS...",
       "POWER CORE ARMED. INITIATING LINK..."
     ];
 
@@ -189,14 +166,14 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     const height = container.clientHeight;
     const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
-    // --- Scene Setup (Light clean luxury room space) ---
+    // --- Scene Setup (Light clean luxury space) ---
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xfbfbfe); // elegant soft off-white
     scene.fog = new THREE.FogExp2(0xfbfbfe, 0.08);
 
-    // Initial cinematic camera placement (low side angle for depth)
+    // Camera placed directly looking down the Z-axis, slightly angled down
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(-2, 1.2, 5);
+    camera.position.set(0, 0.5, 5.0);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -205,8 +182,8 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       precision: "mediump"
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
+    renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio, 1.5)); // Optimized pixel ratio for better fill-rate performance
+    renderer.shadowMap.enabled = !isMobile; // Disable shadow maps on mobile to save processing power
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
@@ -230,17 +207,16 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     };
 
     // --- Lights ---
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75); // bright fill
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95); // bright clean fill
     scene.add(ambientLight);
 
     const dirLight1 = new THREE.DirectionalLight(0xc084fc, 2.0); // purple accent light
-    dirLight1.position.set(-5, 4, 3);
+    dirLight1.position.set(-4, 4, 2);
     scene.add(dirLight1);
 
     const dirLight2 = new THREE.DirectionalLight(0xffffff, 1.8); // white key light
-    dirLight2.position.set(4, 5, 6);
+    dirLight2.position.set(4, 5, 5);
     dirLight2.castShadow = true;
-    // Mobile Performance: Lower shadow map resolution on mobile
     dirLight2.shadow.mapSize.width = isMobile ? 512 : 1024;
     dirLight2.shadow.mapSize.height = isMobile ? 512 : 1024;
     dirLight2.shadow.bias = -0.0005;
@@ -248,164 +224,82 @@ export default function Preloader({ onComplete }: PreloaderProps) {
 
     // Point Light to simulate glowing connection
     const sparkLight = new THREE.PointLight(0x9674eb, 0, 15);
-    sparkLight.position.set(1.95, 0.5, 0);
+    sparkLight.position.set(0, 0.0, 2.45);
     scene.add(sparkLight);
 
-    // --- 3D Wall Receptacle (US Double Outlet) ---
-    const socketGroup = new THREE.Group();
-    socketGroup.position.set(2.2, 0, 0);
-
-    // Glossy White Porcelain plate material
-    const plateMat = new THREE.MeshPhysicalMaterial({
-      color: 0xfcfcfd, // porcelain white
-      roughness: 0.1,
-      metalness: 0.05,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.05,
-      reflectivity: 0.9,
-    });
-    const plateShape = drawRoundedRect(1.8, 2.4, 0.15);
-    const plateGeom = new THREE.ExtrudeGeometry(plateShape, {
-      depth: 0.45,
-      bevelEnabled: true,
-      bevelSegments: 2, // Optimized from 4
-      steps: 1,
-      bevelSize: 0.03,
-      bevelThickness: 0.03,
-    });
-    const plateMesh = new THREE.Mesh(plateGeom, plateMat);
-    plateMesh.rotation.y = Math.PI / 2;
-    plateMesh.position.set(-0.28, 0, 0);
-    plateMesh.receiveShadow = true;
-    socketGroup.add(plateMesh);
-
-    // Satin silver outlet inserts
-    const baseMat = new THREE.MeshPhysicalMaterial({
-      color: 0xf4f4f6,
-      roughness: 0.22,
-      metalness: 0.4,
-      clearcoat: 0.2,
-    });
-    const receptacleShape = drawRoundedRect(0.75, 0.75, 0.25);
-    const receptacleGeom = new THREE.ExtrudeGeometry(receptacleShape, {
-      depth: 0.08,
-      bevelEnabled: true,
-      bevelSegments: 2, // Optimized from 3
-      steps: 1,
-      bevelSize: 0.02,
-      bevelThickness: 0.02,
-    });
-
-    const topOutletBase = new THREE.Mesh(receptacleGeom, baseMat);
-    topOutletBase.rotation.y = Math.PI / 2;
-    topOutletBase.position.set(-0.2, 0.5, 0);
-    topOutletBase.receiveShadow = true;
-    socketGroup.add(topOutletBase);
-
-    const bottomOutletBase = new THREE.Mesh(receptacleGeom, baseMat);
-    bottomOutletBase.rotation.y = Math.PI / 2;
-    bottomOutletBase.position.set(-0.2, -0.5, 0);
-    bottomOutletBase.receiveShadow = true;
-    socketGroup.add(bottomOutletBase);
-
-    // Outlets Slot Geometries (Polished Gold contacts)
-    const slotHotGeom = new THREE.BoxGeometry(0.05, 0.22, 0.05);
-    const prongMat = new THREE.MeshPhysicalMaterial({
-      color: 0xd4af37,
-      metalness: 1.0,
-      roughness: 0.12,
-      clearcoat: 0.6,
-      clearcoatRoughness: 0.1,
-    });
-    const slotNeutralGeom = new THREE.BoxGeometry(0.05, 0.28, 0.05);
-    const groundGeom = new THREE.CylinderGeometry(0.05, 0.05, 0.05, 8); // Optimized from 12 segments
-
-    const addSlots = (yOffset: number) => {
-      const slotHot = new THREE.Mesh(slotHotGeom, prongMat);
-      slotHot.position.set(1.995, yOffset + 0.1, -0.18);
-      scene.add(slotHot);
-
-      const slotNeutral = new THREE.Mesh(slotNeutralGeom, prongMat);
-      slotNeutral.position.set(1.995, yOffset + 0.1, 0.18);
-      scene.add(slotNeutral);
-
-      const ground = new THREE.Mesh(groundGeom, prongMat);
-      ground.rotation.z = Math.PI / 2;
-      ground.position.set(1.995, yOffset - 0.18, 0);
-      scene.add(ground);
-    };
-
-    addSlots(0.5);
-    addSlots(-0.5);
-
-    scene.add(socketGroup);
-
-    // --- 3D Plug ---
+    // --- 3D 3-Pin Plug ---
     const plugGroup = new THREE.Group();
 
-    // Polished white ceramic plug body
+    // 1. Polished white ceramic plug body (extruded rounded rectangle)
     const plugBodyMat = new THREE.MeshPhysicalMaterial({
-      color: 0xfbfbfd, // porcelain white
+      color: 0xfcfcfd, // porcelain white
       roughness: 0.15,
       metalness: 0.05,
       clearcoat: 1.0,
       clearcoatRoughness: 0.05,
       reflectivity: 0.8,
     });
-    const plugBodyShape = drawRoundedRect(1.1, 0.8, 0.12);
+    const plugBodyShape = drawRoundedRect(1.1, 0.9, 0.15);
     const plugBodyGeom = new THREE.ExtrudeGeometry(plugBodyShape, {
-      depth: 1.1,
+      depth: 0.8,
       bevelEnabled: true,
-      bevelSegments: 2, // Optimized from 4
+      bevelSegments: 2,
       steps: 1,
       bevelSize: 0.04,
       bevelThickness: 0.04,
     });
     const plugBodyMesh = new THREE.Mesh(plugBodyGeom, plugBodyMat);
-    plugBodyMesh.rotation.y = Math.PI / 2;
-    plugBodyMesh.position.set(-0.55, 0, 0);
+    plugBodyMesh.position.set(0, 0, -0.4); // center along Z
     plugBodyMesh.castShadow = true;
     plugBodyMesh.receiveShadow = true;
     plugGroup.add(plugBodyMesh);
 
-    // Glowing core cylinder inside (kept for code compatibility, but rendering is disabled for solid plug)
-    const coreGeom = new THREE.CylinderGeometry(0.12, 0.12, 0.65, 8); // Optimized from 16
-    coreGeom.rotateZ(Math.PI / 2);
-    const coreMat = new THREE.MeshBasicMaterial({
-      color: 0x9674eb,
+    // 2. Satin black rubber cable base collar
+    const collarMat = new THREE.MeshPhysicalMaterial({
+      color: 0x18181b, // matte black
+      roughness: 0.5,
+      metalness: 0.1,
     });
+    const collarGeom = new THREE.CylinderGeometry(0.12, 0.16, 0.25, 12);
+    collarGeom.rotateX(Math.PI / 2); // align with Z-axis
+    const collarMesh = new THREE.Mesh(collarGeom, collarMat);
+    collarMesh.position.set(0, 0, -0.525);
+    collarMesh.castShadow = true;
+    plugGroup.add(collarMesh);
 
-    // Cable base collar (polished brass transition)
-    const baseTransitionGeom = new THREE.CylinderGeometry(0.18, 0.23, 0.2, 12); // Optimized from 16
-    baseTransitionGeom.rotateZ(Math.PI / 2);
-    const baseTransitionMat = new THREE.MeshPhysicalMaterial({
-      color: 0xd4af37,
+    // 3. Three Gold Prongs (US style: 2 flat rectangular prongs, 1 round ground prong)
+    const prongMat = new THREE.MeshPhysicalMaterial({
+      color: 0xd4af37, // premium brass/gold
+      metalness: 1.0,
       roughness: 0.15,
-      metalness: 0.95,
+      clearcoat: 0.5,
+      clearcoatRoughness: 0.1,
     });
-    const baseTransition = new THREE.Mesh(baseTransitionGeom, baseTransitionMat);
-    baseTransition.position.set(-0.65, 0, 0);
-    baseTransition.castShadow = true;
-    plugGroup.add(baseTransition);
 
-    // Gold Prongs
-    const prongLength = 0.55;
-    const prongGeom = new THREE.BoxGeometry(prongLength, 0.18, 0.04);
+    // Rectangular Hot/Neutral prongs
+    const prongGeom = new THREE.BoxGeometry(0.1, 0.28, 0.5);
+    
+    const prongLeft = new THREE.Mesh(prongGeom, prongMat);
+    prongLeft.position.set(-0.25, 0.12, 0.65); // offset left, top
+    prongLeft.castShadow = true;
+    plugGroup.add(prongLeft);
 
-    const prongTop = new THREE.Mesh(prongGeom, prongMat);
-    prongTop.position.set(0.805, 0.1, -0.18);
-    prongTop.castShadow = true;
-    plugGroup.add(prongTop);
+    const prongRight = new THREE.Mesh(prongGeom, prongMat);
+    prongRight.position.set(0.25, 0.12, 0.65); // offset right, top
+    prongRight.castShadow = true;
+    plugGroup.add(prongRight);
 
-    const prongBottom = new THREE.Mesh(prongGeom, prongMat);
-    prongBottom.position.set(0.805, 0.1, 0.18);
-    prongBottom.castShadow = true;
-    plugGroup.add(prongBottom);
+    // Rectangular ground prong (visually matched size)
+    const groundProngGeom = new THREE.BoxGeometry(0.1, 0.22, 0.4);
+    const prongGround = new THREE.Mesh(groundProngGeom, prongMat);
+    prongGround.position.set(0, -0.22, 0.6); // offset center, bottom, Z aligned
+    prongGround.castShadow = true;
+    plugGroup.add(prongGround);
 
     scene.add(plugGroup);
 
     // --- Interactive Mouse-Responsive Ambient Dust Field ---
-    const dustCount = 80; // Optimized from 100
+    const dustCount = 80;
     const dustGeom = new THREE.BufferGeometry();
     const dustPos = new Float32Array(dustCount * 3);
     for (let i = 0; i < dustCount; i++) {
@@ -431,8 +325,8 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     };
     window.addEventListener("mousemove", handleMouseMove);
 
-    // --- Torus Connection Shockwave ---
-    const torusGeom = new THREE.TorusGeometry(0.1, 0.015, 6, 24); // Optimized from 8, 48
+    // --- Torus Connection Shockwave (Flat in screen X-Y plane) ---
+    const torusGeom = new THREE.TorusGeometry(0.1, 0.015, 6, 24);
     const torusMat = new THREE.MeshBasicMaterial({
       color: 0x9674eb,
       transparent: true,
@@ -440,11 +334,11 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       blending: THREE.AdditiveBlending,
     });
     const shockwave = new THREE.Mesh(torusGeom, torusMat);
-    shockwave.rotation.y = Math.PI / 2;
-    shockwave.position.set(1.95, 0.5, 0);
+    shockwave.position.set(0, 0.0, 2.45);
+    shockwave.rotation.set(0, 0, 0); // Flat parallel to the screen/camera
     scene.add(shockwave);
 
-    // --- Lightning Electric Arcs ---
+    // --- Lightning Electric Arcs striking out to the viewport margins ---
     const arcLines: THREE.Line[] = [];
     const arcMat = new THREE.LineBasicMaterial({
       color: 0x8b5cf6,
@@ -453,14 +347,10 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     });
     for (let i = 0; i < 3; i++) {
       const points = [];
-      points.push(new THREE.Vector3(1.95, 0.5, 0));
-      for (let j = 1; j <= 4; j++) {
-        points.push(new THREE.Vector3(
-          1.95 - j * 0.25,
-          0.5 + (Math.random() - 0.5) * 0.4,
-          (Math.random() - 0.5) * 0.4
-        ));
-      }
+      points.push(new THREE.Vector3(0, 0, 0));
+      points.push(new THREE.Vector3(0, 0, 0));
+      points.push(new THREE.Vector3(0, 0, 0));
+      points.push(new THREE.Vector3(0, 0, 0));
       const arcGeom = new THREE.BufferGeometry().setFromPoints(points);
       const arcLine = new THREE.Line(arcGeom, arcMat);
       arcLine.visible = false;
@@ -468,32 +358,32 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       arcLines.push(arcLine);
     }
 
-    // --- Performance Optimization: Pre-Allocate Cable Material (Avoid compiling shaders on every frame) ---
+    // --- Spline Cable (White cord trailing behind the plug) ---
     const tubeMat = new THREE.MeshPhysicalMaterial({
       color: 0xf4f4f7, // clean white cord
       roughness: 0.45,
       metalness: 0.1,
-      emissive: new THREE.Color(0x9674eb), // emissive purple glow
+      emissive: new THREE.Color(0x9674eb),
       emissiveIntensity: 1.0,
     });
     const pulseColor = new THREE.Color();
 
     let cableMesh: THREE.Mesh | null = null;
-    const updateCable = (plugX: number, pulseIntensity: number, progressVal: number) => {
-      const rearPlugX = plugX - 0.55;
+    const updateCable = (plugX: number, plugY: number, plugZ: number, pulseIntensity: number, progressVal: number) => {
+      // Dynamic curve trailing from deep off-screen bottom to the back collar of the plug
       const curve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-8, -3.5, 0),
-        new THREE.Vector3(-4, -4.2, 0.3),
-        new THREE.Vector3(rearPlugX - 1.2, -0.6, 0.1),
-        new THREE.Vector3(rearPlugX - 0.1, 0.5, 0),
+        new THREE.Vector3(0, -6, -9),
+        new THREE.Vector3(-1.0, -4.5, -4),
+        new THREE.Vector3(-0.4, plugY - 1.2, plugZ - 2.5),
+        new THREE.Vector3(plugX, plugY, plugZ - 0.7),
       ]);
 
-      // Optimized geometry segments (48, 8 instead of 64, 12 - reduces faces by ~50%)
-      const newGeom = new THREE.TubeGeometry(curve, 48, 0.08, 8, false);
+      // Optimized segments: (20 segments, 5 radial) to reduce GPU memory churn
+      const newGeom = new THREE.TubeGeometry(curve, 20, 0.06, 5, false);
 
       if (cableMesh) {
-        cableMesh.geometry.dispose(); // free GPU buffers immediately
-        cableMesh.geometry = newGeom; // swap geometry, reusing static material/mesh
+        cableMesh.geometry.dispose();
+        cableMesh.geometry = newGeom;
       } else {
         cableMesh = new THREE.Mesh(newGeom, tubeMat);
         cableMesh.castShadow = true;
@@ -501,36 +391,36 @@ export default function Preloader({ onComplete }: PreloaderProps) {
         scene.add(cableMesh);
       }
 
-      // Update material uniforms in-place
       tubeMat.emissiveIntensity = pulseIntensity;
       pulseColor.setHSL(0.74 + progressVal * 0.02, 1.0, 0.55);
       tubeMat.emissive.copy(pulseColor);
     };
 
-    // --- Electric Spark Particles ---
-    const sparkCount = 45; // Optimized from 60
+    // --- Electric Spark Particles flying forward at the camera ---
+    const sparkCount = 45;
     const sparkGeom = new THREE.BufferGeometry();
     const sparkPos = new Float32Array(sparkCount * 3);
     const sparkVels: number[] = [];
 
     for (let i = 0; i < sparkCount; i++) {
-      sparkPos[i * 3] = 1.95;
-      sparkPos[i * 3 + 1] = 0.5 + (Math.random() - 0.5) * 0.4;
-      sparkPos[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
+      // Sparks start at connection coordinates
+      sparkPos[i * 3] = 0;
+      sparkPos[i * 3 + 1] = 0.0;
+      sparkPos[i * 3 + 2] = 2.45;
 
       const angle = Math.random() * Math.PI * 2;
-      const speed = 2.5 + Math.random() * 6.5;
+      const rSpeed = 1.0 + Math.random() * 2.5;
       sparkVels.push(
-        -1.5 - Math.random() * 3.5, // Push back
-        Math.sin(angle) * speed,
-        Math.cos(angle) * speed
+        Math.cos(angle) * rSpeed, // X speed
+        Math.sin(angle) * rSpeed, // Y speed
+        4.0 + Math.random() * 6.0  // Z speed (flying directly towards camera!)
       );
     }
 
     const sparkPosOrig = new Float32Array(sparkPos);
     sparkGeom.setAttribute("position", new THREE.BufferAttribute(sparkPos, 3));
     const sparkMat = new THREE.PointsMaterial({
-      color: 0x9674eb, // purple sparks
+      color: 0x9674eb,
       size: 0.16,
       transparent: true,
       opacity: 0,
@@ -542,7 +432,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     // --- Animation Loop ---
     let animFrameId: number;
     const startTime = Date.now();
-    const minPlugDuration = 2200; // minimum travel duration
+    const minPlugDuration = 2200;
     let plugged = false;
     let virtualT = 0.0;
     let lastTime = Date.now();
@@ -559,7 +449,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
 
       const pctVal = Math.floor(progress * 100);
 
-      // --- Performance Optimization: Direct DOM Updates (Bypasses React virtual diffing overhead at 60fps) ---
+      // Direct DOM updates to bypass React render cycle lag at 60fps
       if (percentTextRef.current) {
         percentTextRef.current.textContent = pctVal.toString();
       }
@@ -583,50 +473,74 @@ export default function Preloader({ onComplete }: PreloaderProps) {
         }
       }
 
-      // 1. Cinematic camera path interpolation (Portrait mobile/tablet responsive scaling)
+      // Camera positions (centered view looking down)
       const aspect = camera.aspect;
-      const startCamX = aspect < 1 ? -3.0 : -2.2;
-      const targetCamX = 0.0;
-      const startCamY = aspect < 1 ? 1.8 : 1.4;
+      const startCamY = aspect < 1 ? 0.8 : 0.4;
       const targetCamY = 0.0;
-      const startCamZ = aspect < 1 ? 8.2 : 5.2;
-      const targetCamZ = aspect < 1 ? 12.0 : 8.0;
+      const startCamZ = aspect < 1 ? 7.0 : 6.0;
+      const targetCamZ = aspect < 1 ? 6.2 : 5.2;
 
       const easeCam = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-      camera.position.x = startCamX + (targetCamX - startCamX) * easeCam;
+      camera.position.x = 0;
       camera.position.y = startCamY + (targetCamY - startCamY) * easeCam;
       camera.position.z = startCamZ + (targetCamZ - startCamZ) * easeCam;
-      camera.lookAt(new THREE.Vector3(progress * 0.9, 0.2, 0));
+      camera.lookAt(new THREE.Vector3(0, 0.0, progress * 1.5));
 
-      // 2. Animate glowing pulse inside core and fiber cable (slow, smooth breathing - no fast blinking)
+      // Cable glowing emissive pulse
       const pulseSpeed = 3 + progress * 2;
       const cablePulse = (1.2 + Math.sin(now * 0.001 * pulseSpeed) * 0.35) * (0.8 + progress * 1.5);
-      coreMat.color.setHSL(0.74 + progress * 0.02, 1.0, 0.45 + Math.sin(now * 0.002) * 0.05);
 
-      // 3. Fall and rotate interactive dust particles
-      dustParticles.rotation.y = mouseX * 0.12;
-      dustParticles.rotation.x = mouseY * 0.12;
+      // Rotate ambient dust field based on mouse
+      dustParticles.rotation.y = mouseX * 0.08;
+      dustParticles.rotation.x = mouseY * 0.08;
       const dustArr = dustGeom.attributes.position.array as Float32Array;
       for (let i = 0; i < dustCount; i++) {
-        dustArr[i * 3 + 1] -= 0.004; // fall slowly
+        dustArr[i * 3 + 1] -= 0.004;
         if (dustArr[i * 3 + 1] < -4) {
-          dustArr[i * 3 + 1] = 4; // reset at top
+          dustArr[i * 3 + 1] = 4;
         }
       }
       dustGeom.attributes.position.needsUpdate = true;
 
-      const startX = -6.0;
-      const targetX = 1.37; // socket contact point
-      let currentX;
+      // Flight coordinates of plug
+      const startX = 0.0;
+      const targetX = 0.0;
+      const startY = -3.5;
+      const targetY = 0.0;
+      const startZ = -6.0;
+      const targetZ = 1.8; // contact depth further back to prevent getting too close
+
+      let currentX = startX;
+      let currentY = startY;
+      let currentZ = startZ;
+
+      // Rotational alignment as it approaches the screen
+      let rotX = 0.6;
+      let rotY = 0.4;
+      let rotZ = -0.5;
 
       if (progress < 1.0) {
         const ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
         currentX = startX + (targetX - startX) * ease;
+        currentY = startY + (targetY - startY) * ease;
+        currentZ = startZ + (targetZ - startZ) * ease;
+
+        rotX = 0.6 * (1.0 - ease);
+        rotY = 0.4 * (1.0 - ease);
+        rotZ = -0.5 * (1.0 - ease);
+
         sparkLight.intensity = 0;
         sparkMat.opacity = 0;
         shockwave.visible = false;
       } else {
         currentX = targetX;
+        currentY = targetY;
+        currentZ = targetZ;
+
+        rotX = 0;
+        rotY = 0;
+        rotZ = 0;
+
         if (!plugged) {
           plugged = true;
           sparkLight.intensity = 24;
@@ -635,35 +549,62 @@ export default function Preloader({ onComplete }: PreloaderProps) {
         }
       }
 
-      plugGroup.position.set(currentX, 0.5, 0);
-      updateCable(currentX, cablePulse, progress);
+      plugGroup.position.set(currentX, currentY, currentZ);
+      plugGroup.rotation.set(rotX, rotY, rotZ);
+      updateCable(currentX, currentY, currentZ, cablePulse, progress);
 
-      // Once connection is locked (progress == 100%), play high-end visual thuds & fades
+      // Once connection is locked (progress == 100%), play docking FX
       if (plugged) {
         virtualT += delta;
 
-        // Shockwave expansion
+        // Ambient lighting flash impact
+        if (virtualT < 0.22) {
+          ambientLight.intensity = 0.95 + (4.5 * (1.0 - (virtualT / 0.22)));
+        } else {
+          ambientLight.intensity = 0.95;
+        }
+
+        // Shockwave expansion in screen plane
         if (virtualT < 0.65) {
-          shockwave.scale.setScalar(1 + virtualT * 42);
+          shockwave.scale.setScalar(1 + virtualT * 48);
           torusMat.opacity = Math.max(0, 1.0 - (virtualT / 0.65));
         } else {
           shockwave.visible = false;
         }
 
-        // Lightning arc flickering
+        // Lightning arc discharges striking onto the viewport
         if (virtualT < 0.38) {
-          arcMat.opacity = (1.0 - (virtualT / 0.38)) * (Math.random() * 0.9 + 0.1);
-          arcLines.forEach(line => {
-            line.visible = Math.random() > 0.45;
+          arcMat.opacity = (1.0 - (virtualT / 0.38)) * (Math.random() * 0.95 + 0.05);
+          
+          // Calculate prong world coordinates dynamically relative to the plug group's position
+          const currentPlugPos = plugGroup.position;
+          const prongLeftWorld = new THREE.Vector3(currentPlugPos.x - 0.25, currentPlugPos.y + 0.12, currentPlugPos.z + 0.65);
+          const prongRightWorld = new THREE.Vector3(currentPlugPos.x + 0.25, currentPlugPos.y + 0.12, currentPlugPos.z + 0.65);
+          const prongGroundWorld = new THREE.Vector3(currentPlugPos.x, currentPlugPos.y - 0.22, currentPlugPos.z + 0.65);
+          const prongWorlds = [prongLeftWorld, prongRightWorld, prongGroundWorld];
+
+          arcLines.forEach((line, idx) => {
+            line.visible = Math.random() > 0.4;
             if (line.visible) {
-              const pts = [new THREE.Vector3(1.95, 0.5, 0)];
-              for (let j = 1; j <= 4; j++) {
+              const startPt = prongWorlds[idx];
+              const endPt = new THREE.Vector3(
+                (Math.random() - 0.5) * 5.0,
+                (Math.random() - 0.5) * 3.5,
+                3.5 // viewport plane closer to the camera/screen
+              );
+              
+              const pts = [startPt];
+              // Jagged lightning path offsets
+              for (let j = 1; j <= 2; j++) {
+                const t = j / 3;
                 pts.push(new THREE.Vector3(
-                  1.95 - j * 0.22,
-                  0.5 + (Math.random() - 0.5) * 0.55,
-                  (Math.random() - 0.5) * 0.55
+                  startPt.x + (endPt.x - startPt.x) * t + (Math.random() - 0.5) * 0.45,
+                  startPt.y + (endPt.y - startPt.y) * t + (Math.random() - 0.5) * 0.45,
+                  startPt.z + (endPt.z - startPt.z) * t + (Math.random() - 0.5) * 0.2
                 ));
               }
+              pts.push(endPt);
+              
               line.geometry.setFromPoints(pts);
               line.geometry.attributes.position.needsUpdate = true;
             }
@@ -672,25 +613,25 @@ export default function Preloader({ onComplete }: PreloaderProps) {
           arcLines.forEach(line => line.visible = false);
         }
 
-        // Camera impact thud recoil shake (dampened)
+        // Camera impact thud shake recoil
         if (virtualT < 0.35) {
           const shakeProgress = virtualT / 0.35;
-          const shakeVal = 0.08 * Math.pow(1.0 - shakeProgress, 2.2);
+          const shakeVal = 0.09 * Math.pow(1.0 - shakeProgress, 2.2);
           camera.position.x += (Math.random() - 0.5) * shakeVal;
           camera.position.y += (Math.random() - 0.5) * shakeVal;
         }
 
-        // Sparks trajectory explosion
-        if (virtualT < 0.9) {
-          const sparkT = virtualT / 0.9;
+        // Sparks flying past the camera
+        if (virtualT < 0.95) {
+          const sparkT = virtualT / 0.95;
           sparkLight.intensity = 45 * Math.pow(1.0 - sparkT, 2);
           sparkMat.opacity = 1.0 - sparkT;
 
           const posAttr = sparkGeom.getAttribute("position") as THREE.BufferAttribute;
           for (let i = 0; i < sparkCount; i++) {
-            posAttr.setX(i, sparkPosOrig[i * 3] + sparkVels[i * 3] * sparkT * 2.3);
-            posAttr.setY(i, sparkPosOrig[i * 3 + 1] + sparkVels[i * 3 + 1] * sparkT * 2.3 - 1.2 * sparkT * sparkT);
-            posAttr.setZ(i, sparkPosOrig[i * 3 + 2] + sparkVels[i * 3 + 2] * sparkT * 2.3);
+            posAttr.setX(i, sparkPosOrig[i * 3] + sparkVels[i * 3] * sparkT);
+            posAttr.setY(i, sparkPosOrig[i * 3 + 1] + sparkVels[i * 3 + 1] * sparkT - 1.5 * sparkT * sparkT);
+            posAttr.setZ(i, sparkPosOrig[i * 3 + 2] + sparkVels[i * 3 + 2] * sparkT);
           }
           posAttr.needsUpdate = true;
         } else {
@@ -698,9 +639,9 @@ export default function Preloader({ onComplete }: PreloaderProps) {
           sparkMat.opacity = 0;
         }
 
-        // High-end screen fade out
+        // Clean screen fade out
         if (virtualT >= 0.8) {
-          const fadeT = Math.min((virtualT - 0.8) / 0.55, 1.0); // 550ms fade
+          const fadeT = Math.min((virtualT - 0.8) / 0.55, 1.0);
           if (preloaderRef.current) {
             preloaderRef.current.style.opacity = (1.0 - fadeT).toString();
           }
@@ -739,20 +680,13 @@ export default function Preloader({ onComplete }: PreloaderProps) {
         container.removeChild(renderer.domElement);
       }
 
-      plateGeom.dispose();
-      plateMat.dispose();
-      receptacleGeom.dispose();
-      baseMat.dispose();
-      slotHotGeom.dispose();
-      prongMat.dispose();
-      slotNeutralGeom.dispose();
-      groundGeom.dispose();
       plugBodyGeom.dispose();
       plugBodyMat.dispose();
-      coreGeom.dispose();
-      coreMat.dispose();
-      baseTransitionGeom.dispose();
-      baseTransitionMat.dispose();
+      collarGeom.dispose();
+      collarMat.dispose();
+      prongGeom.dispose();
+      prongMat.dispose();
+      groundProngGeom.dispose();
       dustGeom.dispose();
       dustMat.dispose();
       torusGeom.dispose();
@@ -761,7 +695,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       arcLines.forEach(l => l.geometry.dispose());
       sparkGeom.dispose();
       sparkMat.dispose();
-      tubeMat.dispose(); // Dispose pre-allocated cable material
+      tubeMat.dispose();
 
       if (cableMesh) {
         scene.remove(cableMesh);

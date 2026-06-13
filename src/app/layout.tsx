@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Syne, Outfit } from "next/font/google";
+import { Syne, Outfit, Inter } from "next/font/google";
 import "./globals.css";
 
 const syne = Syne({
@@ -12,6 +12,12 @@ const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
+});
+
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -83,6 +89,8 @@ export const metadata: Metadata = {
   manifest: "/site.webmanifest",
 };
 
+import AnalyticsTracker from "../components/AnalyticsTracker";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -91,9 +99,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${syne.variable} ${outfit.variable} h-full antialiased`}
+      className={`${syne.variable} ${outfit.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-white font-outfit text-zinc-900">
+        <AnalyticsTracker />
         {children}
       </body>
     </html>
