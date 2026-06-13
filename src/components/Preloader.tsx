@@ -280,19 +280,19 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     const prongGeom = new THREE.BoxGeometry(0.1, 0.28, 0.5);
     
     const prongLeft = new THREE.Mesh(prongGeom, prongMat);
-    prongLeft.position.set(-0.25, 0.12, 0.65); // offset left, top
+    prongLeft.position.set(-0.25, -0.12, 0.65); // offset left, bottom
     prongLeft.castShadow = true;
     plugGroup.add(prongLeft);
 
     const prongRight = new THREE.Mesh(prongGeom, prongMat);
-    prongRight.position.set(0.25, 0.12, 0.65); // offset right, top
+    prongRight.position.set(0.25, -0.12, 0.65); // offset right, bottom
     prongRight.castShadow = true;
     plugGroup.add(prongRight);
 
     // Rectangular ground prong (visually matched size)
     const groundProngGeom = new THREE.BoxGeometry(0.1, 0.22, 0.4);
     const prongGround = new THREE.Mesh(groundProngGeom, prongMat);
-    prongGround.position.set(0, -0.22, 0.6); // offset center, bottom, Z aligned
+    prongGround.position.set(0, 0.22, 0.6); // offset center, top, Z aligned
     prongGround.castShadow = true;
     plugGroup.add(prongGround);
 
@@ -578,9 +578,9 @@ export default function Preloader({ onComplete }: PreloaderProps) {
           
           // Calculate prong world coordinates dynamically relative to the plug group's position
           const currentPlugPos = plugGroup.position;
-          const prongLeftWorld = new THREE.Vector3(currentPlugPos.x - 0.25, currentPlugPos.y + 0.12, currentPlugPos.z + 0.65);
-          const prongRightWorld = new THREE.Vector3(currentPlugPos.x + 0.25, currentPlugPos.y + 0.12, currentPlugPos.z + 0.65);
-          const prongGroundWorld = new THREE.Vector3(currentPlugPos.x, currentPlugPos.y - 0.22, currentPlugPos.z + 0.65);
+          const prongLeftWorld = new THREE.Vector3(currentPlugPos.x - 0.25, currentPlugPos.y - 0.12, currentPlugPos.z + 0.65);
+          const prongRightWorld = new THREE.Vector3(currentPlugPos.x + 0.25, currentPlugPos.y - 0.12, currentPlugPos.z + 0.65);
+          const prongGroundWorld = new THREE.Vector3(currentPlugPos.x, currentPlugPos.y + 0.22, currentPlugPos.z + 0.65);
           const prongWorlds = [prongLeftWorld, prongRightWorld, prongGroundWorld];
 
           arcLines.forEach((line, idx) => {

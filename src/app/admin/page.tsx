@@ -92,6 +92,7 @@ export default function AdminDashboardPage() {
   // Add Product Form State
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [prodName, setProdName] = useState("");
+  const [prodMetaTitle, setProdMetaTitle] = useState("");
   const [prodCategory, setProdCategory] = useState("Audio");
   const [prodPrice, setProdPrice] = useState("");
   const [prodSlashedPrice, setProdSlashedPrice] = useState("");
@@ -122,75 +123,247 @@ export default function AdminDashboardPage() {
       try {
         if (supabase) {
           // 1. Fetch Products
-          const { data: prodData, error: prodErr } = await supabase
-            .from("products")
-            .select("*")
-            .order("created_at", { ascending: false });
-          if (prodErr) throw prodErr;
+          try {
+            const { data: prodData, error: prodErr } = await supabase
+              .from("products")
+              .select("*")
+              .order("created_at", { ascending: false });
+            if (prodErr) throw prodErr;
 
-          const mappedProds: Product[] = (prodData || []).map((item) => ({
-            id: item.id,
-            name: item.name,
-            category: item.category,
-            price: typeof item.price === "number" ? `$${Math.round(item.price)}` : item.price,
-            slashedPrice: item.slashed_price ? `$${Math.round(item.slashed_price)}` : "",
-            discount: item.discount || "",
-            description: item.description,
-            color: item.color || "purple",
-            icon: getCategoryIcon(item.category, item.id),
-            images: item.images || [],
-            tags: item.tags || [],
-            features: item.features || [],
-          }));
-          setProducts(mappedProds);
+            if (prodData && prodData.length > 0) {
+              const mappedProds: Product[] = prodData.map((item) => ({
+                id: item.id,
+                name: item.name,
+                category: item.category,
+                price: typeof item.price === "number" ? `Rs. ${Math.round(item.price).toLocaleString()}` : item.price,
+                slashedPrice: item.slashed_price ? `Rs. ${Math.round(item.slashed_price).toLocaleString()}` : "",
+                discount: item.discount || "",
+                description: item.description,
+                color: item.color || "purple",
+                icon: getCategoryIcon(item.category, item.id),
+                images: item.images || [],
+                tags: item.tags || [],
+                features: item.features || [],
+                metaTitle: item.meta_title || "",
+              }));
+              setProducts(mappedProds);
+            } else {
+              setProducts(MOCK_PRODUCTS);
+            }
+          } catch (e) {
+            console.error("Failed to load products:", e);
+            setProducts(MOCK_PRODUCTS);
+          }
 
           // 2. Fetch Collections
-          const { data: collData, error: collErr } = await supabase
-            .from("collections")
-            .select("*")
-            .order("created_at", { ascending: false });
-          if (collErr) throw collErr;
-          setCollections(collData || []);
+          try {
+            const { data: collData, error: collErr } = await supabase
+              .from("collections")
+              .select("*")
+              .order("created_at", { ascending: false });
+            if (collErr) throw collErr;
+            if (collData && collData.length > 0) {
+              setCollections(collData);
+            } else {
+              throw new Error("Collections empty");
+            }
+          } catch (e) {
+            console.error("Failed to load collections:", e);
+            setCollections([
+              {
+                id: "audio-elite",
+                name: "Audio Elite",
+                description: "Broadcast quality mics, reference studio monitors, and comfort-focused ANC headphones.",
+                type: "smart",
+                rules: { tags: ["audio"] },
+              },
+              {
+                id: "desk-accessories",
+                name: "Desk Accessories",
+                description: "Elevate your desk layout with premium work gear.",
+                type: "smart",
+                rules: { tags: ["gear"] },
+              },
+              {
+                id: "creator-bundle",
+                name: "Creator Essentials Bundle",
+                description: "The ultimate starter pack for streaming and programming.",
+                type: "manual",
+                rules: { tags: [] },
+              },
+            ]);
+          }
 
           // Fetch Collection-Products relationships
-          const { data: cpData, error: cpErr } = await supabase
-            .from("collection_products")
-            .select("*");
-          if (cpErr) throw cpErr;
-          setCollectionProducts(cpData || []);
+          try {
+            const { data: cpData, error: cpErr } = await supabase
+              .from("collection_products")
+              .select("*");
+            if (cpErr) throw cpErr;
+            if (cpData && cpData.length > 0) {
+              setCollectionProducts(cpData);
+            } else {
+              throw new Error("Collection-products empty");
+            }
+          } catch (e) {
+            console.error("Failed to load collection_products:", e);
+            setCollectionProducts([
+              { collection_id: "creator-bundle", product_id: "keyboard" },
+              { collection_id: "creator-bundle", product_id: "mic" }
+            ]);
+          }
 
           // 3. Fetch Analytics
-          const { data: visitData, error: visitErr } = await supabase
-            .from("analytics_visits")
-            .select("*")
-            .order("created_at", { ascending: false })
-            .limit(500);
-          if (visitErr) throw visitErr;
-          setVisits(visitData || []);
+          try {
+            const { data: visitData, error: visitErr } = await supabase
+              .from("analytics_visits")
+              .select("*")
+              .order("created_at", { ascending: false })
+              .limit(500);
+            if (visitErr) throw visitErr;
+            if (visitData && visitData.length > 0) {
+              setVisits(visitData);
+            } else {
+              throw new Error("Visits empty");
+            }
+          } catch (e) {
+            console.error("Failed to load analytics_visits:", e);
+            setVisits([
+              { id: "1", path: "/", referrer: "direct", user_agent: "Mozilla", country: "United States", created_at: new Date(Date.now() - 3600000).toISOString() },
+              { id: "2", path: "/product/headphones", referrer: "google.com", user_agent: "Chrome", country: "United States", created_at: new Date(Date.now() - 7200000).toISOString() },
+              { id: "3", path: "/product/keyboard", referrer: "instagram.com", user_agent: "Safari", country: "United Kingdom", created_at: new Date(Date.now() - 10000000).toISOString() },
+              { id: "4", path: "/", referrer: "youtube.com", user_agent: "Firefox", country: "Canada", created_at: new Date(Date.now() - 15000000).toISOString() },
+              { id: "5", path: "/product/charger", referrer: "direct", user_agent: "Chrome", country: "Germany", created_at: new Date(Date.now() - 18000000).toISOString() },
+              { id: "6", path: "/product/mic", referrer: "twitter.com", user_agent: "Edge", country: "Australia", created_at: new Date(Date.now() - 25000000).toISOString() },
+            ]);
+          }
 
           // 4. Fetch Orders
-          const { data: orderData, error: orderErr } = await supabase
-            .from("orders")
-            .select("*")
-            .order("created_at", { ascending: false });
-          if (orderErr) throw orderErr;
-          setOrders(orderData || []);
+          try {
+            const { data: orderData, error: orderErr } = await supabase
+              .from("orders")
+              .select("*")
+              .order("created_at", { ascending: false });
+            if (orderErr) throw orderErr;
+            if (orderData && orderData.length > 0) {
+              setOrders(orderData);
+            } else {
+              throw new Error("Orders empty");
+            }
+          } catch (e) {
+            console.error("Failed to load orders:", e);
+            setOrders([
+              {
+                id: "ORD-20260612-921A",
+                customer_name: "Sarah Jenkins",
+                customer_email: "sarah.j@example.com",
+                shipping_address: "1524 Pine Street, San Francisco, CA, 94109",
+                items: [{ id: "headphones", name: "Pro Noise-Cancelling Headphones", color: "Space Purple", quantity: 1, price: "Rs. 90,000" }],
+                total_amount: 90000.00,
+                status: "pending",
+                created_at: new Date(Date.now() - 14400000).toISOString()
+              },
+              {
+                id: "ORD-20260611-304B",
+                customer_name: "Alex Rivera",
+                customer_email: "alex.rivera@example.com",
+                shipping_address: "892 Broadway Apt 4B, New York, NY, 10003",
+                items: [
+                  { id: "keyboard", name: "Creations Mechanical Keyboard", color: "Onyx Black", quantity: 1, price: "Rs. 48,000" },
+                  { id: "charger", name: "Smart Dual Wireless Charger", color: "Carbon Black", quantity: 1, price: "Rs. 27,000" }
+                ],
+                total_amount: 75000.00,
+                status: "shipped",
+                created_at: new Date(Date.now() - 86400000).toISOString()
+              },
+              {
+                id: "ORD-20260610-855C",
+                customer_name: "Evelyn Chen",
+                customer_email: "evelyn.chen@gmail.com",
+                shipping_address: "724 Olympic Blvd, Los Angeles, CA, 90015",
+                items: [{ id: "backpack", name: "Urban Tech Backpack", color: "Slate Grey", quantity: 1, price: "Rs. 42,000" }],
+                total_amount: 42000.00,
+                status: "delivered",
+                created_at: new Date(Date.now() - 172800000).toISOString()
+              }
+            ]);
+          }
 
           // 5. Fetch Contact Inquiries
-          const { data: contactData, error: contactErr } = await supabase
-            .from("contact_inquiries")
-            .select("*")
-            .order("created_at", { ascending: false });
-          if (contactErr) throw contactErr;
-          setContactInquiries(contactData || []);
+          try {
+            const { data: contactData, error: contactErr } = await supabase
+              .from("contact_inquiries")
+              .select("*")
+              .order("created_at", { ascending: false });
+            if (contactErr) throw contactErr;
+            if (contactData && contactData.length > 0) {
+              setContactInquiries(contactData);
+            } else {
+              throw new Error("Contact inquiries empty");
+            }
+          } catch (e) {
+            console.error("Failed to load contact_inquiries:", e);
+            setContactInquiries([
+              {
+                id: "INQ-1",
+                name: "Liam Johnson",
+                email: "liam.johnson@example.com",
+                reason: "general_inquiries",
+                message: "Hello, I love your workspace aesthetic! Do you offer bulk discounts for corporate setup upgrades?",
+                created_at: new Date(Date.now() - 86400000).toISOString(),
+              },
+              {
+                id: "INQ-2",
+                name: "Sophia Smith",
+                email: "sophia.smith@example.com",
+                reason: "product_inquiries",
+                message: "Hi, is the mechanical keyboard compatible with macOS function keys out of the box?",
+                created_at: new Date(Date.now() - 43200000).toISOString(),
+              },
+              {
+                id: "INQ-3",
+                name: "Jackson Davis",
+                email: "jackson.davis@example.com",
+                reason: "shipping_inquiries",
+                message: "Hello, do you ship to international locations like Switzerland and Germany? If so, what is the ETA?",
+                created_at: new Date(Date.now() - 7200000).toISOString(),
+              }
+            ]);
+          }
 
           // 6. Fetch Marquee Offers
-          const { data: offerData, error: offerErr } = await supabase
-            .from("marquee_offers")
-            .select("*")
-            .order("created_at", { ascending: true });
-          if (offerErr) throw offerErr;
-          setMarqueeOffers(offerData || []);
+          try {
+            const { data: offerData, error: offerErr } = await supabase
+              .from("marquee_offers")
+              .select("*")
+              .order("created_at", { ascending: true });
+            if (offerErr) throw offerErr;
+            if (offerData && offerData.length > 0) {
+              setMarqueeOffers(offerData);
+            } else {
+              throw new Error("Marquee offers empty");
+            }
+          } catch (e) {
+            console.error("Failed to load marquee_offers:", e);
+            setMarqueeOffers([
+              { id: "MO-1", text: "Summer Sale: 20% Off All Audio Devices", row_number: 1 },
+              { id: "MO-2", text: "Free Delivery on orders over Rs. 45,000", row_number: 1 },
+              { id: "MO-3", text: "Use Code CREATE20 for extra discounts", row_number: 1 },
+              { id: "MO-4", text: "Limited stock on mechanical keyboards", row_number: 1 },
+              { id: "MO-5", text: "Premium creator bundles now available", row_number: 1 },
+              { id: "MO-6", text: "Elevate your desk setup with 15% off", row_number: 1 },
+              { id: "MO-7", text: "Tactile switches special promotion active", row_number: 1 },
+              { id: "MO-8", text: "Shop the high performance range", row_number: 1 },
+              { id: "MO-9", text: "Exclusive subscriber discounts inside", row_number: 2 },
+              { id: "MO-10", text: "Buy now and pay later with zero interest", row_number: 2 },
+              { id: "MO-11", text: "Ambient LED lightbars: 30% discount", row_number: 2 },
+              { id: "MO-12", text: "Carbon fiber monitor risers special offer", row_number: 2 },
+              { id: "MO-13", text: "Upgrade to studio audio today", row_number: 2 },
+              { id: "MO-14", text: "All desk accessories starting at Rs. 9,000", row_number: 2 },
+              { id: "MO-15", text: "Smart wireless chargers best price", row_number: 2 },
+              { id: "MO-16", text: "Water resistant travel cases on sale", row_number: 2 }
+            ]);
+          }
         } else {
           // Offline Fallbacks
           setProducts(MOCK_PRODUCTS);
@@ -237,8 +410,8 @@ export default function AdminDashboardPage() {
               customer_name: "Sarah Jenkins",
               customer_email: "sarah.j@example.com",
               shipping_address: "1524 Pine Street, San Francisco, CA, 94109",
-              items: [{ id: "headphones", name: "Pro Noise-Cancelling Headphones", color: "Space Purple", quantity: 1, price: "$299" }],
-              total_amount: 299.00,
+              items: [{ id: "headphones", name: "Pro Noise-Cancelling Headphones", color: "Space Purple", quantity: 1, price: "Rs. 90,000" }],
+              total_amount: 90000.00,
               status: "pending",
               created_at: new Date(Date.now() - 14400000).toISOString()
             },
@@ -248,10 +421,10 @@ export default function AdminDashboardPage() {
               customer_email: "alex.rivera@example.com",
               shipping_address: "892 Broadway Apt 4B, New York, NY, 10003",
               items: [
-                { id: "keyboard", name: "Creations Mechanical Keyboard", color: "Onyx Black", quantity: 1, price: "$159" },
-                { id: "charger", name: "Smart Dual Wireless Charger", color: "Carbon Black", quantity: 1, price: "$89" }
+                { id: "keyboard", name: "Creations Mechanical Keyboard", color: "Onyx Black", quantity: 1, price: "Rs. 48,000" },
+                { id: "charger", name: "Smart Dual Wireless Charger", color: "Carbon Black", quantity: 1, price: "Rs. 27,000" }
               ],
-              total_amount: 248.00,
+              total_amount: 75000.00,
               status: "shipped",
               created_at: new Date(Date.now() - 86400000).toISOString()
             },
@@ -260,8 +433,8 @@ export default function AdminDashboardPage() {
               customer_name: "Evelyn Chen",
               customer_email: "evelyn.chen@gmail.com",
               shipping_address: "724 Olympic Blvd, Los Angeles, CA, 90015",
-              items: [{ id: "backpack", name: "Urban Tech Backpack", color: "Slate Grey", quantity: 1, price: "$139" }],
-              total_amount: 139.00,
+              items: [{ id: "backpack", name: "Urban Tech Backpack", color: "Slate Grey", quantity: 1, price: "Rs. 42,000" }],
+              total_amount: 42000.00,
               status: "delivered",
               created_at: new Date(Date.now() - 172800000).toISOString()
             }
@@ -296,7 +469,7 @@ export default function AdminDashboardPage() {
           // Mock marquee offers fallback
           setMarqueeOffers([
             { id: "MO-1", text: "Summer Sale: 20% Off All Audio Devices", row_number: 1 },
-            { id: "MO-2", text: "Free Delivery on orders over $150", row_number: 1 },
+            { id: "MO-2", text: "Free Delivery on orders over Rs. 45,000", row_number: 1 },
             { id: "MO-3", text: "Use Code CREATE20 for extra discounts", row_number: 1 },
             { id: "MO-4", text: "Limited stock on mechanical keyboards", row_number: 1 },
             { id: "MO-5", text: "Premium creator bundles now available", row_number: 1 },
@@ -308,13 +481,13 @@ export default function AdminDashboardPage() {
             { id: "MO-11", text: "Ambient LED lightbars: 30% discount", row_number: 2 },
             { id: "MO-12", text: "Carbon fiber monitor risers special offer", row_number: 2 },
             { id: "MO-13", text: "Upgrade to studio audio today", row_number: 2 },
-            { id: "MO-14", text: "All desk accessories starting at $29", row_number: 2 },
+            { id: "MO-14", text: "All desk accessories starting at Rs. 9,000", row_number: 2 },
             { id: "MO-15", text: "Smart wireless chargers best price", row_number: 2 },
             { id: "MO-16", text: "Water resistant travel cases on sale", row_number: 2 }
           ]);
         }
       } catch (err) {
-        console.warn("Failed to load DB details, loading offline defaults:", err);
+        console.warn("Failed to load DB details:", err);
       } finally {
         setLoading(false);
       }
@@ -440,6 +613,7 @@ export default function AdminDashboardPage() {
       images: prodImages.length > 0 ? prodImages : [`/products/${id}.webp`],
       tags: tagsArr,
       features: featuresArr,
+      meta_title: prodMetaTitle,
       updated_at: new Date().toISOString(),
     };
 
@@ -467,8 +641,8 @@ export default function AdminDashboardPage() {
         id,
         name: prodName,
         category: prodCategory,
-        price: `$${Math.round(priceNum)}`,
-        slashedPrice: slashedPriceNum ? `$${Math.round(slashedPriceNum)}` : "",
+        price: `Rs. ${Math.round(priceNum).toLocaleString()}`,
+        slashedPrice: slashedPriceNum ? `Rs. ${Math.round(slashedPriceNum).toLocaleString()}` : "",
         discount: discountVal,
         description: prodDescription,
         color: colorsArr[0]?.toLowerCase().includes("purple") ? "purple" : "slate",
@@ -476,6 +650,7 @@ export default function AdminDashboardPage() {
         images: prodImages.length > 0 ? prodImages : [`/products/${id}.webp`],
         tags: tagsArr,
         features: featuresArr,
+        metaTitle: prodMetaTitle,
       };
 
       if (editingProductId) {
@@ -510,19 +685,21 @@ export default function AdminDashboardPage() {
     setProdColors("Matte Black, Silver Gray");
     setProdFeatures("");
     setProdImages([]);
+    setProdMetaTitle("");
   };
 
   const handleEditProduct = (p: Product) => {
     setEditingProductId(p.id);
     setProdName(p.name);
     setProdCategory(p.category);
-    setProdPrice(p.price.replace("$", ""));
-    setProdSlashedPrice(p.slashedPrice.replace("$", ""));
+    setProdPrice(p.price.replace(/Rs\.\s*|Rs\s*|,/gi, ""));
+    setProdSlashedPrice(p.slashedPrice.replace(/Rs\.\s*|Rs\s*|,/gi, ""));
     setProdDescription(p.description);
     setProdTags((p.tags || []).join(", "));
     setProdColors((p.colors || []).join(", "));
     setProdFeatures((p.features || []).join(", "));
     setProdImages(p.images || []);
+    setProdMetaTitle(p.metaTitle || "");
     setActiveTab("add-product");
   };
 
@@ -1226,30 +1403,44 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
+                {/* Meta Title Field */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
+                    Meta Title (SEO)
+                  </label>
+                  <input
+                    type="text"
+                    value={prodMetaTitle}
+                    onChange={(e) => setProdMetaTitle(e.target.value)}
+                    placeholder="e.g. Pro Noise-Cancelling Headphones | Premium Studio Audio Gear"
+                    className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="flex flex-col gap-2">
                     <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
-                      Store Price (USD)
+                      Store Price (Rs.)
                     </label>
                     <input
                       type="text"
                       required
                       value={prodPrice}
                       onChange={(e) => setProdPrice(e.target.value)}
-                      placeholder="e.g. 299"
+                      placeholder="e.g. 90000"
                       className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
                     />
                   </div>
 
                   <div className="flex flex-col gap-2">
                     <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
-                      Compare-at Slash Price (USD)
+                      Compare-at Slash Price (Rs.)
                     </label>
                     <input
                       type="text"
                       value={prodSlashedPrice}
                       onChange={(e) => setProdSlashedPrice(e.target.value)}
-                      placeholder="e.g. 399"
+                      placeholder="e.g. 120000"
                       className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
                     />
                   </div>
@@ -1769,7 +1960,7 @@ export default function AdminDashboardPage() {
                         <div className="md:w-56 shrink-0 flex flex-col justify-between items-end text-right">
                           <div className="flex flex-col items-end gap-0.5">
                             <span className="text-[9px] font-black tracking-widest text-slate-450 uppercase">Total Amount</span>
-                            <span className="text-2xl font-black text-purple-650 font-syne">${order.total_amount.toFixed(2)}</span>
+                            <span className="text-2xl font-black text-purple-650 font-syne">Rs. {Math.round(order.total_amount).toLocaleString()}</span>
                           </div>
 
                           {/* Action Buttons to Fulfill / Ship / Deliver */}

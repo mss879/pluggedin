@@ -1,23 +1,5 @@
--- Create Products Table
-CREATE TABLE IF NOT EXISTS products (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    category TEXT NOT NULL,
-    price NUMERIC(10, 2) NOT NULL,
-    slashed_price NUMERIC(10, 2),
-    discount TEXT,
-    description TEXT NOT NULL,
-    color TEXT,
-    colors TEXT[] DEFAULT '{}',
-    images TEXT[] DEFAULT '{}',
-    tags TEXT[] DEFAULT '{}',
-    features TEXT[] DEFAULT '{}',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
--- Seed Products Table with LKR Mock Products
-INSERT INTO products (id, name, category, price, slashed_price, discount, description, color, colors, images, tags, features)
+-- Seed/re-seed Products with LKR prices
+INSERT INTO products (id, name, category, price, slashed_price, discount, description, color, colors, images, tags, features, meta_title)
 VALUES
 (
     'headphones',
@@ -31,7 +13,8 @@ VALUES
     ARRAY['Space Purple', 'Matte Black', 'Silver Gray'],
     ARRAY['/products/headphones.webp'],
     ARRAY['audio', 'headphones', 'premium', 'wireless', 'anc'],
-    ARRAY['Active Noise Cancellation', 'Studio-grade sound', '40-hour Battery']
+    ARRAY['Active Noise Cancellation', 'Studio-grade sound', '40-hour Battery'],
+    'Pro Noise-Cancelling Headphones | PluggedIn Premium Audio'
 ),
 (
     'charger',
@@ -45,7 +28,8 @@ VALUES
     ARRAY['Carbon Black', 'Arctic White'],
     ARRAY['/products/charger.webp'],
     ARRAY['power', 'charger', 'wireless', 'magsafe', 'leather'],
-    ARRAY['Fast Dual Charging', 'Leather Surface', 'MagSafe Compatible']
+    ARRAY['Fast Dual Charging', 'Leather Surface', 'MagSafe Compatible'],
+    'Smart Dual Wireless Charger | PluggedIn Premium Power'
 ),
 (
     'keyboard',
@@ -59,7 +43,8 @@ VALUES
     ARRAY['Onyx Black', 'Chalk White', 'Neon Purple'],
     ARRAY['/products/keyboard.webp'],
     ARRAY['gear', 'keyboard', 'mechanical', 'retro', 'tactile'],
-    ARRAY['Tactile Blue Switches', 'Solid Wooden Frame', 'Retro Keycaps']
+    ARRAY['Tactile Blue Switches', 'Solid Wooden Frame', 'Retro Keycaps'],
+    'Creations Mechanical Keyboard | PluggedIn Premium Gear'
 ),
 (
     'sleeve',
@@ -73,7 +58,8 @@ VALUES
     ARRAY['Ash Grey', 'Midnight Black'],
     ARRAY['/products/sleeve.webp'],
     ARRAY['travel', 'sleeve', 'organizer', 'waterproof'],
-    ARRAY['Water-resistant Canvas', 'Multi-pocket Layout', 'YKK Zippers']
+    ARRAY['Water-resistant Canvas', 'Multi-pocket Layout', 'YKK Zippers'],
+    'Minimalist Tech Sleeve | PluggedIn Premium Travel'
 ),
 (
     'lightbar',
@@ -87,7 +73,8 @@ VALUES
     ARRAY['Matte Black', 'Silver'],
     ARRAY['/products/lightbar.webp'],
     ARRAY['lighting', 'lightbar', 'desk', 'rgb', 'smart'],
-    ARRAY['Anti-glare Design', 'Music Sync Feature', 'Smart Hue Control']
+    ARRAY['Anti-glare Design', 'Music Sync Feature', 'Smart Hue Control'],
+    'Ambient LED Desk Bar | PluggedIn Premium Lighting'
 ),
 (
     'riser',
@@ -101,7 +88,8 @@ VALUES
     ARRAY['Silver Gray', 'Charcoal Black'],
     ARRAY['/products/riser.webp'],
     ARRAY['gear', 'riser', 'laptop', 'carbon', 'ergonomic'],
-    ARRAY['Carbon Fiber Build', 'Ergonomic Layout', 'Non-slip Pads']
+    ARRAY['Carbon Fiber Build', 'Ergonomic Layout', 'Non-slip Pads'],
+    'Carbon Fiber Laptop Lift | PluggedIn Premium Gear'
 ),
 (
     'mouse',
@@ -115,7 +103,8 @@ VALUES
     ARRAY['Onyx Black', 'Chalk White'],
     ARRAY['/products/mouse.webp'],
     ARRAY['gear', 'mouse', 'precision', 'silent', 'wireless'],
-    ARRAY['Smart Scroll Wheel', 'Precision Sensor', 'Silent Clicks']
+    ARRAY['Smart Scroll Wheel', 'Precision Sensor', 'Silent Clicks'],
+    'Precision Workspace Mouse | PluggedIn Premium Gear'
 ),
 (
     'speaker',
@@ -129,7 +118,8 @@ VALUES
     ARRAY['Onyx Black', 'Lunar Grey'],
     ARRAY['/products/speaker.webp'],
     ARRAY['audio', 'speaker', 'studio', 'hifi', 'wooden'],
-    ARRAY['Hi-Fi Audio Drivers', 'Carbon Cone Woofers', 'Wooden Cabinet']
+    ARRAY['Hi-Fi Audio Drivers', 'Carbon Cone Woofers', 'Wooden Cabinet'],
+    'Hi-Fi Studio Monitor Speaker | PluggedIn Premium Audio'
 ),
 (
     'webcam',
@@ -143,7 +133,8 @@ VALUES
     ARRAY['Onyx Black', 'Frost White', 'Space Purple'],
     ARRAY['/products/webcam.webp'],
     ARRAY['video', 'webcam', '4k', 'hdr', 'creator'],
-    ARRAY['4K Ultra HD Sensor', 'Auto-framing Tech', 'HDR Support']
+    ARRAY['4K Ultra HD Sensor', 'Auto-framing Tech', 'HDR Support'],
+    '4K Creator Webcam | PluggedIn Premium Video'
 ),
 (
     'mic',
@@ -157,7 +148,8 @@ VALUES
     ARRAY['Onyx Black', 'Frost White', 'Space Purple'],
     ARRAY['/products/mic.webp'],
     ARRAY['audio', 'mic', 'microphone', 'usb', 'rgb'],
-    ARRAY['Cardioid Pattern', 'Built-in Pop Filter', 'RGB Live Indicator']
+    ARRAY['Cardioid Pattern', 'Built-in Pop Filter', 'RGB Live Indicator'],
+    'USB Condenser Microphone | PluggedIn Premium Audio'
 ),
 (
     'stand',
@@ -171,7 +163,8 @@ VALUES
     ARRAY['Silver Gray', 'Charcoal Black'],
     ARRAY['/products/stand.webp'],
     ARRAY['power', 'stand', 'magsafe', 'magnetic', 'aluminum'],
-    ARRAY['Solid Aerospace Alum', 'N52 Neodymium Magnets', '360° Rotation']
+    ARRAY['Solid Aerospace Alum', 'N52 Neodymium Magnets', '360° Rotation'],
+    'MagSafe Desk Mount | PluggedIn Premium Power'
 ),
 (
     'backpack',
@@ -185,7 +178,8 @@ VALUES
     ARRAY['Slate Grey', 'Onyx Black'],
     ARRAY['/products/backpack.webp'],
     ARRAY['travel', 'backpack', 'bag', 'weatherproof', 'anti-theft'],
-    ARRAY['Weatherproof Exterior', 'Luggage Pass-through', 'Anti-theft Pocket']
+    ARRAY['Weatherproof Exterior', 'Luggage Pass-through', 'Anti-theft Pocket'],
+    'Urban Tech Backpack | PluggedIn Premium Travel'
 )
 ON CONFLICT (id) DO UPDATE SET
     name = EXCLUDED.name,
@@ -199,4 +193,44 @@ ON CONFLICT (id) DO UPDATE SET
     images = EXCLUDED.images,
     tags = EXCLUDED.tags,
     features = EXCLUDED.features,
+    meta_title = EXCLUDED.meta_title,
     updated_at = timezone('utc'::text, now());
+
+-- Seed/re-seed Collections
+INSERT INTO collections (id, name, description, type, rules)
+VALUES
+(
+    'audio-elite',
+    'Audio Elite',
+    'Broadcast quality mics, reference studio monitors, and comfort-focused ANC headphones.',
+    'smart',
+    '{"tags": ["audio"]}'::jsonb
+),
+(
+    'desk-accessories',
+    'Desk Accessories',
+    'Elevate your desk layout with premium work gear.',
+    'smart',
+    '{"tags": ["gear"]}'::jsonb
+),
+(
+    'creator-bundle',
+    'Creator Essentials Bundle',
+    'The ultimate starter pack for streaming and programming.',
+    'manual',
+    '{}'::jsonb
+)
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    description = EXCLUDED.description,
+    type = EXCLUDED.type,
+    rules = EXCLUDED.rules,
+    updated_at = timezone('utc'::text, now());
+
+-- Seed manual collection products associations
+INSERT INTO collection_products (collection_id, product_id)
+VALUES
+('creator-bundle', 'keyboard'),
+('creator-bundle', 'mouse'),
+('creator-bundle', 'mic')
+ON CONFLICT DO NOTHING;

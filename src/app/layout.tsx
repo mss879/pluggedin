@@ -21,7 +21,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://pluggedin.co"),
+  metadataBase: new URL("https://pluggedin.lk"),
   title: {
     default: "PluggedIn | Premium Workspace Essentials & Creator Gear",
     template: "%s | PluggedIn",
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     "monitor lightbar",
     "premium tech accessories"
   ],
-  authors: [{ name: "PluggedIn Team", url: "https://pluggedin.co" }],
+  authors: [{ name: "PluggedIn Team", url: "https://pluggedin.lk" }],
   creator: "PluggedIn",
   publisher: "PluggedIn",
   robots: {
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "PluggedIn | Premium Workspace Essentials & Creator Gear",
     description: "Elevate your creative setup with PluggedIn's premium workspace essentials and creator gear. Crafted for maximum performance and minimalist aesthetics.",
-    url: "https://pluggedin.co",
+    url: "https://pluggedin.lk",
     siteName: "PluggedIn",
     images: [
       {
