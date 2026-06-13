@@ -46,6 +46,12 @@ const websiteSchema = {
     "@type": "SearchAction",
     "target": "https://www.pluggedin.lk/shop?search={search_term_string}",
     "query-input": "required name=search_term_string"
+  },
+  "creator": {
+    "@type": "Organization",
+    "name": "Arc AI",
+    "url": "https://www.arcai.agency",
+    "description": "AI Automation and Software Company"
   }
 };
 
@@ -61,7 +67,13 @@ const storeSchema = {
     "@type": "PostalAddress",
     "addressCountry": "LK"
   },
-  "priceRange": "$$"
+  "priceRange": "$$",
+  "creator": {
+    "@type": "Organization",
+    "name": "Arc AI",
+    "url": "https://www.arcai.agency",
+    "description": "AI Automation and Software Company"
+  }
 };
 
 export const metadata: Metadata = {

@@ -1013,6 +1013,16 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
           {/* Bottom copyright details */}
           <div className="border-t border-zinc-200/80 pt-8 mt-4 flex flex-col sm:flex-row justify-between items-center gap-4 relative z-10 text-[10px] sm:text-xs font-bold tracking-wider text-zinc-450 text-left">
             <span>© {new Date().getFullYear()} PLUGGEDIN. ALL RIGHTS RESERVED.</span>
+            <a
+              href="https://www.arcai.agency"
+              target="_blank"
+              rel="noopener"
+              className="flex items-center gap-2 hover:text-purple-600 transition-colors duration-200 font-semibold text-[10px] sm:text-xs"
+              title="Arc AI - AI Automation and Software Company"
+            >
+              <span>DESIGNED AND BUILT BY</span>
+              <img src="/black%20logo.svg" alt="Arc AI Logo" className="h-4 w-auto object-contain" />
+            </a>
             <div className="flex gap-6">
               <Link href="/privacy-policy" className="hover:text-purple-650 transition-colors duration-200">PRIVACY POLICY</Link>
               <Link href="/refund-policy" className="hover:text-purple-650 transition-colors duration-200">REFUND POLICY</Link>
