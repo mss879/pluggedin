@@ -899,19 +899,24 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
         className="absolute inset-1.5 lg:inset-2.5 z-0 overflow-hidden pointer-events-none"
         style={{ clipPath: "var(--card-clip-path)" }}
       >
-        {!isLoading && (
-          <video
-            ref={heroVideoRef}
-            className="w-full h-full object-cover"
-            style={{ display: isHeroVisible ? "block" : "none" }}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            src={videoSource}
-          />
-        )}
+        <video
+          ref={heroVideoRef}
+          className="w-full h-full object-cover"
+          style={{ display: (isHeroVisible && !isLoading) ? "block" : "none" }}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          src={preloadedAssets ? videoSource : undefined}
+        >
+          {!preloadedAssets && (
+            <>
+              <source src="/Improve_product_movement_erratic_202606140038.mp4" type="video/mp4" media="(max-width: 767px)" />
+              <source src="/Products_drifting_in_frame_202606111905.mp4" type="video/mp4" />
+            </>
+          )}
+        </video>
         {/* Top-to-Bottom Gradient: protects the navbar options and logo area from overlapping video content */}
         <div
           className="absolute top-0 left-0 right-0 h-[100px] lg:h-[130px] pointer-events-none backdrop-blur-[2px]"
