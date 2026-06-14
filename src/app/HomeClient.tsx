@@ -897,6 +897,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
             loop
             muted
             playsInline
+            preload="auto"
             src={videoSource}
           />
         )}
@@ -941,7 +942,8 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   fill
                   sizes="(max-width: 768px) 32vw, 23vw"
                   style={{ objectFit: "contain" }}
-                  preload
+                  preload={true}
+                  loading="eager"
                 />
               </a>
             </div>
@@ -1148,6 +1150,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                                     width={40}
                                     height={40}
                                     style={{ objectFit: "contain" }}
+                                    loading="eager"
                                   />
                                 </div>
                                 <div className="flex-grow min-w-0">
@@ -1503,6 +1506,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       sizes="(max-width: 768px) 100vw, 66vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                      loading="eager"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1558,6 +1562,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                      loading="eager"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1613,6 +1618,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                      loading="eager"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1668,6 +1674,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                      loading="eager"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1723,6 +1730,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                      loading="eager"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1827,6 +1835,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                         style={{ objectFit: "contain" }}
                         className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-6"
+                        loading="eager"
                       />
                       
                       {/* Floating Discount Badge */}
@@ -1975,6 +1984,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                         style={{ objectFit: "contain" }}
                         className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-6"
+                        loading="eager"
                       />
                       
                       {/* Floating Discount Badge */}
@@ -2078,6 +2088,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/banner:scale-105"
+                      loading="eager"
                     />
                     <div className="absolute inset-0 bg-purple-950/5 opacity-0 group-hover/banner:opacity-100 transition-opacity duration-500 pointer-events-none" />
                   </div>
@@ -2425,6 +2436,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       width={64}
                       height={64}
                       style={{ objectFit: "contain" }}
+                      loading="eager"
                     />
                   </div>
 

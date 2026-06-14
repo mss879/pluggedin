@@ -131,8 +131,7 @@ body {
 
 /* Off-screen rendering optimizations (Largest Contentful Paint & INP support) */
 .content-visibility-lazy {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 500px;
+  content-visibility: visible;
 }
 
 /* Global vertical stretch for Syne font elements to prevent a squashed look */
