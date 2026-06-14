@@ -1,13 +1,33 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { rateLimit, getClientIp, isAllowedOrigin } from "@/lib/rate-limit";
+
+const MAX_NAME = 100;
+const MAX_EMAIL = 254;
+const MAX_MESSAGE = 2000;
 
 export async function POST(request: Request) {
   try {
+    // Reject cross-site POSTs
+    if (!isAllowedOrigin(request)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Rate limit: 3 submissions / minute / IP
+    const ip = getClientIp(request);
+    const limit = rateLimit(`contact:${ip}`, 3, 60_000);
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a moment before trying again." },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
     const { name, email, reason, message } = body;
-    const cleanName = (name || "").trim();
-    const cleanEmail = (email || "").trim();
-    const cleanMessage = (message || "").trim();
+    const cleanName = (name || "").trim().slice(0, MAX_NAME);
+    const cleanEmail = (email || "").trim().slice(0, MAX_EMAIL);
+    const cleanMessage = (message || "").trim().slice(0, MAX_MESSAGE);
 
     // Validate fields
     if (!cleanName || !cleanEmail || !reason || !cleanMessage) {
@@ -67,7 +87,10 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error("Supabase insert inquiry error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json(
+          { error: "We couldn't submit your inquiry right now. Please try again." },
+          { status: 500 }
+        );
       }
 
       inquiryId = data?.id || "";
@@ -77,10 +100,10 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, inquiryId });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in contact inquiry API route:", error);
     return NextResponse.json(
-      { error: error?.message || "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

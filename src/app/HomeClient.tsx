@@ -7,6 +7,7 @@ import Image from "next/image";
 import Preloader from "../components/Preloader";
 import LazyVideo from "../components/LazyVideo";
 import { supabase } from "../lib/supabase";
+import { sanitizeHtml } from "@/lib/sanitize";
 import Footer from "../components/Footer";
 
 interface Product {
@@ -2304,7 +2305,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
           </div>
           <div 
             className="text-xs sm:text-sm text-zinc-600 leading-relaxed mb-6 font-medium rich-text-content"
-            dangerouslySetInnerHTML={{ __html: activeProduct.description }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(activeProduct.description) }}
           />
 
           {/* Color Variant Selector */}
