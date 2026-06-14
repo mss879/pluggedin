@@ -1507,6 +1507,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                       loading="eager"
+                      unoptimized
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1563,6 +1564,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                       loading="eager"
+                      unoptimized
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1619,6 +1621,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                       loading="eager"
+                      unoptimized
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1675,6 +1678,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                       loading="eager"
+                      unoptimized
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1731,6 +1735,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                       loading="eager"
+                      unoptimized
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
