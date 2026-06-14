@@ -107,7 +107,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${syne.variable} ${outfit.variable} ${inter.variable} h-full antialiased`}
+      className={`${syne.variable} ${outfit.variable} ${inter.variable} antialiased`}
     >
       <body className="min-h-full flex flex-col bg-white font-outfit text-zinc-900">
         <AnalyticsTracker />
