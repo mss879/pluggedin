@@ -24,7 +24,7 @@ export default function LazyVideo({ src, className, ...props }: LazyVideoProps) 
         }
       },
       {
-        rootMargin: "300px", // Preload video 300px before it enters viewport
+        rootMargin: "1200px", // Start loading video ~1200px before it enters viewport
       }
     );
 
@@ -43,12 +43,9 @@ export default function LazyVideo({ src, className, ...props }: LazyVideoProps) 
   return (
     <div ref={containerRef} className={`w-full h-full relative ${className || ""}`}>
       {inView ? (
-        <video src={src} className="w-full h-full object-cover" {...props} />
+        <video src={src} preload="auto" className="w-full h-full object-cover" {...props} />
       ) : (
-        <div className="w-full h-full bg-zinc-950 animate-pulse flex items-center justify-center">
-          {/* Soft loading spinner inside a dark placeholder card */}
-          <div className="w-6 h-6 border-2 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
-        </div>
+        <div className="w-full h-full bg-zinc-100 flex items-center justify-center" />
       )}
     </div>
   );

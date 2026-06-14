@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import Preloader from "../components/Preloader";
 import LazyVideo from "../components/LazyVideo";
 import { supabase } from "../lib/supabase";
@@ -933,11 +934,14 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                 isLoading ? "opacity-0 -translate-y-4 scale-95" : "opacity-100 translate-y-0 scale-100"
               }`}
             >
-              <a href="#" className="block w-full h-full hover:opacity-75 transition-opacity duration-300">
-                <img
+              <a href="#" className="block w-full h-full hover:opacity-75 transition-opacity duration-300 relative">
+                <Image
                   src={preloadedAssets?.logoUrl || "/logo.webp"}
-                  alt="Logo"
-                  className="w-full h-full object-contain"
+                  alt="Pluggedin Logo"
+                  fill
+                  sizes="(max-width: 768px) 32vw, 23vw"
+                  style={{ objectFit: "contain" }}
+                  preload
                 />
               </a>
             </div>
@@ -1138,10 +1142,12 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                             {cart.slice(0, 3).map((item, idx) => (
                               <div key={`${item.product.id}-${item.color}`} className="flex gap-2.5 items-center">
                                 <div className="w-10 h-10 rounded-lg overflow-hidden bg-zinc-50 border border-zinc-100 flex-shrink-0 flex items-center justify-center p-0.5">
-                                  <img 
+                                  <Image 
                                     src={`/products/${item.product.id}.webp`} 
                                     alt={item.product.name}
-                                    className="w-full h-full object-contain"
+                                    width={40}
+                                    height={40}
+                                    style={{ objectFit: "contain" }}
                                   />
                                 </div>
                                 <div className="flex-grow min-w-0">
@@ -1490,11 +1496,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                 >
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
-                    <img 
+                    <Image 
                       src="/categories/kitchen_dining.webp" 
                       alt="Premium Audio" 
-                      loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 66vw"
+                      style={{ objectFit: "cover" }}
+                      className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1543,11 +1551,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                 >
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
-                    <img 
+                    <Image 
                       src="/categories/electronics_setup.webp" 
                       alt="Workspace Gear" 
-                      loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      style={{ objectFit: "cover" }}
+                      className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1596,11 +1606,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                 >
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
-                    <img 
+                    <Image 
                       src="/categories/home_care.webp" 
                       alt="Smart Lighting" 
-                      loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      style={{ objectFit: "cover" }}
+                      className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1649,11 +1661,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                 >
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
-                    <img 
+                    <Image 
                       src="/categories/car_gear.webp" 
                       alt="Travel Carry" 
-                      loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      style={{ objectFit: "cover" }}
+                      className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1702,11 +1716,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                 >
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
-                    <img 
+                    <Image 
                       src="/categories/tech_accessories.webp" 
                       alt="Power and Charging" 
-                      loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      style={{ objectFit: "cover" }}
+                      className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1804,11 +1820,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   >
                     {/* Image Container with soft gradient background & elegant padding */}
                     <div className="relative aspect-[5/4] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-6 flex items-center justify-center border-b border-zinc-100/50">
-                      <img
+                      <Image
                         src={`/products/${product.id}.webp`}
                         alt={product.name}
-                        loading="lazy"
-                        className="w-full h-full object-contain transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                        style={{ objectFit: "contain" }}
+                        className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-6"
                       />
                       
                       {/* Floating Discount Badge */}
@@ -1950,11 +1968,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   >
                     {/* Image Container with soft gradient background & elegant padding */}
                     <div className="relative aspect-[5/4] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-6 flex items-center justify-center border-b border-zinc-100/50">
-                      <img
+                      <Image
                         src={`/products/${product.id}.webp`}
                         alt={product.name}
-                        loading="lazy"
-                        className="w-full h-full object-contain transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                        style={{ objectFit: "contain" }}
+                        className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-6"
                       />
                       
                       {/* Floating Discount Badge */}
@@ -2051,11 +2071,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
               <div className="grid grid-cols-1 md:grid-cols-3 gap-0 w-full">
                 {[1, 2, 3].map((num) => (
                   <div key={num} className="relative aspect-[4/3] w-full overflow-hidden group/banner">
-                    <img
+                    <Image
                       src={`/banner_${num}.webp`}
                       alt={`Lifestyle gallery banner ${num}`}
-                      loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/banner:scale-105"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      style={{ objectFit: "cover" }}
+                      className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/banner:scale-105"
                     />
                     <div className="absolute inset-0 bg-purple-950/5 opacity-0 group-hover/banner:opacity-100 transition-opacity duration-500 pointer-events-none" />
                   </div>
@@ -2397,10 +2419,12 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                 >
                   {/* Thumbnail */}
                   <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-zinc-100 flex-shrink-0 flex items-center justify-center p-1 relative">
-                    <img 
+                    <Image 
                       src={`/products/${item.product.id}.webp`} 
                       alt={item.product.name}
-                      className="w-full h-full object-contain"
+                      width={64}
+                      height={64}
+                      style={{ objectFit: "contain" }}
                     />
                   </div>
 

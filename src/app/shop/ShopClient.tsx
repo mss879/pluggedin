@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS, getColorHex, getCategoryIcon, getProductColors, Product } from "../products";
@@ -389,8 +390,8 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
         </Link>
 
         {/* Center Logo */}
-        <Link href="/" className="w-32 h-8 block hover:opacity-75 transition-opacity">
-          <img src="/logo.webp" alt="Logo" className="w-full h-full object-contain" />
+        <Link href="/" className="w-32 h-8 block hover:opacity-75 transition-opacity relative">
+          <Image src="/logo.webp" alt="Pluggedin Logo" fill sizes="128px" style={{ objectFit: "contain" }} />
         </Link>
 
         {/* Action Buttons: Cart trigger */}
@@ -719,10 +720,13 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
                         }}
                         className="w-full h-44 my-4 flex items-center justify-center relative overflow-hidden rounded-2xl bg-zinc-50/20 cursor-pointer"
                       >
-                        <img 
+                        <Image 
                           src={product.images && product.images.length > 0 ? product.images[0] : `/products/${product.id}.webp`}
                           alt={product.name}
-                          className="max-h-[135px] max-w-[85%] object-contain transform group-hover:scale-106 transition-transform duration-500 ease-out"
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                          style={{ objectFit: "contain", padding: "8px" }}
+                          className="transform group-hover:scale-106 transition-transform duration-500 ease-out"
                         />
                       </div>
 
@@ -930,7 +934,7 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
             {/* Column 1: Brand Info */}
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2">
-                <img src="/logo.webp" alt="PluggedIn Logo" className="h-8 object-contain" />
+                <Image src="/logo.webp" alt="PluggedIn Logo" width={120} height={32} style={{ objectFit: "contain" }} />
               </div>
               <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-semibold">
                 A curated fusion of premium personal electronics, smart devices, and elevated setup accessories built to maximize creator potential.
@@ -1051,7 +1055,7 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
               title="ARC AI - AI Automation and Software Company"
             >
               <span>DESIGNED AND BUILT BY</span>
-              <img src="/black%20logo.svg" alt="ARC AI Logo" className="h-16 w-auto object-contain" />
+              <Image src="/black%20logo.svg" alt="ARC AI Logo" width={80} height={64} style={{ objectFit: "contain" }} unoptimized />
             </a>
             <div className="flex gap-6">
               <Link href="/privacy-policy" className="hover:text-purple-650 transition-colors duration-200">PRIVACY POLICY</Link>
@@ -1241,10 +1245,12 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
                     className="flex gap-4 items-center bg-white border border-zinc-200/50 p-3.5 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200"
                   >
                     <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-zinc-100 flex-shrink-0 flex items-center justify-center p-1 relative">
-                      <img 
+                      <Image 
                         src={item.product.images && item.product.images.length > 0 ? item.product.images[0] : `/products/${item.product.id}.webp`} 
                         alt={item.product.name}
-                        className="w-full h-full object-contain"
+                        width={64}
+                        height={64}
+                        style={{ objectFit: "contain" }}
                       />
                     </div>
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { MOCK_PRODUCTS, getColorHex, getCategoryIcon, Product } from "../products";
 
@@ -111,8 +112,8 @@ export default function CartClient() {
         </Link>
 
         {/* Center Logo */}
-        <Link href="/" className="w-32 h-8 block hover:opacity-75 transition-opacity">
-          <img src="/logo.webp" alt="Logo" className="w-full h-full object-contain" />
+        <Link href="/" className="w-32 h-8 block hover:opacity-75 transition-opacity relative">
+          <Image src="/logo.webp" alt="Pluggedin Logo" fill sizes="128px" style={{ objectFit: "contain" }} />
         </Link>
 
         {/* Status Pill */}
@@ -161,10 +162,12 @@ export default function CartClient() {
                   className="flex gap-4 items-center bg-white border border-zinc-200/60 p-4 rounded-3xl shadow-sm hover:shadow-md transition-shadow duration-200"
                 >
                   <div className="w-20 h-20 rounded-2xl overflow-hidden bg-white border border-zinc-100 flex-shrink-0 flex items-center justify-center p-1 relative">
-                    <img 
+                    <Image 
                       src={item.product.images && item.product.images.length > 0 ? item.product.images[0] : `/products/${item.product.id}.webp`} 
                       alt={item.product.name}
-                      className="w-full h-full object-contain"
+                      width={80}
+                      height={80}
+                      style={{ objectFit: "contain" }}
                     />
                   </div>
 

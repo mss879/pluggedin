@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { MOCK_PRODUCTS, getCategoryIcon, getColorHex, Product } from "@/app/products";
 
@@ -360,8 +361,8 @@ export default function StickyNavbar() {
 
           {/* CENTER BLOCK: LOGO */}
           <div className="w-[30%] flex items-center justify-center">
-            <Link href="/" className="h-8 md:h-10 lg:h-11 block hover:opacity-75 transition-opacity">
-              <img src="/logo.webp" alt="Logo" className="h-full object-contain mx-auto" />
+            <Link href="/" className="h-8 md:h-10 lg:h-11 w-32 md:w-36 lg:w-40 block hover:opacity-75 transition-opacity relative">
+              <Image src="/logo.webp" alt="Pluggedin Logo" fill sizes="160px" style={{ objectFit: "contain" }} />
             </Link>
           </div>
 
@@ -676,10 +677,12 @@ export default function StickyNavbar() {
                     className="flex gap-4 items-center bg-white border border-zinc-200/50 p-3.5 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200"
                   >
                     <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-zinc-100 flex-shrink-0 flex items-center justify-center p-1 relative">
-                      <img
+                      <Image
                         src={item.product.images && item.product.images.length > 0 ? item.product.images[0] : `/products/${item.product.id}.webp`}
                         alt={item.product.name}
-                        className="w-full h-full object-contain"
+                        width={64}
+                        height={64}
+                        style={{ objectFit: "contain" }}
                       />
                     </div>
 

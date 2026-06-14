@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   getProductColors,
@@ -150,8 +151,8 @@ export default function ProductDetailClient({ product }: { product: Product }) {
         </Link>
 
         {/* Center Logo */}
-        <Link href="/" className="w-32 h-8 block hover:opacity-75 transition-opacity">
-          <img src="/logo.webp" alt="Logo" className="w-full h-full object-contain" />
+        <Link href="/" className="w-32 h-8 block hover:opacity-75 transition-opacity relative">
+          <Image src="/logo.webp" alt="Pluggedin Logo" fill sizes="128px" style={{ objectFit: "contain" }} />
         </Link>
 
         {/* Cart Button */}
@@ -196,10 +197,13 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                 <>
                   {/* Main Image Container */}
                   <div className="w-full aspect-square bg-white border border-zinc-200/80 rounded-[2.5rem] overflow-hidden shadow-lg flex items-center justify-center p-8 relative">
-                    <img
+                    <Image
                       src={productImages[activeImgIndex]}
                       alt={product.name}
-                      className="max-h-full max-w-full object-contain transition-all duration-300"
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 50vw"
+                      style={{ objectFit: "contain", padding: "32px" }}
+                      preload
                     />
                   </div>
 
@@ -216,10 +220,12 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                               : "border-zinc-200 hover:border-zinc-350"
                           }`}
                         >
-                          <img
+                          <Image
                             src={img}
                             alt={`${product.name} preview ${idx + 1}`}
-                            className="max-h-full max-w-full object-contain"
+                            width={56}
+                            height={56}
+                            style={{ objectFit: "contain" }}
                           />
                         </button>
                       ))}
@@ -407,10 +413,12 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                     className="flex gap-4 items-center bg-white border border-zinc-200/50 p-3.5 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200"
                   >
                     <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-zinc-100 flex-shrink-0 flex items-center justify-center p-1 relative">
-                      <img 
+                      <Image 
                         src={item.product.images && item.product.images.length > 0 ? item.product.images[0] : `/products/${item.product.id}.webp`} 
                         alt={item.product.name}
-                        className="w-full h-full object-contain"
+                        width={64}
+                        height={64}
+                        style={{ objectFit: "contain" }}
                       />
                     </div>
 
