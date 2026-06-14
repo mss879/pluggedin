@@ -740,25 +740,36 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
   return (
     <>
-      {isClient && isLoading && (
-        <Preloader
-          onComplete={(assets) => {
-            try {
-              sessionStorage.setItem("pluggedin_preloader_seen", "true");
-            } catch (e) {
-              console.error(e);
-            }
-            setPreloadedAssets(assets);
-            setIsLoading(false);
-          }}
-        />
+      {(!isClient || isLoading) && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-between bg-[#fbfbfe] select-none text-zinc-800 font-mono">
+          {isClient ? (
+            <Preloader
+              onComplete={(assets) => {
+                try {
+                  sessionStorage.setItem("pluggedin_preloader_seen", "true");
+                } catch (e) {
+                  console.error(e);
+                }
+                setPreloadedAssets(assets);
+                setIsLoading(false);
+              }}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+              <div className="w-12 h-12 border-[4px] border-purple-500/20 border-t-purple-600 rounded-full animate-spin" />
+              <span className="text-[10px] font-bold tracking-[0.3em] text-purple-650 uppercase">
+                LOADING ARCHITECTURE...
+              </span>
+            </div>
+          )}
+        </div>
       )}
       <div
         className={`w-screen h-screen overflow-hidden bg-white p-1.5 lg:p-2.5 flex flex-col justify-stretch relative font-outfit select-none transition-all duration-[1600ms] ease-out ${
-          (isClient && isLoading) ? "opacity-0 scale-90 translate-y-12 pointer-events-none" : "opacity-100 scale-100 translate-y-0"
+          (!isClient || isLoading) ? "opacity-0 scale-90 translate-y-12 pointer-events-none" : "opacity-100 scale-100 translate-y-0"
         }`}
         style={{
-          transform: (isClient && isLoading) ? "perspective(1200px) rotateX(10deg)" : "perspective(1200px) rotateX(0deg)",
+          transform: (!isClient || isLoading) ? "perspective(1200px) rotateX(10deg)" : "perspective(1200px) rotateX(0deg)",
           transformOrigin: "bottom center",
         }}
       >
