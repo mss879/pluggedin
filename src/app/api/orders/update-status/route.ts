@@ -39,6 +39,27 @@ export async function POST(request: Request) {
       }
     });
 
+    // Validate Authorization token
+    let isAdmin = false;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7);
+      try {
+        const { data: { user }, error: authError } = await supabaseServer.auth.getUser(token);
+        if (!authError && user && user.email === "admin@pluggedin.com") {
+          isAdmin = true;
+        }
+      } catch (err) {
+        console.error("Token verification exception:", err);
+      }
+    }
+
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: "Unauthorized access: Administrator session required" },
+        { status: 401 }
+      );
+    }
+
     // 1. Fetch current order details to get customer details and items
     const { data: order, error: fetchError } = await supabaseServer
       .from("orders")

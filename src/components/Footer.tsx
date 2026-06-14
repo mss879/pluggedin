@@ -139,7 +139,7 @@ export default function Footer() {
             <a
               href="https://www.arcai.agency"
               target="_blank"
-              rel="noopener noreferrer"
+              rel="noopener"
               className="flex items-center gap-2 hover:text-purple-600 transition-colors duration-200 font-semibold text-[10px] sm:text-xs"
               title="ARC AI - AI Automation and Software Company"
             >

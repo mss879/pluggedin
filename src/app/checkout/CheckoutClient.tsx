@@ -24,6 +24,7 @@ export default function CheckoutClient() {
   const [custPhone, setCustPhone] = useState("");
   const [custAddress, setCustAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash_on_delivery" | "bank_transfer">("cash_on_delivery");
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Step states: "shipping" | "payment" | "placing"
   const [checkoutStep, setCheckoutStep] = useState<"shipping" | "payment" | "placing">("shipping");
@@ -238,17 +239,47 @@ export default function CheckoutClient() {
                     <span className="text-[9px] font-black text-purple-600 tracking-wider">STEP 1 OF 2</span>
                   </div>
 
+                  {formError && (
+                    <div className="bg-red-50 border border-red-100 text-red-600 text-xs font-semibold px-4 py-2.5 rounded-xl text-center">
+                      {formError.toUpperCase()}
+                    </div>
+                  )}
+
                   <form 
                     onSubmit={(e) => {
                       e.preventDefault();
-                      if (!custName.trim() || !custEmail.trim() || !custPhone.trim() || !custAddress.trim()) {
-                        alert("Please fill in all shipping details.");
+                      const trimName = custName.trim();
+                      const trimEmail = custEmail.trim();
+                      const trimPhone = custPhone.trim();
+                      const trimAddress = custAddress.trim();
+
+                      if (!trimName || !trimEmail || !trimPhone || !trimAddress) {
+                        setFormError("Please fill in all shipping details.");
                         return;
                       }
-                      if (!custEmail.includes("@")) {
-                        alert("Please enter a valid email address.");
+
+                      // Name check: minimum 2 letters, spaces/hyphens allowed, no numbers
+                      const nameRegex = /^[a-zA-Z\s\-]{2,}$/;
+                      if (!nameRegex.test(trimName)) {
+                        setFormError("Name must be at least 2 characters long and contain only letters.");
                         return;
                       }
+
+                      // Email check
+                      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                      if (!emailRegex.test(trimEmail)) {
+                        setFormError("Please enter a valid email address.");
+                        return;
+                      }
+
+                      // Phone check: 7 to 15 digits
+                      const phoneRegex = /^\+?[0-9\s\-()]{7,15}$/;
+                      if (!phoneRegex.test(trimPhone)) {
+                        setFormError("Please enter a valid phone number (7 to 15 digits).");
+                        return;
+                      }
+
+                      setFormError(null);
                       setCheckoutStep("payment");
                     }} 
                     className="flex flex-col gap-4"
@@ -263,7 +294,11 @@ export default function CheckoutClient() {
                         placeholder="e.g. John Doe"
                         value={custName}
                         onChange={(e) => setCustName(e.target.value)}
-                        className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3 text-xs font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full"
+                        className={`bg-slate-50 border rounded-xl px-4 py-3 text-xs font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full ${
+                          formError && (formError.toLowerCase().includes("name") || formError.toLowerCase().includes("details"))
+                            ? "border-red-400 focus:border-red-500 focus:bg-white"
+                            : "border-zinc-200 focus:border-purple-500"
+                        }`}
                       />
                     </div>
 
@@ -277,7 +312,11 @@ export default function CheckoutClient() {
                         placeholder="e.g. john@gmail.com"
                         value={custEmail}
                         onChange={(e) => setCustEmail(e.target.value)}
-                        className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3 text-xs font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full"
+                        className={`bg-slate-50 border rounded-xl px-4 py-3 text-xs font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full ${
+                          formError && (formError.toLowerCase().includes("email") || formError.toLowerCase().includes("details"))
+                            ? "border-red-400 focus:border-red-500 focus:bg-white"
+                            : "border-zinc-200 focus:border-purple-500"
+                        }`}
                       />
                     </div>
 
@@ -291,7 +330,11 @@ export default function CheckoutClient() {
                         placeholder="e.g. +1 555-0199"
                         value={custPhone}
                         onChange={(e) => setCustPhone(e.target.value)}
-                        className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3 text-xs font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full"
+                        className={`bg-slate-50 border rounded-xl px-4 py-3 text-xs font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full ${
+                          formError && (formError.toLowerCase().includes("phone") || formError.toLowerCase().includes("details"))
+                            ? "border-red-400 focus:border-red-500 focus:bg-white"
+                            : "border-zinc-200 focus:border-purple-500"
+                        }`}
                       />
                     </div>
 
@@ -305,12 +348,16 @@ export default function CheckoutClient() {
                         placeholder="Street, City, State, ZIP"
                         value={custAddress}
                         onChange={(e) => setCustAddress(e.target.value)}
-                        className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3 text-xs font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full"
+                        className={`bg-slate-50 border rounded-xl px-4 py-3 text-xs font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full ${
+                          formError && (formError.toLowerCase().includes("address") || formError.toLowerCase().includes("details"))
+                            ? "border-red-400 focus:border-red-500 focus:bg-white"
+                            : "border-zinc-200 focus:border-purple-500"
+                        }`}
                       />
                     </div>
 
                     <button
-                      type="submit"
+                       type="submit"
                       className="w-full bg-purple-600 text-white text-xs font-bold tracking-widest py-4 rounded-full hover:bg-purple-750 transition-all duration-300 shadow-md shadow-purple-600/15 cursor-pointer border-0 mt-2 flex items-center justify-center gap-2"
                     >
                       CONTINUE TO PAYMENT

@@ -54,6 +54,32 @@ export default function AboutPage() {
             </div>
           </section>
 
+          {/* Design & Technology Partners (ARC AI Backlink) */}
+          <section className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 mb-16 md:mb-24 border-t border-zinc-200/60 pt-12 text-left">
+            <div className="md:col-span-4">
+              <h2 className="font-syne text-lg md:text-xl font-black text-zinc-950 uppercase tracking-widest leading-none">
+                CREATIVE PARTNER
+              </h2>
+            </div>
+            <div className="md:col-span-8 flex flex-col gap-6 text-zinc-600 leading-relaxed font-medium">
+              <p>
+                Our storefront, custom digital experience, and automation pipelines are designed and developed in collaboration with{" "}
+                <a
+                  href="https://www.arcai.agency"
+                  target="_blank"
+                  rel="noopener"
+                  className="text-purple-600 hover:text-purple-800 underline font-bold transition-colors"
+                >
+                  ARC AI
+                </a>
+                , a premier AI automation agency and software engineering studio.
+              </p>
+              <p>
+                Together, we leverage advanced machine learning optimizations, automated stock management, and state-of-the-art server-rendered architectures to bring creators in Sri Lanka a frictionless shopping journey.
+              </p>
+            </div>
+          </section>
+
           {/* Core Values / Pillars Grid */}
           <section className="mb-16 md:mb-24 border-t border-zinc-200/60 pt-12 text-left">
             <h2 className="font-syne text-lg md:text-xl font-black text-zinc-950 uppercase tracking-widest mb-10">

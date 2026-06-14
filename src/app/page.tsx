@@ -1,11 +1,7 @@
 import { Metadata } from "next";
 import { supabase } from "@/lib/supabase";
-import { MOCK_PRODUCTS, getCategoryIcon } from "./products";
-import dynamic from "next/dynamic";
-
-const HomeClient = dynamic(() => import("./HomeClient"), {
-  loading: () => null,
-});
+import { MOCK_PRODUCTS } from "./products";
+import HomeClient from "./HomeClient";
 
 async function getProducts() {
   try {
@@ -25,8 +21,7 @@ async function getProducts() {
           discount: item.discount || "",
           description: item.description,
           color: item.color || "purple",
-          metaTitle: item.meta_title || "",
-          icon: getCategoryIcon(item.category, item.id)
+          metaTitle: item.meta_title || ""
         }));
       }
     }
@@ -34,11 +29,8 @@ async function getProducts() {
     console.warn("Failed to fetch products on server:", e);
   }
   
-  // Return local mapped mock products
-  return MOCK_PRODUCTS.map(p => ({
-    ...p,
-    icon: p.icon || getCategoryIcon(p.category, p.id)
-  }));
+  // Return local mock products without icon elements
+  return MOCK_PRODUCTS.map(({ icon, ...p }) => p);
 }
 
 const websiteSchema = {

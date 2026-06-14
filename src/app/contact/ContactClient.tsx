@@ -23,7 +23,7 @@ const faqItems = [
 ];
 
 export default function ContactClient() {
-  const [mounted, setMounted] = useState(false);
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [reason, setReason] = useState("general_inquiries");
@@ -34,14 +34,31 @@ export default function ContactClient() {
   const [error, setError] = useState<string | null>(null);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !message.trim()) {
+    const trimName = name.trim();
+    const trimEmail = email.trim();
+    const trimMessage = message.trim();
+
+    if (!trimName || !trimEmail || !trimMessage) {
       setError("Please fill out all fields.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimEmail)) {
+      setError("Please provide a valid email address.");
+      return;
+    }
+
+    const nameRegex = /^[a-zA-Z\s\-]{2,}$/;
+    if (!nameRegex.test(trimName)) {
+      setError("Name must be at least 2 characters long and contain only letters.");
+      return;
+    }
+
+    if (trimMessage.length < 10) {
+      setError("Message content must be at least 10 characters long.");
       return;
     }
 
@@ -55,10 +72,10 @@ export default function ContactClient() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim(),
+          name: trimName,
+          email: trimEmail,
           reason,
-          message: message.trim(),
+          message: trimMessage,
         }),
       });
 
@@ -85,17 +102,6 @@ export default function ContactClient() {
       setSubmitting(false);
     }
   };
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-slate-50/50 flex items-center justify-center font-outfit">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
-          <span className="text-[10px] font-bold tracking-widest uppercase text-zinc-400">Loading Support...</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full h-screen overflow-y-auto scrollbar-thin bg-slate-50/50 flex flex-col font-outfit select-none relative pb-28 md:pb-16">
@@ -287,7 +293,11 @@ export default function ContactClient() {
                         placeholder="e.g. John Doe"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3.5 text-sm font-medium text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full"
+                        className={`bg-slate-50 border rounded-xl px-4 py-3.5 text-sm font-medium text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full ${
+                          error && (error.toLowerCase().includes("name") || error.toLowerCase().includes("fields"))
+                            ? "border-red-400 focus:border-red-500 focus:bg-white"
+                            : "border-zinc-200 focus:border-purple-500"
+                        }`}
                       />
                     </div>
 
@@ -301,7 +311,11 @@ export default function ContactClient() {
                         placeholder="e.g. john@example.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3.5 text-sm font-medium text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full"
+                        className={`bg-slate-50 border rounded-xl px-4 py-3.5 text-sm font-medium text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full ${
+                          error && (error.toLowerCase().includes("email") || error.toLowerCase().includes("fields"))
+                            ? "border-red-400 focus:border-red-500 focus:bg-white"
+                            : "border-zinc-200 focus:border-purple-500"
+                        }`}
                       />
                     </div>
                   </div>
@@ -331,7 +345,11 @@ export default function ContactClient() {
                       placeholder="Write your inquiries details here..."
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
-                      className="bg-slate-50 border border-zinc-200 focus:bg-white focus:border-purple-500 rounded-xl px-4 py-3.5 text-sm font-medium text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full h-32 resize-none"
+                      className={`bg-slate-50 border rounded-xl px-4 py-3.5 text-sm font-medium text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all w-full h-32 resize-none ${
+                        error && (error.toLowerCase().includes("message") || error.toLowerCase().includes("fields"))
+                          ? "border-red-400 focus:border-red-500 focus:bg-white"
+                          : "border-zinc-200 focus:border-purple-500"
+                      }`}
                     />
                   </div>
 

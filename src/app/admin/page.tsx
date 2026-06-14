@@ -927,7 +927,7 @@ export default function AdminDashboardPage() {
           {/* Admin title */}
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <h1 className="text-sm font-extrabold tracking-[0.2em] font-syne text-slate-900 uppercase">
+            <h1 className="text-sm font-extrabold tracking-[0.2em] font-inter text-slate-900 uppercase">
               PLUGGEDIN // ADMIN
             </h1>
           </div>
@@ -1133,7 +1133,7 @@ export default function AdminDashboardPage() {
 
         {/* Header toolbar */}
         <header className="h-20 border-b border-slate-200/80 px-8 flex items-center justify-between shrink-0 bg-white/80">
-          <h2 className="text-lg font-black font-syne tracking-tight text-slate-900 uppercase">
+          <h2 className="text-lg font-black font-inter tracking-tight text-slate-900 uppercase">
             {activeTab.replace("-", " ")} Workspace
           </h2>
           <div className="text-xs font-bold tracking-widest text-slate-400 uppercase">
@@ -1159,7 +1159,7 @@ export default function AdminDashboardPage() {
                     <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
                       {stat.title}
                     </span>
-                    <div className="text-4xl font-extrabold font-syne text-slate-900">
+                    <div className="text-4xl font-extrabold font-inter text-slate-900">
                       {stat.count}
                     </div>
                     <span className="text-xs text-slate-500 font-semibold">
@@ -1747,7 +1747,7 @@ export default function AdminDashboardPage() {
                         </div>
 
                         <div className="flex flex-col items-end shrink-0 gap-1.5">
-                          <span className="text-2xl font-black font-syne text-slate-800">
+                          <span className="text-2xl font-black font-inter text-slate-800">
                             {count}
                           </span>
                           <span className="text-[9px] font-black tracking-widest text-slate-400 uppercase">
@@ -1779,7 +1779,7 @@ export default function AdminDashboardPage() {
                     <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
                       {stat.title}
                     </span>
-                    <div className="text-2xl font-extrabold text-slate-900 font-syne capitalize truncate">
+                    <div className="text-2xl font-extrabold text-slate-900 font-inter capitalize truncate">
                       {stat.value}
                     </div>
                     <span className="text-[10px] text-slate-400 font-bold uppercase">
@@ -1917,7 +1917,7 @@ export default function AdminDashboardPage() {
                           
                           {/* Order Reference details */}
                           <div className="flex flex-wrap items-center gap-3">
-                            <span className="font-extrabold text-slate-900 text-base font-syne">{order.id}</span>
+                            <span className="font-extrabold text-slate-900 text-base font-inter">{order.id}</span>
                             <span className="text-xs text-slate-400 font-bold">
                               {date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at {date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                             </span>
@@ -1976,7 +1976,7 @@ export default function AdminDashboardPage() {
                         <div className="md:w-56 shrink-0 flex flex-col justify-between items-end text-right">
                           <div className="flex flex-col items-end gap-0.5">
                             <span className="text-[9px] font-black tracking-widest text-slate-450 uppercase">Total Amount</span>
-                            <span className="text-2xl font-black text-purple-650 font-syne">Rs. {Math.round(order.total_amount).toLocaleString()}</span>
+                            <span className="text-2xl font-black text-purple-650 font-inter">Rs. {Math.round(order.total_amount).toLocaleString()}</span>
                           </div>
 
                           {/* Action Buttons to Fulfill / Ship / Deliver */}
@@ -2130,7 +2130,7 @@ export default function AdminDashboardPage() {
                     <span className="text-[9px] font-black tracking-widest text-purple-650 uppercase">
                       Inquiry Details
                     </span>
-                    <h3 className="text-lg font-black text-slate-900 font-syne uppercase">
+                    <h3 className="text-lg font-black text-slate-900 font-inter uppercase">
                       {activeInquiry.name}
                     </h3>
                     <a href={`mailto:${activeInquiry.email}`} className="text-xs font-semibold text-slate-400 hover:text-purple-655 transition-colors font-mono">
@@ -2174,7 +2174,7 @@ export default function AdminDashboardPage() {
                 <div className="flex gap-4 mt-6 border-t border-slate-100 pt-4">
                   <a
                     href={`mailto:${activeInquiry.email}?subject=Re: PluggedIn Inquiry`}
-                    className="flex-grow bg-slate-900 hover:bg-slate-800 text-white text-xs font-black tracking-widest py-3.5 rounded-full transition-all cursor-pointer border-0 shadow-sm text-center block font-syne"
+                    className="flex-grow bg-slate-900 hover:bg-slate-800 text-white text-xs font-black tracking-widest py-3.5 rounded-full transition-all cursor-pointer border-0 shadow-sm text-center block font-inter"
                   >
                     REPLY VIA EMAIL
                   </a>
@@ -2280,7 +2280,7 @@ export default function AdminDashboardPage() {
                     ) : (
                       marqueeOffers.filter((o) => o.row_number === 1).map((offer) => (
                         <div key={offer.id} className="flex justify-between items-center bg-slate-50/50 border border-slate-200/80 p-3 px-4 rounded-xl hover:border-slate-300 transition-colors">
-                          <span className="text-xs font-bold text-slate-800 tracking-wide uppercase font-syne truncate max-w-[85%]">{offer.text}</span>
+                          <span className="text-xs font-bold text-slate-800 tracking-wide uppercase font-inter truncate max-w-[85%]">{offer.text}</span>
                           <button
                             onClick={() => handleDeleteOffer(offer.id)}
                             className="bg-transparent hover:bg-red-50 text-slate-400 hover:text-red-650 border-0 p-1.5 rounded-lg transition-colors cursor-pointer text-xs font-black"
@@ -2312,7 +2312,7 @@ export default function AdminDashboardPage() {
                     ) : (
                       marqueeOffers.filter((o) => o.row_number === 2).map((offer) => (
                         <div key={offer.id} className="flex justify-between items-center bg-slate-50/50 border border-slate-200/80 p-3 px-4 rounded-xl hover:border-slate-300 transition-colors">
-                          <span className="text-xs font-bold text-slate-800 tracking-wide uppercase font-syne truncate max-w-[85%]">{offer.text}</span>
+                          <span className="text-xs font-bold text-slate-800 tracking-wide uppercase font-inter truncate max-w-[85%]">{offer.text}</span>
                           <button
                             onClick={() => handleDeleteOffer(offer.id)}
                             className="bg-transparent hover:bg-red-50 text-slate-400 hover:text-red-655 border-0 p-1.5 rounded-lg transition-colors cursor-pointer text-xs font-black"

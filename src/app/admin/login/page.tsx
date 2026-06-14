@@ -20,17 +20,7 @@ export default function AdminLoginPage() {
     await new Promise((r) => setTimeout(r, 800));
 
     try {
-      // 1. Check local demo credentials fallback (offline/demo mode)
-      if (email === "admin@pluggedin.com" && password === "admin123") {
-        localStorage.setItem(
-          "pluggedin_admin_session",
-          JSON.stringify({ email, token: "demo-admin-session-token", mode: "demo" })
-        );
-        router.push("/admin");
-        return;
-      }
-
-      // 2. Try Supabase Auth if configured
+      // Try Supabase Auth if configured
       if (supabase) {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
@@ -42,6 +32,12 @@ export default function AdminLoginPage() {
         }
 
         if (data.session) {
+          // Ensure that the logged in email is exactly the admin email
+          if (data.session.user.email !== "admin@pluggedin.com") {
+            await supabase.auth.signOut();
+            throw new Error("Access denied: This email is not authorized as administrator.");
+          }
+
           localStorage.setItem(
             "pluggedin_admin_session",
             JSON.stringify({ email, token: data.session.access_token, mode: "supabase" })
@@ -49,10 +45,11 @@ export default function AdminLoginPage() {
           router.push("/admin");
           return;
         }
+      } else {
+        throw new Error("Database services are currently unconfigured. Authentication is unavailable.");
       }
 
-      // If we fall through, auth failed
-      setErrorMsg("Invalid credentials. Try demo credentials: admin@pluggedin.com / admin123");
+      setErrorMsg("Invalid email or password.");
     } catch (err: any) {
       setErrorMsg(err.message || "An authentication error occurred.");
     } finally {
@@ -72,7 +69,7 @@ export default function AdminLoginPage() {
 
         <div className="flex flex-col items-center text-center mb-8">
           <img src="/logo.webp" alt="Logo" className="w-32 h-8 object-contain mb-6" />
-          <h2 className="text-xl md:text-2xl font-black font-syne tracking-tight text-slate-900">
+          <h2 className="text-xl md:text-2xl font-black font-inter tracking-tight text-slate-900">
             ADMIN SYSTEM LOGIN
           </h2>
           <p className="text-[10px] text-slate-400 font-extrabold tracking-widest uppercase mt-1">
@@ -130,12 +127,6 @@ export default function AdminLoginPage() {
             )}
           </button>
         </form>
-
-        <div className="text-center mt-6">
-          <p className="text-[10px] text-slate-400 font-bold tracking-wide">
-            Demo Login: <span className="text-purple-600">admin@pluggedin.com</span> / <span className="text-purple-600">admin123</span>
-          </p>
-        </div>
       </div>
     </div>
   );

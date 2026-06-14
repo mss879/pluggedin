@@ -397,7 +397,12 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [searchToast, setSearchToast] = useState<string | null>(null);
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [products, setProducts] = useState<Product[]>(() =>
+    initialProducts.map((p) => ({
+      ...p,
+      icon: getIconForProduct(p.id, p.category, p.color),
+    }))
+  );
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isSearchingDb, setIsSearchingDb] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -749,10 +754,10 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
       )}
       <div
         className={`w-screen h-screen overflow-hidden bg-white p-1.5 lg:p-2.5 flex flex-col justify-stretch relative font-outfit select-none transition-all duration-[1600ms] ease-out ${
-          isLoading ? "opacity-0 scale-90 translate-y-12 pointer-events-none" : "opacity-100 scale-100 translate-y-0"
+          (isClient && isLoading) ? "opacity-0 scale-90 translate-y-12 pointer-events-none" : "opacity-100 scale-100 translate-y-0"
         }`}
         style={{
-          transform: isLoading ? "perspective(1200px) rotateX(10deg)" : "perspective(1200px) rotateX(0deg)",
+          transform: (isClient && isLoading) ? "perspective(1200px) rotateX(10deg)" : "perspective(1200px) rotateX(0deg)",
           transformOrigin: "bottom center",
         }}
       >

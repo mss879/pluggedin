@@ -1,12 +1,8 @@
 import { Metadata } from "next";
 import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
-import { MOCK_PRODUCTS, getCategoryIcon } from "../products";
-import dynamic from "next/dynamic";
-
-const ShopClient = dynamic(() => import("./ShopClient"), {
-  loading: () => null,
-});
+import { MOCK_PRODUCTS } from "../products";
+import ShopClient from "./ShopClient";
 
 async function getProducts() {
   try {
@@ -29,15 +25,14 @@ async function getProducts() {
           images: item.images || [],
           tags: item.tags || [],
           features: item.features || [],
-          metaTitle: item.meta_title || "",
-          icon: getCategoryIcon(item.category, item.id)
+          metaTitle: item.meta_title || ""
         }));
       }
     }
   } catch (e) {
     console.warn("Failed to fetch products on server for shop:", e);
   }
-  return MOCK_PRODUCTS;
+  return MOCK_PRODUCTS.map(({ icon, ...p }) => p);
 }
 
 export const metadata: Metadata = {

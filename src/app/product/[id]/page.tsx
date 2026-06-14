@@ -1,12 +1,8 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
-import { MOCK_PRODUCTS, getCategoryIcon, Product } from "../../products";
-import dynamic from "next/dynamic";
-
-const ProductDetailClient = dynamic(() => import("./ProductDetailClient"), {
-  loading: () => null,
-});
+import { MOCK_PRODUCTS, Product } from "../../products";
+import ProductDetailClient from "./ProductDetailClient";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -31,7 +27,6 @@ async function getProduct(id: string): Promise<Product | null> {
           discount: data.discount || "",
           description: data.description,
           color: data.color || "purple",
-          icon: getCategoryIcon(data.category, data.id),
           images: data.images || [],
           tags: data.tags || [],
           features: data.features || [],
@@ -43,9 +38,13 @@ async function getProduct(id: string): Promise<Product | null> {
     console.warn("Failed to fetch product on server, falling back to mock:", e);
   }
 
-  // Fallback to local mock data
+  // Fallback to local mock data without icon elements
   const mockProduct = MOCK_PRODUCTS.find((p) => p.id === id);
-  return mockProduct || null;
+  if (mockProduct) {
+    const { icon, ...rest } = mockProduct;
+    return rest;
+  }
+  return null;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

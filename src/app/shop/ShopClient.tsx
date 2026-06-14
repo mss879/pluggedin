@@ -23,7 +23,12 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
   const initialCollection = searchParams.get("collection");
 
   // Core Product State
-  const [products, setProducts] = useState<Product[]>(initialProducts || []);
+  const [products, setProducts] = useState<Product[]>(() =>
+    (initialProducts || []).map((p) => ({
+      ...p,
+      icon: getCategoryIcon(p.category, p.id),
+    }))
+  );
   const [loading, setLoading] = useState(!initialProducts || initialProducts.length === 0);
 
   // Collections State
@@ -33,8 +38,16 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
 
   // Filter & Sort State
   const [searchQuery, setSearchQuery] = useState(initialSearch);
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    if (!initialCategory) return "All";
+    const cats = ["Audio", "Power", "Gear", "Travel", "Lighting", "Video"];
+    const matchedCat = cats.find(c => c.toLowerCase() === initialCategory.toLowerCase());
+    return matchedCat || "All";
+  });
+  const [selectedTags, setSelectedTags] = useState<string[]>(() => {
+    if (!initialTag) return [];
+    return [initialTag.toLowerCase()];
+  });
   const [maxPrice, setMaxPrice] = useState(150000);
   const [sortBy, setSortBy] = useState("featured");
 
@@ -357,16 +370,7 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
     return products.filter(p => p.category.toLowerCase() === catName.toLowerCase()).length;
   };
 
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-slate-50/50 flex items-center justify-center font-outfit">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
-          <span className="text-[10px] font-bold tracking-widest uppercase text-zinc-400">Syncing Catalog...</span>
-        </div>
-      </div>
-    );
-  }
+
 
   const activeCollectionObj = selectedCollection 
     ? collections.find(c => c.id.toLowerCase() === selectedCollection.toLowerCase())
