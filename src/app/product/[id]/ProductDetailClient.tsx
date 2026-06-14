@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { sanitizeHtml } from "@/lib/sanitize";
 import {
   getProductColors,
   getColorHex,
@@ -265,7 +266,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             <div className="border-t border-zinc-200/60 pt-5">
               <div 
                 className="text-zinc-650 text-sm sm:text-base leading-relaxed font-medium rich-text-content"
-                dangerouslySetInnerHTML={{ __html: product.description }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description) }}
               />
             </div>
 

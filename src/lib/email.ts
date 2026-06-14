@@ -1,5 +1,15 @@
 import { Resend } from "resend";
 
+/** Escape user-supplied values before interpolating into email HTML. */
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 let resendInstance: Resend | null = null;
 
 function getResendClient(): Resend {
@@ -79,8 +89,8 @@ function generateOrderEmailHtml({
       (item) => `
     <tr style="border-bottom: 1px solid #f1f5f9;">
       <td style="padding: 16px 0; text-align: left;">
-        <div style="font-weight: 700; color: #0f172a; font-size: 14px;">${item.name}</div>
-        <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Color: ${item.color}</div>
+        <div style="font-weight: 700; color: #0f172a; font-size: 14px;">${escapeHtml(item.name)}</div>
+        <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Color: ${escapeHtml(item.color)}</div>
       </td>
       <td style="padding: 16px 0; text-align: center; color: #475569; font-size: 14px; font-weight: 600;">
         ${item.quantity}
@@ -151,7 +161,7 @@ function generateOrderEmailHtml({
           <!-- Order Summary Body -->
           <div style="padding: 32px 32px 24px 32px; text-align: left;">
             <p style="margin: 0 0 20px 0; font-size: 15px; color: #334155; font-weight: 500; line-height: 1.6;">
-              Hi ${customerName},<br>
+              Hi ${escapeHtml(customerName)},<br>
               ${bodyIntro}
             </p>
 
@@ -206,14 +216,14 @@ function generateOrderEmailHtml({
                 <td style="vertical-align: top; width: 50%; padding-right: 16px; padding-bottom: 16px;">
                   <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Shipping Address</div>
                   <div style="font-size: 13px; color: #334155; font-weight: 600; line-height: 1.5;">
-                    ${shippingAddress.replace(/\n/g, "<br>")}
+                    ${escapeHtml(shippingAddress).replace(/\n/g, "<br>")}
                   </div>
                 </td>
                 <td style="vertical-align: top; width: 50%; padding-bottom: 16px;">
                   <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Contact Info</div>
                   <div style="font-size: 13px; color: #334155; font-weight: 600; line-height: 1.5;">
-                    Phone: ${phoneNumber}<br>
-                    Email: ${customerEmail}
+                    Phone: ${escapeHtml(phoneNumber)}<br>
+                    Email: ${escapeHtml(customerEmail)}
                   </div>
                 </td>
               </tr>
@@ -286,11 +296,11 @@ export async function sendOrderConfirmationEmail(payload: OrderEmailPayload) {
       html: emailHtml,
     });
 
-    console.log(`[Resend] Order confirmation email sent to ${payload.customerEmail}. Data:`, data);
+    console.log(`[Resend] Order confirmation email sent for ${payload.orderId}`);
     return { success: true, data };
   } catch (error: any) {
-    console.error("[Resend] Failed to send order confirmation email:", error);
-    return { success: false, error: error?.message || error };
+    console.error("[Resend] Failed to send order confirmation email:", error?.message || error);
+    return { success: false, error: "email_send_failed" };
   }
 }
 
@@ -318,11 +328,11 @@ export async function sendOrderShippedEmail(payload: OrderEmailPayload) {
       html: emailHtml,
     });
 
-    console.log(`[Resend] Shipped notification email sent to ${payload.customerEmail}. Data:`, data);
+    console.log(`[Resend] Shipped notification email sent for ${payload.orderId}`);
     return { success: true, data };
   } catch (error: any) {
-    console.error("[Resend] Failed to send shipped email notification:", error);
-    return { success: false, error: error?.message || error };
+    console.error("[Resend] Failed to send shipped email notification:", error?.message || error);
+    return { success: false, error: "email_send_failed" };
   }
 }
 
@@ -350,10 +360,10 @@ export async function sendOrderDeliveredEmail(payload: OrderEmailPayload) {
       html: emailHtml,
     });
 
-    console.log(`[Resend] Delivered notification email sent to ${payload.customerEmail}. Data:`, data);
+    console.log(`[Resend] Delivered notification email sent for ${payload.orderId}`);
     return { success: true, data };
   } catch (error: any) {
-    console.error("[Resend] Failed to send delivered email notification:", error);
-    return { success: false, error: error?.message || error };
+    console.error("[Resend] Failed to send delivered email notification:", error?.message || error);
+    return { success: false, error: "email_send_failed" };
   }
 }

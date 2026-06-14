@@ -28,7 +28,8 @@ export default function CheckoutClient() {
 
   // Step states: "shipping" | "payment" | "placing"
   const [checkoutStep, setCheckoutStep] = useState<"shipping" | "payment" | "placing">("shipping");
-  const [placingStatus, setPlacingStatus] = useState<"loading" | "success">("loading");
+  const [placingStatus, setPlacingStatus] = useState<"loading" | "success" | "error">("loading");
+  const [placingError, setPlacingError] = useState<string | null>(null);
 
   // Prevent hydration mismatch
   useEffect(() => {
@@ -102,6 +103,7 @@ export default function CheckoutClient() {
   const handlePlaceOrder = async () => {
     setCheckoutStep("placing");
     setPlacingStatus("loading");
+    setPlacingError(null);
 
     let orderIdRef = "";
     try {
@@ -115,27 +117,30 @@ export default function CheckoutClient() {
           shipping_address: custAddress.trim(),
           items: cart.map((item) => ({
             id: item.product.id,
-            name: item.product.name,
             color: item.color,
             quantity: item.quantity,
-            price: item.product.price,
           })),
-          total_amount: cartSubtotal,
           payment_method: paymentMethod,
         }),
       });
-      const data = await response.json();
-      if (data.success) {
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.success && data.orderId) {
         orderIdRef = data.orderId;
       } else {
-        throw new Error(data.error);
+        throw new Error(data.error || "Order could not be placed");
       }
     } catch (err: any) {
-      console.warn("Failed to submit order to database, checking out offline:", err);
-      orderIdRef = `OFFLINE-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+      // Do NOT fake success or clear the cart — surface the error and let the
+      // customer retry so we never silently lose an order.
+      console.error("Failed to place order:", err?.message || err);
+      setPlacingError(
+        "We couldn't place your order. Your cart is safe — please check your details and try again."
+      );
+      setPlacingStatus("error");
+      return;
     }
 
-    // Backend order placed successfully, transition checkout status
+    // Order genuinely placed: only now show success and clear the cart.
     setPlacingStatus("success");
     saveCart([]); // Clear cart contents
 
@@ -596,7 +601,15 @@ export default function CheckoutClient() {
           `}</style>
 
           <div className="flex flex-col items-center gap-6 max-w-sm text-center px-6 relative">
-            {placingStatus === "loading" ? (
+            {placingStatus === "error" ? (
+              <div className="relative w-24 h-24 flex items-center justify-center">
+                <div className="w-16 h-16 bg-red-50 border border-red-100 rounded-full flex items-center justify-center text-red-500 shadow-md">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            ) : placingStatus === "loading" ? (
               <div className="relative w-24 h-24 flex items-center justify-center">
                 {/* Outer Ring */}
                 <div className="absolute inset-0 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin duration-1000" />
@@ -627,14 +640,37 @@ export default function CheckoutClient() {
 
             <div className="flex flex-col gap-2">
               <h3 className="text-sm font-extrabold text-zinc-950 uppercase tracking-widest font-syne">
-                {placingStatus === "loading" ? "Processing Checkout" : "Order Placed!"}
+                {placingStatus === "error"
+                  ? "Order Not Placed"
+                  : placingStatus === "loading"
+                  ? "Processing Checkout"
+                  : "Order Placed!"}
               </h3>
               <p className="text-xs text-zinc-550 font-bold leading-relaxed max-w-[280px]">
-                {placingStatus === "loading" 
-                  ? "Securing your setup essentials. Please do not close or refresh this page." 
+                {placingStatus === "error"
+                  ? (placingError || "Something went wrong. Please try again.")
+                  : placingStatus === "loading"
+                  ? "Securing your setup essentials. Please do not close or refresh this page."
                   : "Thank you! Generating your order reference receipt now..."}
               </p>
             </div>
+
+            {placingStatus === "error" && (
+              <div className="flex flex-col gap-3 w-full max-w-[280px]">
+                <button
+                  onClick={handlePlaceOrder}
+                  className="w-full bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-black tracking-widest py-3.5 rounded-full transition-all active:scale-95 cursor-pointer"
+                >
+                  TRY AGAIN
+                </button>
+                <button
+                  onClick={() => { setCheckoutStep("payment"); setPlacingStatus("loading"); setPlacingError(null); }}
+                  className="w-full bg-transparent hover:bg-zinc-100 text-zinc-600 text-xs font-bold tracking-widest py-3 rounded-full transition-all cursor-pointer"
+                >
+                  BACK TO CHECKOUT
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

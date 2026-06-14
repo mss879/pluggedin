@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { 
-  sendOrderShippedEmail, 
-  sendOrderDeliveredEmail 
+import { isAllowedOrigin } from "@/lib/rate-limit";
+import {
+  sendOrderShippedEmail,
+  sendOrderDeliveredEmail
 } from "@/lib/email";
+
+const ALLOWED_STATUSES = ["pending", "fulfilled", "shipped", "delivered"];
+const ADMIN_EMAIL = "admin@pluggedin.com";
 
 export async function POST(request: Request) {
   try {
+    if (!isAllowedOrigin(request)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await request.json().catch(() => ({}));
     const { orderId, status } = body;
 
@@ -17,9 +25,21 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!ALLOWED_STATUSES.includes(status)) {
+      return NextResponse.json(
+        { error: "Invalid order status" },
+        { status: 400 }
+      );
+    }
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     // Prioritize service role key to bypass RLS, fallback to public anon key
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+    // (which still requires a valid admin bearer token + RLS to authorize).
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceKey) {
+      console.warn("[update-status] SUPABASE_SERVICE_ROLE_KEY not set; falling back to anon key + RLS.");
+    }
+    const supabaseKey = serviceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
     const authHeader = request.headers.get("Authorization");
 
     if (!supabaseUrl || !supabaseKey) {
@@ -45,7 +65,7 @@ export async function POST(request: Request) {
       const token = authHeader.substring(7);
       try {
         const { data: { user }, error: authError } = await supabaseServer.auth.getUser(token);
-        if (!authError && user && user.email === "admin@pluggedin.com") {
+        if (!authError && user && user.email === ADMIN_EMAIL) {
           isAdmin = true;
         }
       } catch (err) {
@@ -87,7 +107,7 @@ export async function POST(request: Request) {
     if (updateError) {
       console.error("Failed to update order status in DB:", updateError);
       return NextResponse.json(
-        { error: updateError.message },
+        { error: "Failed to update order status" },
         { status: 500 }
       );
     }
@@ -115,10 +135,10 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in update status API route:", error);
     return NextResponse.json(
-      { error: error?.message || "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

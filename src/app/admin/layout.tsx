@@ -3,6 +3,9 @@
 import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+
+const ADMIN_EMAIL = "admin@pluggedin.com";
 
 export default function AdminLayout({
   children,
@@ -14,22 +17,50 @@ export default function AdminLayout({
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Client-side authentication check
-    const checkAuth = () => {
-      const session = localStorage.getItem("pluggedin_admin_session");
-      if (!session && pathname !== "/admin/login") {
+    let cancelled = false;
+
+    // Verify the actual Supabase session (validated against the auth server) and
+    // confirm it belongs to the admin — not just the presence of a localStorage
+    // flag, which anyone could set. Data is still protected by RLS as a second
+    // layer; this hardens the UI gate.
+    const checkAuth = async () => {
+      if (pathname === "/admin/login") {
+        if (!cancelled) setIsAuthenticated(true);
+        return;
+      }
+
+      if (!supabase) {
+        if (!cancelled) {
+          setIsAuthenticated(false);
+          router.replace("/admin/login");
+        }
+        return;
+      }
+
+      const { data, error } = await supabase.auth.getUser();
+      const ok = !error && data?.user?.email === ADMIN_EMAIL;
+
+      if (cancelled) return;
+      if (ok) {
+        setIsAuthenticated(true);
+      } else {
+        localStorage.removeItem("pluggedin_admin_session");
         setIsAuthenticated(false);
         router.replace("/admin/login");
-      } else {
-        setIsAuthenticated(true);
       }
     };
 
     checkAuth();
 
-    // Listen to changes in localStorage (optional)
-    window.addEventListener("storage", checkAuth);
-    return () => window.removeEventListener("storage", checkAuth);
+    // Re-check on auth changes (e.g. logout / token expiry / another tab)
+    const { data: sub } = supabase
+      ? supabase.auth.onAuthStateChange(() => checkAuth())
+      : { data: null };
+
+    return () => {
+      cancelled = true;
+      sub?.subscription?.unsubscribe();
+    };
   }, [pathname, router]);
 
   // Loading state while checking authentication
