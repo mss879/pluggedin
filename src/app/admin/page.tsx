@@ -93,7 +93,7 @@ export default function AdminDashboardPage() {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [prodName, setProdName] = useState("");
   const [prodMetaTitle, setProdMetaTitle] = useState("");
-  const [prodCategory, setProdCategory] = useState("Audio");
+  const [prodCategory, setProdCategory] = useState("Home and kitchen");
   const [prodPrice, setProdPrice] = useState("");
   const [prodSlashedPrice, setProdSlashedPrice] = useState("");
   const [prodDescription, setProdDescription] = useState("");
@@ -687,7 +687,7 @@ export default function AdminDashboardPage() {
   const resetProductForm = () => {
     setEditingProductId(null);
     setProdName("");
-    setProdCategory("Audio");
+    setProdCategory("Home and kitchen");
     setProdPrice("");
     setProdSlashedPrice("");
     setProdDescription("");
@@ -1404,7 +1404,7 @@ export default function AdminDashboardPage() {
                       onChange={(e) => setProdCategory(e.target.value)}
                       className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
                     >
-                      {["Audio", "Power", "Gear", "Travel", "Lighting", "Video"].map((cat) => (
+                      {["Home and kitchen", "Tech & Gadgets", "Mobile & Auto", "Best sellers", "Trending"].map((cat) => (
                         <option key={cat} value={cat}>
                           {cat}
                         </option>

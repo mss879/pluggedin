@@ -41,7 +41,7 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [selectedCategory, setSelectedCategory] = useState(() => {
     if (!initialCategory) return "All";
-    const cats = ["Audio", "Power", "Gear", "Travel", "Lighting", "Video"];
+    const cats = ["Home and kitchen", "Tech & Gadgets", "Mobile & Auto", "Best sellers", "Trending"];
     const matchedCat = cats.find(c => c.toLowerCase() === initialCategory.toLowerCase());
     return matchedCat || "All";
   });
@@ -74,7 +74,7 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
     // Sync categories & tags from URL query
     if (initialCategory) {
       // Find case-insensitive match in CATEGORIES
-      const cats = ["Audio", "Power", "Gear", "Travel", "Lighting", "Video"];
+      const cats = ["Home and kitchen", "Tech & Gadgets", "Mobile & Auto", "Best sellers", "Trending"];
       const matchedCat = cats.find(c => c.toLowerCase() === initialCategory.toLowerCase());
       if (matchedCat) {
         setSelectedCategory(matchedCat);
@@ -284,7 +284,7 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
   ).filter(Boolean).sort();
 
   // Filter Categories list
-  const CATEGORIES = ["All", "Audio", "Power", "Gear", "Travel", "Lighting", "Video"];
+  const CATEGORIES = ["All", "Home and kitchen", "Tech & Gadgets", "Mobile & Auto", "Best sellers", "Trending"];
 
   // Toggle tag checkboxes
   const handleTagToggle = (tag: string) => {
@@ -972,8 +972,8 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
                 {[
                   { name: "Trending Essentials", link: "/shop?collection=trending" },
                   { name: "New Arrivals", link: "/shop?collection=new-in" },
-                  { name: "Audio Systems", link: "/shop?category=Audio" },
-                  { name: "Desk Accessories", link: "/shop?category=Gear" }
+                  { name: "Tech & Gadgets", link: "/shop?category=Tech & Gadgets" },
+                  { name: "Mobile & Auto", link: "/shop?category=Mobile & Auto" }
                 ].map((item) => (
                   <li key={item.name}>
                     <Link href={item.link} className="text-zinc-655 hover:text-purple-650 transition-colors duration-200">

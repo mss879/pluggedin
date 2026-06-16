@@ -154,3 +154,111 @@ span.font-syne {
   transform-origin: left center;
   line-height: 1.45 !important;
 }
+
+/* ============================================================
+   About page — futuristic scroll animations & FX
+   (applied to wrapper elements only; never to .font-syne headings
+   which carry an !important scaleY transform)
+   ============================================================ */
+
+/* Scroll-triggered reveals */
+.reveal {
+  opacity: 0;
+  transform: translateY(42px);
+  filter: blur(0);
+  transition:
+    opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 1s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 1s ease;
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.reveal.reveal-scale { transform: translateY(28px) scale(0.94); }
+.reveal.reveal-left { transform: translateX(-56px); }
+.reveal.reveal-right { transform: translateX(56px); }
+.reveal.reveal-blur { transform: translateY(20px); filter: blur(14px); }
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+/* Aurora / mesh blob drift */
+@keyframes aurora-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33% { transform: translate3d(5%, -4%, 0) scale(1.18); }
+  66% { transform: translate3d(-4%, 3%, 0) scale(0.92); }
+}
+.animate-aurora { animation: aurora-drift 20s ease-in-out infinite; }
+.animate-aurora-slow { animation: aurora-drift 28s ease-in-out infinite reverse; }
+
+/* Floating orbs */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-28px); }
+}
+.animate-float-slow { animation: float-slow 10s ease-in-out infinite; }
+
+/* Animated tech grid pan */
+@keyframes grid-pan {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 56px; }
+}
+.animate-grid { animation: grid-pan 7s linear infinite; }
+
+/* Animated gradient text */
+@keyframes gradient-pan {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+.animate-gradient-text {
+  background-size: 200% auto;
+  animation: gradient-pan 6s linear infinite;
+}
+
+/* Glow pulse for accents */
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.85; }
+}
+.animate-glow { animation: glow-pulse 4.5s ease-in-out infinite; }
+
+/* Card shine sweep (triggered on hover via .group) */
+@keyframes card-shine {
+  0% { transform: translateX(-130%) skewX(-20deg); }
+  100% { transform: translateX(240%) skewX(-20deg); }
+}
+.group:hover .card-shine { animation: card-shine 0.9s ease-out forwards; }
+
+/* Conic rotating border for CTA */
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow { animation: spin-slow 8s linear infinite; }
+
+/* Scroll-down hint bob */
+@keyframes bob {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50% { transform: translateY(8px); opacity: 1; }
+}
+.animate-bob { animation: bob 1.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+  .animate-aurora,
+  .animate-aurora-slow,
+  .animate-float-slow,
+  .animate-grid,
+  .animate-gradient-text,
+  .animate-glow,
+  .animate-spin-slow,
+  .animate-bob,
+  .group:hover .card-shine {
+    animation: none !important;
+  }
+}

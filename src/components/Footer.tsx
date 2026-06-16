@@ -60,8 +60,8 @@ export default function Footer() {
                 {[
                   { name: "Trending Essentials", link: "/shop?collection=trending" },
                   { name: "New Arrivals", link: "/shop?collection=new-in" },
-                  { name: "Audio Systems", link: "/shop?category=Audio" },
-                  { name: "Desk Accessories", link: "/shop?category=Gear" }
+                  { name: "Tech & Gadgets", link: "/shop?category=Tech & Gadgets" },
+                  { name: "Mobile & Auto", link: "/shop?category=Mobile & Auto" }
                 ].map((item) => (
                   <li key={item.name}>
                     <Link href={item.link} className="text-zinc-655 hover:text-purple-655 transition-colors duration-200">
