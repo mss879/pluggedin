@@ -78,38 +78,38 @@ const getIconForProduct = (id: string, category: string, color: string): React.R
   const lowerCat = category.toLowerCase();
   const iconColor = color ? `text-${color}-600` : "text-purple-600";
   
-  if (lowerCat.includes("audio")) {
+  if (lowerCat.includes("kitchen") || lowerCat.includes("home")) {
     return (
       <svg className={`w-5 h-5 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
       </svg>
     );
   }
-  if (lowerCat.includes("power") || lowerCat.includes("charg")) {
+  if (lowerCat.includes("tech") || lowerCat.includes("gadget")) {
     return (
       <svg className={`w-5 h-5 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
       </svg>
     );
   }
-  if (lowerCat.includes("travel") || lowerCat.includes("bag")) {
+  if (lowerCat.includes("mobile") || lowerCat.includes("auto")) {
     return (
       <svg className={`w-5 h-5 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2zM12 7v6" />
       </svg>
     );
   }
-  if (lowerCat.includes("light")) {
+  if (lowerCat.includes("best") || lowerCat.includes("seller")) {
     return (
       <svg className={`w-5 h-5 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.907c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.907a1 1 0 00.95-.69l1.519-4.674z" />
       </svg>
     );
   }
-  if (lowerCat.includes("video") || lowerCat.includes("cam")) {
+  if (lowerCat.includes("trend")) {
     return (
       <svg className={`w-5 h-5 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
       </svg>
     );
   }
@@ -125,7 +125,7 @@ const MOCK_PRODUCTS: Product[] = [
   {
     id: "headphones",
     name: "Pro Noise-Cancelling Headphones",
-    category: "Audio",
+    category: "Best sellers",
     price: "Rs. 90,000",
     slashedPrice: "Rs. 120,000",
     discount: "25% OFF",
@@ -140,7 +140,7 @@ const MOCK_PRODUCTS: Product[] = [
   {
     id: "charger",
     name: "Smart Dual Wireless Charger",
-    category: "Power",
+    category: "Tech & Gadgets",
     price: "Rs. 27,000",
     slashedPrice: "Rs. 36,000",
     discount: "25% OFF",
@@ -155,7 +155,7 @@ const MOCK_PRODUCTS: Product[] = [
   {
     id: "keyboard",
     name: "Creations Mechanical Keyboard",
-    category: "Gear",
+    category: "Best sellers",
     price: "Rs. 48,000",
     slashedPrice: "Rs. 63,000",
     discount: "24% OFF",
@@ -170,7 +170,7 @@ const MOCK_PRODUCTS: Product[] = [
   {
     id: "sleeve",
     name: "Minimalist Tech Sleeve",
-    category: "Travel",
+    category: "Tech & Gadgets",
     price: "Rs. 13,500",
     slashedPrice: "Rs. 18,000",
     discount: "25% OFF",
@@ -185,7 +185,7 @@ const MOCK_PRODUCTS: Product[] = [
   {
     id: "lightbar",
     name: "Ambient LED Desk Bar",
-    category: "Lighting",
+    category: "Home and kitchen",
     price: "Rs. 24,000",
     slashedPrice: "Rs. 33,000",
     discount: "28% OFF",
@@ -200,7 +200,7 @@ const MOCK_PRODUCTS: Product[] = [
   {
     id: "riser",
     name: "Carbon Fiber Laptop Lift",
-    category: "Gear",
+    category: "Tech & Gadgets",
     price: "Rs. 19,500",
     slashedPrice: "Rs. 27,000",
     discount: "27% OFF",
@@ -215,7 +215,7 @@ const MOCK_PRODUCTS: Product[] = [
   {
     id: "mouse",
     name: "Precision Workspace Mouse",
-    category: "Gear",
+    category: "Tech & Gadgets",
     price: "Rs. 39,000",
     slashedPrice: "Rs. 54,000",
     discount: "28% OFF",
@@ -230,7 +230,7 @@ const MOCK_PRODUCTS: Product[] = [
   {
     id: "speaker",
     name: "Hi-Fi Studio Monitor Speaker",
-    category: "Audio",
+    category: "Home and kitchen",
     price: "Rs. 105,000",
     slashedPrice: "Rs. 138,000",
     discount: "24% OFF",
@@ -245,7 +245,7 @@ const MOCK_PRODUCTS: Product[] = [
   {
     id: "webcam",
     name: "4K Creator Webcam",
-    category: "Video",
+    category: "Trending",
     price: "Rs. 60,000",
     slashedPrice: "Rs. 81,000",
     discount: "26% OFF",
@@ -260,7 +260,7 @@ const MOCK_PRODUCTS: Product[] = [
   {
     id: "mic",
     name: "USB Condenser Microphone",
-    category: "Audio",
+    category: "Trending",
     price: "Rs. 54,000",
     slashedPrice: "Rs. 72,000",
     discount: "25% OFF",
@@ -275,7 +275,7 @@ const MOCK_PRODUCTS: Product[] = [
   {
     id: "stand",
     name: "MagSafe Desk Mount",
-    category: "Power",
+    category: "Mobile & Auto",
     price: "Rs. 15,000",
     slashedPrice: "Rs. 21,000",
     discount: "30% OFF",
@@ -290,7 +290,7 @@ const MOCK_PRODUCTS: Product[] = [
   {
     id: "backpack",
     name: "Urban Tech Backpack",
-    category: "Travel",
+    category: "Mobile & Auto",
     price: "Rs. 42,000",
     slashedPrice: "Rs. 57,000",
     discount: "26% OFF",
@@ -1292,11 +1292,11 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         </h4>
                         <div className="flex flex-wrap gap-2">
                           {[
-                            { name: "Audio", color: "text-purple-700 bg-purple-50 border-purple-200/30" },
-                            { name: "Power", color: "text-amber-700 bg-amber-50 border-amber-200/30" },
-                            { name: "Gear", color: "text-blue-700 bg-blue-50 border-blue-200/30" },
-                            { name: "Travel", color: "text-emerald-700 bg-emerald-50 border-emerald-200/30" },
-                            { name: "Lighting", color: "text-pink-700 bg-pink-50 border-pink-200/30" }
+                            { name: "Home and kitchen", color: "text-pink-700 bg-pink-50 border-pink-200/30" },
+                            { name: "Tech & Gadgets", color: "text-blue-700 bg-blue-50 border-blue-200/30" },
+                            { name: "Mobile & Auto", color: "text-emerald-700 bg-emerald-50 border-emerald-200/30" },
+                            { name: "Best sellers", color: "text-purple-700 bg-purple-50 border-purple-200/30" },
+                            { name: "Trending", color: "text-amber-700 bg-amber-50 border-amber-200/30" }
                           ].map((cat) => (
                             <button
                               key={cat.name}
@@ -1507,56 +1507,53 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
               </div>
 
               {/* Bento Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl mx-auto">
-                {/* Card 1: Audio Systems (span-2) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl mx-auto">
+                {/* Card 1: Home and kitchen (span-2) */}
                 <div 
-                  onClick={() => router.push("/shop?category=Audio")}
-                  className="md:col-span-2 group relative h-[320px] rounded-3xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.04)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6 md:p-8"
+                  onClick={() => router.push("/shop?category=Home and kitchen")}
+                  className="md:col-span-2 group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6 md:p-8"
                 >
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <Image 
-                      src="/categories/kitchen_dining.webp" 
-                      alt="Premium Audio" 
+                      src="/categories/home_kitchen.webp?v=3" 
+                      alt="Home and kitchen" 
                       fill
                       sizes="(max-width: 768px) 100vw, 66vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                       loading="eager"
                       unoptimized
-                    />
+                      />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
 
                   {/* Content Overlay */}
                   <div className="relative z-10 flex flex-col justify-between h-full w-full">
-                    <div className="flex justify-between items-start">
-                      <span className="text-[9px] font-bold tracking-[0.2em] text-purple-300 bg-purple-950/40 backdrop-blur-md px-3 py-1 rounded-full border border-purple-500/20">
-                        01 // AUDIOPHILE
-                      </span>
+                    <div className="flex justify-end w-full">
                       <span className="text-white/60 text-xs font-medium">EXPLORE →</span>
                     </div>
                     
                     <div className="max-w-md text-left">
                       <h3 className="text-xl md:text-2xl font-extrabold text-white font-outfit">
-                        Premium Audio Systems
+                        Home & Kitchen Essentials
                       </h3>
                       <div className="flex flex-wrap gap-2 mt-3 relative z-20 pointer-events-auto">
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Audio&tag=headphones");
+                            router.push("/shop?category=Home and kitchen&tag=lightbar");
                           }}
-                          className="text-[9px] font-bold tracking-widest text-purple-300 bg-purple-950/40 hover:bg-purple-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-purple-500/30 uppercase transition-all"
+                          className="text-[9px] font-bold tracking-widest text-pink-300 bg-pink-955/40 hover:bg-pink-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-pink-500/30 uppercase transition-all"
                         >
-                          #headphones
+                          #lightbar
                         </span>
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Audio&tag=speaker");
+                            router.push("/shop?category=Home and kitchen&tag=speaker");
                           }}
-                          className="text-[9px] font-bold tracking-widest text-purple-300 bg-purple-950/40 hover:bg-purple-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-purple-500/30 uppercase transition-all"
+                          className="text-[9px] font-bold tracking-widest text-pink-300 bg-pink-955/40 hover:bg-pink-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-pink-500/30 uppercase transition-all"
                         >
                           #speaker
                         </span>
@@ -1565,16 +1562,16 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   </div>
                 </div>
 
-                {/* Card 2: Workspace Gear (span-1) */}
+                {/* Card 2: Tech & Gadgets (span-1) */}
                 <div 
-                  onClick={() => router.push("/shop?category=Gear")}
-                  className="md:col-span-1 group relative h-[320px] rounded-3xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.04)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6"
+                  onClick={() => router.push("/shop?category=Tech & Gadgets")}
+                  className="md:col-span-1 group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6"
                 >
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <Image 
-                      src="/categories/electronics_setup.webp" 
-                      alt="Workspace Gear" 
+                      src="/categories/tech_gadgets.webp?v=2" 
+                      alt="Tech & Gadgets" 
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
@@ -1587,51 +1584,48 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
                   {/* Content Overlay */}
                   <div className="relative z-10 flex flex-col justify-between h-full w-full">
-                    <div className="flex justify-between items-start">
-                      <span className="text-[9px] font-bold tracking-[0.2em] text-blue-300 bg-blue-955/40 backdrop-blur-md px-3 py-1 rounded-full border border-blue-500/20">
-                        02 // WORKSPACE
-                      </span>
+                    <div className="flex justify-end w-full">
                       <span className="text-white/60 text-xs font-medium">EXPLORE →</span>
                     </div>
                     
                     <div className="text-left">
                       <h3 className="text-xl font-extrabold text-white font-outfit">
-                        Workspace Setup Gear
+                        Workspace Tech & Gadgets
                       </h3>
                       <div className="flex flex-wrap gap-2 mt-3 relative z-20 pointer-events-auto">
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Gear&tag=keyboard");
+                            router.push("/shop?category=Tech & Gadgets&tag=keyboard");
                           }}
-                          className="text-[9px] font-bold tracking-widest text-blue-300 bg-blue-950/40 hover:bg-blue-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-blue-500/30 uppercase transition-all"
+                          className="text-[9px] font-bold tracking-widest text-blue-300 bg-blue-955/40 hover:bg-blue-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-blue-500/30 uppercase transition-all"
                         >
                           #keyboard
                         </span>
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Gear&tag=riser");
+                            router.push("/shop?category=Tech & Gadgets&tag=mouse");
                           }}
-                          className="text-[9px] font-bold tracking-widest text-blue-300 bg-blue-950/40 hover:bg-blue-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-blue-500/30 uppercase transition-all"
+                          className="text-[9px] font-bold tracking-widest text-blue-300 bg-blue-955/40 hover:bg-blue-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-blue-500/30 uppercase transition-all"
                         >
-                          #riser
+                          #mouse
                         </span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Card 3: Smart Lighting (span-1) */}
+                {/* Card 3: Trending (span-1) */}
                 <div 
-                  onClick={() => router.push("/shop?category=Lighting")}
-                  className="md:col-span-1 group relative h-[320px] rounded-3xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.04)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6"
+                  onClick={() => router.push("/shop?category=Trending")}
+                  className="md:col-span-1 group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6"
                 >
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <Image 
-                      src="/categories/home_care.webp" 
-                      alt="Smart Lighting" 
+                      src="/categories/trending.webp?v=2" 
+                      alt="Trending" 
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
@@ -1644,51 +1638,48 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
                   {/* Content Overlay */}
                   <div className="relative z-10 flex flex-col justify-between h-full w-full">
-                    <div className="flex justify-between items-start">
-                      <span className="text-[9px] font-bold tracking-[0.2em] text-pink-300 bg-pink-955/40 backdrop-blur-md px-3 py-1 rounded-full border border-pink-500/20">
-                        03 // AMBIENT
-                      </span>
+                    <div className="flex justify-end w-full">
                       <span className="text-white/60 text-xs font-medium">EXPLORE →</span>
                     </div>
                     
                     <div className="text-left">
                       <h3 className="text-xl font-extrabold text-white font-outfit">
-                        Ambient Desk Lights
+                        Trending Creator Essentials
                       </h3>
                       <div className="flex flex-wrap gap-2 mt-3 relative z-20 pointer-events-auto">
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Lighting&tag=lightbar");
+                            router.push("/shop?category=Trending&tag=mic");
                           }}
-                          className="text-[9px] font-bold tracking-widest text-pink-300 bg-pink-950/40 hover:bg-pink-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-pink-500/30 uppercase transition-all"
+                          className="text-[9px] font-bold tracking-widest text-amber-300 bg-amber-955/40 hover:bg-amber-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-amber-500/30 uppercase transition-all"
                         >
-                          #lightbar
+                          #mic
                         </span>
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Lighting&tag=rgb");
+                            router.push("/shop?category=Trending&tag=webcam");
                           }}
-                          className="text-[9px] font-bold tracking-widest text-pink-300 bg-pink-950/40 hover:bg-pink-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-pink-500/30 uppercase transition-all"
+                          className="text-[9px] font-bold tracking-widest text-amber-300 bg-amber-955/40 hover:bg-amber-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-amber-500/30 uppercase transition-all"
                         >
-                          #rgb
+                          #webcam
                         </span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Card 4: Travel Carry (span-1) */}
+                {/* Card 4: Mobile & Auto (span-1) */}
                 <div 
-                  onClick={() => router.push("/shop?category=Travel")}
-                  className="md:col-span-1 group relative h-[320px] rounded-3xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.04)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6"
+                  onClick={() => router.push("/shop?category=Mobile & Auto")}
+                  className="md:col-span-1 group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6"
                 >
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <Image 
-                      src="/categories/car_gear.webp" 
-                      alt="Travel Carry" 
+                      src="/categories/mobile_auto.webp?v=2" 
+                      alt="Mobile & Auto" 
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
@@ -1701,22 +1692,19 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
                   {/* Content Overlay */}
                   <div className="relative z-10 flex flex-col justify-between h-full w-full">
-                    <div className="flex justify-between items-start">
-                      <span className="text-[9px] font-bold tracking-[0.2em] text-emerald-300 bg-emerald-955/40 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-500/20">
-                        04 // TRANSIT
-                      </span>
+                    <div className="flex justify-end w-full">
                       <span className="text-white/60 text-xs font-medium">EXPLORE →</span>
                     </div>
                     
                     <div className="text-left">
                       <h3 className="text-xl font-extrabold text-white font-outfit">
-                        Travel & Tech Carry
+                        Mobile & Auto Gear
                       </h3>
                       <div className="flex flex-wrap gap-2 mt-3 relative z-20 pointer-events-auto">
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Travel&tag=backpack");
+                            router.push("/shop?category=Mobile & Auto&tag=backpack");
                           }}
                           className="text-[9px] font-bold tracking-widest text-emerald-300 bg-emerald-955/40 hover:bg-emerald-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-500/30 uppercase transition-all"
                         >
@@ -1725,27 +1713,27 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Travel&tag=sleeve");
+                            router.push("/shop?category=Mobile & Auto&tag=stand");
                           }}
                           className="text-[9px] font-bold tracking-widest text-emerald-300 bg-emerald-955/40 hover:bg-emerald-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-500/30 uppercase transition-all"
                         >
-                          #sleeve
+                          #stand
                         </span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Card 5: Power & Desktop (span-1) */}
+                {/* Card 5: Best sellers (span-1) */}
                 <div 
-                  onClick={() => router.push("/shop?category=Power")}
-                  className="md:col-span-1 group relative h-[320px] rounded-3xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.04)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6"
+                  onClick={() => router.push("/shop?category=Best sellers")}
+                  className="md:col-span-1 group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6"
                 >
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <Image 
-                      src="/categories/tech_accessories.webp" 
-                      alt="Power and Charging" 
+                      src="/categories/best_sellers.webp?v=2" 
+                      alt="Best sellers" 
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
@@ -1758,35 +1746,32 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
                   {/* Content Overlay */}
                   <div className="relative z-10 flex flex-col justify-between h-full w-full">
-                    <div className="flex justify-between items-start">
-                      <span className="text-[9px] font-bold tracking-[0.25em] text-purple-300 bg-purple-955/40 backdrop-blur-md px-3 py-1 rounded-full border border-purple-500/20">
-                        05 // POWER
-                      </span>
+                    <div className="flex justify-end w-full">
                       <span className="text-white/60 text-xs font-medium">EXPLORE →</span>
                     </div>
                     
                     <div className="text-left">
                       <h3 className="text-xl font-extrabold text-white font-outfit">
-                        Power & Desktop Charger
+                        Best Sellers Hub
                       </h3>
                       <div className="flex flex-wrap gap-2 mt-3 relative z-20 pointer-events-auto">
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Power&tag=charger");
+                            router.push("/shop?category=Best sellers&tag=headphones");
                           }}
                           className="text-[9px] font-bold tracking-widest text-purple-300 bg-purple-955/40 hover:bg-purple-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-purple-500/30 uppercase transition-all"
                         >
-                          #charger
+                          #headphones
                         </span>
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Power&tag=stand");
+                            router.push("/shop?category=Best sellers&tag=keyboard");
                           }}
                           className="text-[9px] font-bold tracking-widest text-purple-300 bg-purple-955/40 hover:bg-purple-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-purple-500/30 uppercase transition-all"
                         >
-                          #stand
+                          #keyboard
                         </span>
                       </div>
                     </div>
