@@ -534,30 +534,6 @@ export default function AboutClient() {
         </div>
       </section>
 
-      {/* ===================== BEHIND THE STORE (ARC AI) ===================== */}
-      <section className="relative max-w-5xl mx-auto px-6 md:px-8 pb-24 md:pb-28">
-        <Reveal variant="up">
-          <div className="border-t border-zinc-150 pt-16 max-w-3xl">
-            <span className="text-[11px] font-black tracking-[0.25em] uppercase text-zinc-500">/ 04</span>
-            <h2 className="font-inter text-2xl md:text-3xl font-extrabold tracking-tight mt-3 mb-5 text-zinc-950">
-              Behind the Store
-            </h2>
-            <p className="text-zinc-600 leading-relaxed font-medium text-base md:text-lg">
-              Our store was designed and built together with{" "}
-              <a
-                href="https://www.arcai.agency"
-                target="_blank"
-                rel="noopener"
-                className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-zinc-955 to-zinc-700 underline decoration-zinc-400 underline-offset-4 hover:decoration-zinc-800 transition-colors"
-              >
-                ARC AI
-              </a>
-              , a creative studio that helps us keep the shopping experience smooth, fast, and easy on the eyes.
-            </p>
-          </div>
-        </Reveal>
-      </section>
-
       {/* ===================== CTA ===================== */}
       <section className="relative max-w-5xl mx-auto px-6 md:px-8 pb-28">
         <Reveal variant="scale">
