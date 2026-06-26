@@ -327,8 +327,9 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
 
     let matchesCollection = true;
     if (selectedCollection) {
+      const lookupId = selectedCollection.toLowerCase() === "trending" ? "trending-products" : selectedCollection.toLowerCase();
       const collection = collections.find(
-        (c) => c.id.toLowerCase() === selectedCollection.toLowerCase()
+        (c) => c.id.toLowerCase() === lookupId || c.id.toLowerCase() === selectedCollection.toLowerCase()
       );
       if (!collection) {
         matchesCollection = false;

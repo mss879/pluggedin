@@ -20,6 +20,10 @@ interface Product {
   description: string;
   color: string;
   icon: React.ReactNode;
+  tags?: string[];
+  images?: string[];
+  colors?: string[];
+  features?: string[];
 }
 
 interface CartItem {
@@ -402,9 +406,15 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
   const [products, setProducts] = useState<Product[]>(() =>
     initialProducts.map((p) => ({
       ...p,
+      colors: p.colors || [],
+      images: p.images || [],
+      tags: p.tags || [],
+      features: p.features || [],
       icon: getIconForProduct(p.id, p.category, p.color),
     }))
   );
+  const [collections, setCollections] = useState<any[]>([]);
+  const [collectionProducts, setCollectionProducts] = useState<any[]>([]);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isSearchingDb, setIsSearchingDb] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -440,16 +450,19 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
     };
   }, []);
 
-  // Fetch products from Supabase on mount (fall back to MOCK_PRODUCTS if offline/unconfigured)
+  // Fetch products and collections from Supabase on mount (fall back to MOCK_PRODUCTS if offline/unconfigured)
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchStorefrontData = async () => {
       try {
         if (supabase) {
-          const { data, error } = await supabase
-            .from("products")
-            .select("*");
-          if (!error && data && data.length > 0) {
-            const mapped = data.map((item: any) => ({
+          const [productsRes, collectionsRes, collectionProductsRes] = await Promise.all([
+            supabase.from("products").select("*"),
+            supabase.from("collections").select("*"),
+            supabase.from("collection_products").select("*")
+          ]);
+
+          if (!productsRes.error && productsRes.data && productsRes.data.length > 0) {
+            const mapped = productsRes.data.map((item: any) => ({
               id: item.id,
               name: item.name,
               category: item.category,
@@ -458,17 +471,28 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
               discount: item.discount || "",
               description: item.description,
               color: item.color || "purple",
+              colors: item.colors || [],
+              images: item.images || [],
+              tags: item.tags || [],
+              features: item.features || [],
               metaTitle: item.meta_title || "",
               icon: getIconForProduct(item.id, item.category, item.color)
             }));
             setProducts(mapped);
           }
+
+          if (!collectionsRes.error && collectionsRes.data) {
+            setCollections(collectionsRes.data);
+          }
+          if (!collectionProductsRes.error && collectionProductsRes.data) {
+            setCollectionProducts(collectionProductsRes.data);
+          }
         }
       } catch (err) {
-        console.warn("Failed to load storefront products from Supabase, using mock fallback:", err);
+        console.warn("Failed to load storefront products or collections from Supabase, using mock fallback:", err);
       }
     };
-    fetchProducts();
+    fetchStorefrontData();
 
     // Load recent searches
     try {
@@ -481,10 +505,10 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
     }
   }, []);
 
-  // Debounced search querying Supabase backend
+  // Debounced interactive search querying synced products locally
   useEffect(() => {
-    const performSearch = async () => {
-      const trimmedQuery = searchQuery.trim();
+    const performSearch = () => {
+      const trimmedQuery = searchQuery.trim().toLowerCase();
       if (!trimmedQuery) {
         setSearchResults([]);
         setFocusedIndex(-1);
@@ -493,48 +517,15 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
       setIsSearchingDb(true);
       try {
-        if (supabase) {
-          const { data, error } = await supabase
-            .from("products")
-            .select("*")
-            .or(`name.ilike.%${trimmedQuery}%,category.ilike.%${trimmedQuery}%,description.ilike.%${trimmedQuery}%`);
-
-          if (error) throw error;
-
-          if (data) {
-            const mapped = data.map((item: any) => ({
-              id: item.id,
-              name: item.name,
-              category: item.category,
-              price: `Rs. ${Math.round(item.price).toLocaleString()}`,
-              slashedPrice: item.slashed_price ? `Rs. ${Math.round(item.slashed_price).toLocaleString()}` : "",
-              discount: item.discount || "",
-              description: item.description,
-              color: item.color || "purple",
-              metaTitle: item.meta_title || "",
-              icon: getIconForProduct(item.id, item.category, item.color)
-            }));
-            setSearchResults(mapped);
-          }
-        } else {
-          // Local fallback filter if Supabase not configured
-          const q = trimmedQuery.toLowerCase();
-          const localResults = products.filter(p => 
-            p.name.toLowerCase().includes(q) ||
-            p.category.toLowerCase().includes(q) ||
-            p.description.toLowerCase().includes(q)
-          );
-          setSearchResults(localResults);
-        }
-      } catch (err) {
-        console.warn("Supabase search error, falling back to local:", err);
-        const q = trimmedQuery.toLowerCase();
         const localResults = products.filter(p => 
-          p.name.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q)
+          p.name.toLowerCase().includes(trimmedQuery) ||
+          p.category.toLowerCase().includes(trimmedQuery) ||
+          p.description.toLowerCase().includes(trimmedQuery) ||
+          (p.tags && p.tags.some(tag => tag.toLowerCase().includes(trimmedQuery)))
         );
         setSearchResults(localResults);
+      } catch (err) {
+        console.warn("Search error:", err);
       } finally {
         setIsSearchingDb(false);
         setFocusedIndex(-1);
@@ -543,7 +534,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
     const delayDebounce = setTimeout(() => {
       performSearch();
-    }, 150);
+    }, 100);
 
     return () => clearTimeout(delayDebounce);
   }, [searchQuery, products]);
@@ -738,6 +729,45 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
       </span>
     );
   };
+
+  // Dynamic collections filtering for Section 4 (Trending) and Section 5 (New In)
+  const trendingProducts = (() => {
+    const coll = collections.find(c => c.id.toLowerCase() === "trending-products" || c.id.toLowerCase() === "trending");
+    if (!coll) {
+      // Fallback: original mock IDs + category match
+      return products.filter(p => ["headphones", "charger", "keyboard", "sleeve", "lightbar", "riser", "mouse"].includes(p.id) || p.category.toLowerCase() === "trending");
+    }
+    if (coll.type === "smart") {
+      const matchTags = (coll.rules?.tags || []).map((t: string) => t.toLowerCase());
+      return products.filter(p => {
+        const pTags = (p.tags || []).map((t: string) => t.toLowerCase());
+        return matchTags.some((t: string) => pTags.includes(t));
+      });
+    } else {
+      return products.filter(p => 
+        collectionProducts.some(cp => cp.collection_id === coll.id && cp.product_id === p.id)
+      );
+    }
+  })();
+
+  const newInProducts = (() => {
+    const coll = collections.find(c => c.id.toLowerCase() === "new-in");
+    if (!coll) {
+      // Fallback: original mock IDs
+      return products.filter(p => ["speaker", "webcam", "mic", "stand", "backpack"].includes(p.id));
+    }
+    if (coll.type === "smart") {
+      const matchTags = (coll.rules?.tags || []).map((t: string) => t.toLowerCase());
+      return products.filter(p => {
+        const pTags = (p.tags || []).map((t: string) => t.toLowerCase());
+        return matchTags.some((t: string) => pTags.includes(t));
+      });
+    } else {
+      return products.filter(p => 
+        collectionProducts.some(cp => cp.collection_id === coll.id && cp.product_id === p.id)
+      );
+    }
+  })();
 
   return (
     <>
@@ -1162,7 +1192,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                               <div key={`${item.product.id}-${item.color}`} className="flex gap-2.5 items-center">
                                 <div className="w-10 h-10 rounded-lg overflow-hidden bg-zinc-50 border border-zinc-100 flex-shrink-0 flex items-center justify-center p-0.5">
                                   <Image 
-                                    src={`/products/${item.product.id}.webp`} 
+                                    src={item.product.images && item.product.images.length > 0 ? item.product.images[0] : `/products/${item.product.id}.webp`}
                                     alt={item.product.name}
                                     width={40}
                                     height={40}
@@ -1827,7 +1857,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
               {/* Product Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full px-6 lg:px-8">
-                {products.filter(p => ["headphones", "charger", "keyboard", "sleeve", "lightbar", "riser", "mouse"].includes(p.id)).map((product) => (
+                {trendingProducts.map((product) => (
                   <div
                     key={product.id}
                     onClick={() => router.push(`/product/${product.id}`)}
@@ -1836,7 +1866,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                     {/* Image Container with soft gradient background & elegant padding */}
                     <div className="relative aspect-[5/4] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-6 flex items-center justify-center border-b border-zinc-100/50">
                       <Image
-                        src={`/products/${product.id}.webp`}
+                        src={(product.images && product.images.length > 0) ? product.images[0] : `/products/${product.id}.webp`}
                         alt={product.name}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
@@ -1846,11 +1876,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       />
                       
                       {/* Floating Discount Badge */}
-                      <div className="absolute top-3.5 left-3.5 z-10">
-                        <span className="bg-red-500 text-white text-[8px] font-black tracking-widest px-2.5 py-1 rounded-lg shadow-md shadow-red-500/10 uppercase">
-                          {product.discount}
-                        </span>
-                      </div>
+                      {product.discount && (
+                        <div className="absolute top-3.5 left-3.5 z-10">
+                          <span className="bg-red-500 text-white text-[8px] font-black tracking-widest px-2.5 py-1 rounded-lg shadow-md shadow-red-500/10 uppercase">
+                            {product.discount}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Floating Add to Cart Button for Mobile */}
                       <button 
@@ -1976,7 +2008,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
               {/* Product Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 w-full px-6 lg:px-8">
-                {products.filter(p => ["speaker", "webcam", "mic", "stand", "backpack"].includes(p.id)).map((product) => (
+                {newInProducts.map((product) => (
                   <div
                     key={product.id}
                     onClick={() => router.push(`/product/${product.id}`)}
@@ -1985,7 +2017,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                     {/* Image Container with soft gradient background & elegant padding */}
                     <div className="relative aspect-[5/4] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-6 flex items-center justify-center border-b border-zinc-100/50">
                       <Image
-                        src={`/products/${product.id}.webp`}
+                        src={(product.images && product.images.length > 0) ? product.images[0] : `/products/${product.id}.webp`}
                         alt={product.name}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
@@ -1995,11 +2027,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       />
                       
                       {/* Floating Discount Badge */}
-                      <div className="absolute top-3.5 left-3.5 z-10">
-                        <span className="bg-red-500 text-white text-[8px] font-black tracking-widest px-2.5 py-1 rounded-lg shadow-md shadow-red-500/10 uppercase">
-                          {product.discount}
-                        </span>
-                      </div>
+                      {product.discount && (
+                        <div className="absolute top-3.5 left-3.5 z-10">
+                          <span className="bg-red-500 text-white text-[8px] font-black tracking-widest px-2.5 py-1 rounded-lg shadow-md shadow-red-500/10 uppercase">
+                            {product.discount}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Floating Add to Cart Button for Mobile */}
                       <button 
@@ -2438,7 +2472,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   {/* Thumbnail */}
                   <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-zinc-100 flex-shrink-0 flex items-center justify-center p-1 relative">
                     <Image 
-                      src={`/products/${item.product.id}.webp`} 
+                      src={item.product.images && item.product.images.length > 0 ? item.product.images[0] : `/products/${item.product.id}.webp`} 
                       alt={item.product.name}
                       width={64}
                       height={64}
