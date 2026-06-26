@@ -21,6 +21,10 @@ async function getProducts() {
           discount: item.discount || "",
           description: item.description,
           color: item.color || "purple",
+          colors: item.colors || [],
+          images: item.images || [],
+          tags: item.tags || [],
+          features: item.features || [],
           metaTitle: item.meta_title || ""
         }));
       }

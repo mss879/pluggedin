@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { MOCK_PRODUCTS, getCategoryIcon, getColorHex, Product } from "@/app/products";
+import { supabase } from "@/lib/supabase";
 
 interface CartItem {
   product: Product;
@@ -23,6 +24,7 @@ export default function StickyNavbar() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [searchToast, setSearchToast] = useState<string | null>(null);
@@ -133,6 +135,41 @@ export default function StickyNavbar() {
     };
   }, []);
 
+  // Fetch real database products on mount
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        if (supabase) {
+          const { data, error } = await supabase
+            .from("products")
+            .select("*");
+          if (!error && data && data.length > 0) {
+            const mapped = data.map((item: any) => ({
+              id: item.id,
+              name: item.name,
+              category: item.category,
+              price: `Rs. ${Math.round(item.price).toLocaleString()}`,
+              slashedPrice: item.slashed_price ? `Rs. ${Math.round(item.slashed_price).toLocaleString()}` : "",
+              discount: item.discount || "",
+              description: item.description,
+              color: item.color || "purple",
+              colors: item.colors || [],
+              images: item.images || [],
+              tags: item.tags || [],
+              features: item.features || [],
+              metaTitle: item.meta_title || "",
+              icon: getCategoryIcon(item.category, item.id)
+            }));
+            setProducts(mapped);
+          }
+        }
+      } catch (err) {
+        console.warn("StickyNavbar Supabase load failed, using mock:", err);
+      }
+    };
+    fetchProducts();
+  }, []);
+
   // Filter products for search
   useEffect(() => {
     const trimmed = searchQuery.trim().toLowerCase();
@@ -141,14 +178,15 @@ export default function StickyNavbar() {
       return;
     }
 
-    const matched = MOCK_PRODUCTS.filter(
+    const matched = products.filter(
       (p) =>
         p.name.toLowerCase().includes(trimmed) ||
         p.category.toLowerCase().includes(trimmed) ||
-        p.description.toLowerCase().includes(trimmed)
+        p.description.toLowerCase().includes(trimmed) ||
+        (p.tags && p.tags.some(tag => tag.toLowerCase().includes(trimmed)))
     );
     setSearchResults(matched);
-  }, [searchQuery]);
+  }, [searchQuery, products]);
 
   // Click outside listener for search container
   useEffect(() => {
