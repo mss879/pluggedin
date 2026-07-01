@@ -3,11 +3,11 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.pluggedin.lk"),
-  title: "Privacy Policy | Data Protection Assurances | PluggedIn",
-  description: "Read the PluggedIn Privacy Policy to understand how we collect, process, and safeguard your personal shipping and checkout details.",
+  title: "Terms & Conditions | Legal Agreement | PluggedIn",
+  description: "Review the PluggedIn Terms and Conditions governing store purchases, order verification, workspace trials, and intellectual property rights.",
 };
 
-export default function PrivacyPolicyPage() {
+export default function TermsConditionsPage() {
   return (
     <div className="min-h-screen bg-slate-50/50 flex flex-col font-outfit select-none relative pb-16">
       
@@ -36,13 +36,13 @@ export default function PrivacyPolicyPage() {
         
         <div className="flex flex-col gap-1.5">
           <span className="text-[9px] font-black tracking-widest text-purple-600 uppercase">
-            PRIVACY ASSURANCES
+            LEGAL AGREEMENTS
           </span>
           <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-955 font-syne uppercase tracking-tight">
-            Privacy Policy
+            Terms & Conditions
           </h1>
-          <p className="text-zinc-550 text-xs sm:text-sm font-semibold uppercase tracking-wider">
-            Last Updated: June 13, 2026
+          <p className="text-zinc-555 text-xs sm:text-sm font-semibold uppercase tracking-wider">
+            Last Updated: July 1, 2026
           </p>
         </div>
 
@@ -51,60 +51,72 @@ export default function PrivacyPolicyPage() {
           
           <section className="flex flex-col gap-3">
             <h2 className="text-zinc-950 font-extrabold uppercase font-syne text-xs tracking-widest border-b border-zinc-100 pb-2">
-              1. Introduction & Overview
+              1. Acceptance of Terms
             </h2>
             <p>
-              At PluggedIn, we design and distribute premium workspace essentials and creator gear. We respect your personal privacy rights and are committed to safeguarding the data you share when browsing our storefront, adding items to your cart, submitting checkout details, or using our support desks.
-            </p>
-            <p>
-              This policy explains what information we collect, how it is processed, and the security systems we have in place to secure your checkout workflows.
+              Welcome to PluggedIn (accessible at <Link href="/" className="text-purple-650 hover:underline">https://www.pluggedin.lk</Link>). By browsing, accessing, or purchasing from our platform, you agree to comply with and be bound by these Terms & Conditions. If you do not agree with any part of these terms, please discontinue using our storefront immediately.
             </p>
           </section>
 
           <section className="flex flex-col gap-3">
             <h2 className="text-zinc-955 font-extrabold uppercase font-syne text-xs tracking-widest border-b border-zinc-100 pb-2">
-              2. Data We Collect
+              2. Product Descriptions & Catalog Accuracy
             </h2>
             <p>
-              We collect information to complete order fulfillments and deliver customer support:
+              We strive to ensure all personal electronics, smart devices, and setup accessories are represented with absolute accuracy. However, pricing errors, detail discrepancies, or temporary inventory stock shortages may occur. PluggedIn reserves the right to correct any errors, update catalog pricing, and cancel orders affected by catalog inaccuracies without prior notice. All prices are denominated in Sri Lankan Rupees (LKR).
+            </p>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="text-zinc-955 font-extrabold uppercase font-syne text-xs tracking-widest border-b border-zinc-100 pb-2">
+              3. Order Processing & Verification
+            </h2>
+            <p>
+              When you submit a checkout request, an automated Order Reference Code (e.g. `ORD-XXXXXXXX`) will be generated. This code serves as confirmation of receipt, not acceptance of the order. Orders are subject to validation checks:
             </p>
             <ul className="list-disc pl-5 flex flex-col gap-1.5 text-xs text-zinc-500 font-medium">
               <li>
-                <strong className="text-zinc-800">Identity & Delivery Details:</strong> Full name, shipping address, email address, and phone number supplied during checkout or contact submissions.
+                <strong className="text-zinc-800">Cash on Delivery (COD):</strong> We may call or message your provided phone number to verify shipping details before dispatch.
               </li>
               <li>
-                <strong className="text-zinc-800">Checkout History:</strong> Purchases made, transaction totals, chosen payment channels (Cash on Delivery or Bank Transfer), and item customizations.
-              </li>
-              <li>
-                <strong className="text-zinc-800">Technical Log Information:</strong> IP address, device user agents, visited paths, and referrals logged via our analytics tracking module.
+                <strong className="text-zinc-800">Direct Bank Transfer:</strong> Bank wires must be completed within 24 hours of checkout. Payment receipts should be shared with us to prevent cancellation.
               </li>
             </ul>
           </section>
 
           <section className="flex flex-col gap-3">
             <h2 className="text-zinc-955 font-extrabold uppercase font-syne text-xs tracking-widest border-b border-zinc-100 pb-2">
-              3. Processing and Storage
+              4. Return Policy & 30-Day Workspace Trial
             </h2>
             <p>
-              Your data is processed secure-first. We utilize Supabase database servers with Row Level Security (RLS) policies to isolate admin workspaces from customer data. We never rent, trade, or sell customer databases to third parties. Data is used exclusively for shipping operations, customer inquiry management, and aggregate traffic tracking.
+              All eligible catalog products are supported by our standard <Link href="/refund-policy" className="text-purple-650 hover:underline">30-Day Workspace Trial</Link>. Returns, refund processing, and shipping logistics are fully detailed in our Refund & Return Policy page.
             </p>
           </section>
 
           <section className="flex flex-col gap-3">
             <h2 className="text-zinc-955 font-extrabold uppercase font-syne text-xs tracking-widest border-b border-zinc-100 pb-2">
-              4. Cookies and Local Storage
+              5. Intellectual Property
             </h2>
             <p>
-              We make use of browser local storage (`localStorage`) to remember your active shopping cart contents and admin configuration profiles. These cookies are entirely local and contain no tracking tracers or external advertising pixels.
+              All code snippets, graphic assets, product mock renders, photography, copy text, and branding logos published on PluggedIn are the exclusive intellectual property of PluggedIn and our automation development partner, <a href="https://www.arcai.agency" target="_blank" rel="noopener noreferrer" className="text-purple-650 hover:underline">ARC AI</a>. Unauthorized duplication, modification, or commercial exploitation is strictly prohibited.
             </p>
           </section>
 
           <section className="flex flex-col gap-3">
             <h2 className="text-zinc-955 font-extrabold uppercase font-syne text-xs tracking-widest border-b border-zinc-100 pb-2">
-              5. Customer Rights
+              6. Limitation of Liability
             </h2>
             <p>
-              Under global frameworks (including GDPR & CCPA), you have the right to request a copy of your personal data, ask for correction of inaccurate details, or request full deletion of order records. To trigger a privacy check, submit an request through our dedicated <Link href="/contact" className="text-purple-650 hover:underline">Contact Form</Link>.
+              To the maximum extent permitted by applicable law, PluggedIn, its directors, and its partners shall not be held liable for any indirect, special, incidental, or consequential damages resulting from the use of, or inability to use, our electronic goods, desk accessories, or digital web tools.
+            </p>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="text-zinc-955 font-extrabold uppercase font-syne text-xs tracking-widest border-b border-zinc-100 pb-2">
+              7. Governing Law
+            </h2>
+            <p>
+              These Terms & Conditions are governed by and construed in accordance with the laws of Sri Lanka. Any legal claims or actions arising from interactions on this platform shall be filed exclusively in the courts of Sri Lanka.
             </p>
           </section>
 
@@ -162,9 +174,9 @@ export default function PrivacyPolicyPage() {
                   Browse
                 </h4>
                 <ul className="flex flex-col gap-2.5 text-xs sm:text-sm font-semibold">
-                  <li><Link href="/shop?collection=trending" className="text-zinc-660 hover:text-purple-650 transition-colors">Trending Essentials</Link></li>
-                  <li><Link href="/shop?collection=new-in" className="text-zinc-660 hover:text-purple-650 transition-colors">New Arrivals</Link></li>
-                  <li><Link href="/shop?category=Audio" className="text-zinc-660 hover:text-purple-650 transition-colors">Audio Systems</Link></li>
+                  <li><Link href="/shop?collection=trending" className="text-zinc-660 hover:text-purple-655 transition-colors">Trending Essentials</Link></li>
+                  <li><Link href="/shop?collection=new-in" className="text-zinc-660 hover:text-purple-655 transition-colors">New Arrivals</Link></li>
+                  <li><Link href="/shop?category=Audio" className="text-zinc-660 hover:text-purple-655 transition-colors">Audio Systems</Link></li>
                 </ul>
               </div>
 
@@ -176,7 +188,7 @@ export default function PrivacyPolicyPage() {
                   <li><Link href="/contact" className="text-zinc-660 hover:text-purple-655 transition-colors">Contact Support</Link></li>
                   <li><Link href="/privacy-policy" className="text-zinc-660 hover:text-purple-655 transition-colors">Privacy Policy</Link></li>
                   <li><Link href="/refund-policy" className="text-zinc-660 hover:text-purple-655 transition-colors">Refund Policy</Link></li>
-                  <li><Link href="/terms-conditions" className="text-zinc-660 hover:text-purple-655 transition-colors">Terms & Conditions</Link></li>
+                  <li><Link href="/terms-conditions" className="text-zinc-660 hover:text-purple-655 transition-colors font-bold text-purple-650">Terms & Conditions</Link></li>
                 </ul>
               </div>
 
@@ -211,7 +223,7 @@ export default function PrivacyPolicyPage() {
               </div>
             </div>
 
-            <div className="max-w-6xl w-full mx-auto border-t border-zinc-200/80 pt-8 mt-4 flex flex-col sm:flex-row justify-between items-center gap-4 relative z-10 text-[10px] sm:text-xs font-bold tracking-wider text-zinc-450">
+            <div className="max-w-6xl w-full mx-auto border-t border-zinc-200/80 pt-8 mt-4 flex flex-col sm:flex-row justify-between items-center gap-4 relative z-10 text-[10px] sm:text-xs font-bold tracking-wider text-zinc-455">
               <span>© {new Date().getFullYear()} PLUGGEDIN. ALL RIGHTS RESERVED.</span>
               <a
                 href="https://www.arcai.agency"
@@ -226,7 +238,7 @@ export default function PrivacyPolicyPage() {
               <div className="flex gap-6">
                 <Link href="/privacy-policy" className="hover:text-purple-655 transition-colors">PRIVACY POLICY</Link>
                 <Link href="/refund-policy" className="hover:text-purple-655 transition-colors">REFUND POLICY</Link>
-                <Link href="/terms-conditions" className="hover:text-purple-655 transition-colors">TERMS & CONDITIONS</Link>
+                <Link href="/terms-conditions" className="hover:text-purple-655 transition-colors font-bold text-purple-655">TERMS & CONDITIONS</Link>
               </div>
             </div>
           </footer>

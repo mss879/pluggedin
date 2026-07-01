@@ -82,6 +82,7 @@ export default function Footer() {
                   { name: "Contact Support", link: "/contact" },
                   { name: "Privacy Policy", link: "/privacy-policy" },
                   { name: "Refund Policy", link: "/refund-policy" },
+                  { name: "Terms & Conditions", link: "/terms-conditions" },
                   { name: "Help & FAQs", link: "/#faq" }
                 ].map((item) => (
                   <li key={item.name}>
@@ -149,6 +150,7 @@ export default function Footer() {
             <div className="flex gap-6">
               <Link href="/privacy-policy" className="hover:text-purple-655 transition-colors duration-200">PRIVACY POLICY</Link>
               <Link href="/refund-policy" className="hover:text-purple-655 transition-colors duration-200">REFUND POLICY</Link>
+              <Link href="/terms-conditions" className="hover:text-purple-655 transition-colors duration-200">TERMS & CONDITIONS</Link>
             </div>
           </div>
         </footer>

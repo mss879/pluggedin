@@ -995,6 +995,7 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
                   { name: "Contact Support", link: "/contact" },
                   { name: "Privacy Policy", link: "/privacy-policy" },
                   { name: "Refund Policy", link: "/refund-policy" },
+                  { name: "Terms & Conditions", link: "/terms-conditions" },
                   { name: "Help & FAQs", link: "/contact#faq" }
                 ].map((item) => (
                   <li key={item.name}>
@@ -1061,6 +1062,7 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
             <div className="flex gap-6">
               <Link href="/privacy-policy" className="hover:text-purple-650 transition-colors duration-200">PRIVACY POLICY</Link>
               <Link href="/refund-policy" className="hover:text-purple-650 transition-colors duration-200">REFUND POLICY</Link>
+              <Link href="/terms-conditions" className="hover:text-purple-650 transition-colors duration-200">TERMS & CONDITIONS</Link>
               <a href="#" className="hover:text-purple-650 transition-colors duration-200">SITEMAP</a>
             </div>
           </div>

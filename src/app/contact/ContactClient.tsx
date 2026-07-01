@@ -486,6 +486,7 @@ export default function ContactClient() {
                   <li><Link href="/contact" className="text-zinc-660 hover:text-purple-655 transition-colors">Contact Support</Link></li>
                   <li><Link href="/privacy-policy" className="text-zinc-660 hover:text-purple-655 transition-colors">Privacy Policy</Link></li>
                   <li><Link href="/refund-policy" className="text-zinc-660 hover:text-purple-655 transition-colors">Refund Policy</Link></li>
+                  <li><Link href="/terms-conditions" className="text-zinc-660 hover:text-purple-655 transition-colors">Terms & Conditions</Link></li>
                 </ul>
               </div>
 
@@ -543,6 +544,7 @@ export default function ContactClient() {
               <div className="flex gap-6">
                 <Link href="/privacy-policy" className="hover:text-purple-655 transition-colors">PRIVACY POLICY</Link>
                 <Link href="/refund-policy" className="hover:text-purple-655 transition-colors">REFUND POLICY</Link>
+                <Link href="/terms-conditions" className="hover:text-purple-655 transition-colors">TERMS & CONDITIONS</Link>
               </div>
             </div>
           </footer>
