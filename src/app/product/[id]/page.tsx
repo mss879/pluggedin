@@ -27,6 +27,7 @@ async function getProduct(id: string): Promise<Product | null> {
           discount: data.discount || "",
           description: data.description,
           color: data.color || "purple",
+          colors: data.colors || [],
           images: data.images || [],
           tags: data.tags || [],
           features: data.features || [],

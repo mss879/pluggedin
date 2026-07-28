@@ -593,30 +593,6 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
                 </div>
               </div>
 
-              {/* Tags Filter Group */}
-              {allTags.length > 0 && (
-                <div className="flex flex-col gap-3">
-                  <h3 className="text-[10px] font-bold tracking-widest text-zinc-400 uppercase">Product Tags</h3>
-                  <div className="flex flex-wrap gap-1.5 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin">
-                    {allTags.map((tag) => {
-                      const isSelected = selectedTags.includes(tag.toLowerCase());
-                      return (
-                        <button
-                          key={tag}
-                          onClick={() => handleTagToggle(tag)}
-                          className={`text-[9px] font-black tracking-wider uppercase px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
-                            isSelected 
-                              ? "bg-purple-50 border-purple-500 text-purple-800 shadow-xs" 
-                              : "bg-white border-zinc-200 text-zinc-550 hover:border-zinc-350 hover:text-zinc-800"
-                          }`}
-                        >
-                          #{tag}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
             </div>
           </aside>
@@ -719,14 +695,14 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
                         onClick={() => {
                           router.push(`/product/${product.id}`);
                         }}
-                        className="w-full h-44 my-4 flex items-center justify-center relative overflow-hidden rounded-2xl bg-zinc-50/20 cursor-pointer"
+                        className="w-full h-56 sm:h-64 my-2 flex items-center justify-center relative overflow-hidden rounded-2xl bg-zinc-50/20 cursor-pointer"
                       >
                         <Image 
                           src={product.images && product.images.length > 0 ? product.images[0] : `/products/${product.id}.webp`}
                           alt={product.name}
                           fill
                           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                          style={{ objectFit: "contain", padding: "8px" }}
+                          style={{ objectFit: "contain", padding: "2px" }}
                           className="transform group-hover:scale-106 transition-transform duration-500 ease-out"
                         />
                       </div>
@@ -869,30 +845,6 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
                 />
               </div>
 
-              {/* Tags Selector */}
-              {allTags.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-[9px] font-bold tracking-widest text-zinc-400 uppercase">Product Tags</h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {allTags.map((tag) => {
-                      const isSelected = selectedTags.includes(tag.toLowerCase());
-                      return (
-                        <button
-                          key={tag}
-                          onClick={() => handleTagToggle(tag)}
-                          className={`text-[9px] font-black tracking-wider uppercase px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
-                            isSelected 
-                              ? "bg-purple-50 border-purple-500 text-purple-800" 
-                              : "bg-white border-zinc-200 text-zinc-550"
-                          }`}
-                        >
-                          #{tag}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="p-4 border-t border-zinc-100 bg-zinc-50 flex gap-2">

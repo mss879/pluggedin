@@ -98,7 +98,7 @@ export default function AdminDashboardPage() {
   const [prodSlashedPrice, setProdSlashedPrice] = useState("");
   const [prodDescription, setProdDescription] = useState("");
   const [prodTags, setProdTags] = useState("");
-  const [prodColors, setProdColors] = useState("Matte Black, Silver Gray");
+  const [prodColors, setProdColors] = useState("");
   const [prodFeatures, setProdFeatures] = useState("");
   const [prodImages, setProdImages] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -695,7 +695,7 @@ export default function AdminDashboardPage() {
     setProdSlashedPrice("");
     setProdDescription("");
     setProdTags("");
-    setProdColors("Matte Black, Silver Gray");
+    setProdColors("");
     setProdFeatures("");
     setProdImages([]);
     setProdMetaTitle("");

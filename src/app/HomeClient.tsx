@@ -33,45 +33,78 @@ interface CartItem {
 }
 
 const getProductColors = (product: Product): string[] => {
-  switch (product.category) {
-    case "Audio":
-      return ["Space Purple", "Matte Black", "Silver Gray"];
-    case "Charging":
-      return ["Carbon Black", "Arctic White"];
-    case "Keyboards":
-      return ["Onyx Black", "Chalk White", "Neon Purple"];
-    case "Sleeves":
-      return ["Ash Grey", "Midnight Black"];
-    case "Lighting":
-      return ["Matte Black", "Silver"];
-    case "Risers":
-      return ["Silver Gray", "Charcoal Black"];
-    case "Mouse":
-      return ["Onyx Black", "Chalk White"];
-    case "Speaker":
-      return ["Onyx Black", "Lunar Grey"];
-    case "Webcam":
-      return ["Matte Black"];
-    case "Mic":
-      return ["Onyx Black", "Frost White", "Space Purple"];
-    case "Stand":
-      return ["Onyx Black", "Lunar Grey"];
-    case "Backpack":
-      return ["Slate Grey", "Onyx Black"];
-    default:
-      return [product.color.charAt(0).toUpperCase() + product.color.slice(1)];
+  if (Array.isArray(product.colors) && product.colors.length > 0) {
+    return product.colors;
   }
+  if (product.colors && Array.isArray(product.colors)) {
+    return [];
+  }
+  if (product.color && product.color !== "slate" && product.color !== "purple") {
+    return [product.color.charAt(0).toUpperCase() + product.color.slice(1)];
+  }
+  return [];
 };
 
 const getColorHex = (colorName: string): string => {
-  const name = colorName.toLowerCase();
-  if (name.includes("purple")) return "#8b5cf6";
+  if (!colorName) return "#8b5cf6";
+  const name = colorName.trim().toLowerCase();
+  
+  if (name.startsWith("#")) return name;
+
+  // Blue / Cyan / Sky / Navy / Indigo
+  if (name.includes("navy")) return "#1e3a8a";
+  if (name.includes("indigo")) return "#4338ca";
+  if (name.includes("cyan")) return "#06b6d4";
+  if (name.includes("sky")) return "#0284c7";
+  if (name.includes("blue") || name.includes("azure") || name.includes("cobalt")) return "#3b82f6";
+
+  // Red / Maroon / Crimson / Ruby
+  if (name.includes("maroon") || name.includes("ruby")) return "#991b1b";
+  if (name.includes("red") || name.includes("crimson") || name.includes("scarlet")) return "#ef4444";
+
+  // Green / Mint / Lime / Emerald / Olive / Sage
+  if (name.includes("mint") || name.includes("sage")) return "#6ee7b7";
+  if (name.includes("lime")) return "#84cc16";
+  if (name.includes("olive")) return "#65a30d";
+  if (name.includes("emerald")) return "#10b981";
+  if (name.includes("green")) return "#22c55e";
+
+  // Pink / Magenta / Rose / Fuchsia
+  if (name.includes("rose")) return "#f43f5e";
+  if (name.includes("fuchsia") || name.includes("magenta")) return "#d946ef";
+  if (name.includes("pink") || name.includes("blush")) return "#ec4899";
+
+  // Purple / Violet / Lavender / Lilac
+  if (name.includes("lavender") || name.includes("lilac")) return "#c084fc";
+  if (name.includes("violet")) return "#7c3aed";
+  if (name.includes("purple") || name.includes("plum") || name.includes("mauve")) return "#8b5cf6";
+
+  // Yellow / Gold / Amber
+  if (name.includes("gold") || name.includes("amber")) return "#f59e0b";
+  if (name.includes("yellow") || name.includes("blonde")) return "#eab308";
+
+  // Orange / Coral / Peach / Rust
+  if (name.includes("coral") || name.includes("peach")) return "#fb923c";
+  if (name.includes("rust")) return "#c2410c";
+  if (name.includes("orange") || name.includes("tangerine")) return "#f97316";
+
+  // Brown / Tan / Beige / Bronze / Wood / Khaki
+  if (name.includes("beige") || name.includes("cream") || name.includes("khaki") || name.includes("nude")) return "#f5f5dc";
+  if (name.includes("tan") || name.includes("bronze")) return "#d97706";
+  if (name.includes("brown") || name.includes("chocolate") || name.includes("wood")) return "#78350f";
+
+  // Black / Dark / Onyx / Carbon / Midnight
+  if (name.includes("black") || name.includes("onyx") || name.includes("carbon") || name.includes("midnight") || name.includes("dark")) return "#18181b";
+
+  // White / Chalk / Frost / Arctic / Snow / Ivory
+  if (name.includes("white") || name.includes("chalk") || name.includes("frost") || name.includes("arctic") || name.includes("snow") || name.includes("ivory")) return "#f4f4f5";
+
+  // Grey / Gray / Slate / Silver / Charcoal / Ash / Lunar / Aluminum
   if (name.includes("slate") || name.includes("charcoal")) return "#475569";
   if (name.includes("grey") || name.includes("gray") || name.includes("ash")) return "#9ca3af";
-  if (name.includes("black") || name.includes("onyx") || name.includes("carbon") || name.includes("midnight")) return "#18181b";
-  if (name.includes("white") || name.includes("chalk") || name.includes("frost") || name.includes("arctic")) return "#f4f4f5";
-  if (name.includes("silver") || name.includes("lunar")) return "#e4e4e7";
-  return "#a855f7"; // fallback purple
+  if (name.includes("silver") || name.includes("lunar") || name.includes("aluminum")) return "#e4e4e7";
+
+  return "#3b82f6";
 };
 
 const getIconForProduct = (id: string, category: string, color: string): React.ReactNode => {
@@ -1864,14 +1897,14 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                     className="group bg-white border border-zinc-100/80 rounded-3xl overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 flex flex-col cursor-pointer relative"
                   >
                     {/* Image Container with soft gradient background & elegant padding */}
-                    <div className="relative aspect-[5/4] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-6 flex items-center justify-center border-b border-zinc-100/50">
+                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-2 flex items-center justify-center border-b border-zinc-100/50">
                       <Image
                         src={(product.images && product.images.length > 0) ? product.images[0] : `/products/${product.id}.webp`}
                         alt={product.name}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                         style={{ objectFit: "contain" }}
-                        className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-6"
+                        className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-2"
                         loading="eager"
                       />
                       
@@ -2015,14 +2048,14 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                     className="group bg-white border border-zinc-100/80 rounded-3xl overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 flex flex-col cursor-pointer relative"
                   >
                     {/* Image Container with soft gradient background & elegant padding */}
-                    <div className="relative aspect-[5/4] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-6 flex items-center justify-center border-b border-zinc-100/50">
+                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-2 flex items-center justify-center border-b border-zinc-100/50">
                       <Image
                         src={(product.images && product.images.length > 0) ? product.images[0] : `/products/${product.id}.webp`}
                         alt={product.name}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                         style={{ objectFit: "contain" }}
-                        className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-6"
+                        className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-2"
                         loading="eager"
                       />
                       
