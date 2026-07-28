@@ -4,22 +4,26 @@ import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS } from "../products";
 import ShopClient from "./ShopClient";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 async function getProducts() {
   try {
     if (supabase) {
       const { data, error } = await supabase
         .from("products")
-        .select("*");
+        .select("*")
+        .order("created_at", { ascending: false });
       
       if (!error && data && data.length > 0) {
         return data.map((item: any) => ({
           id: item.id,
           name: item.name,
-          category: item.category,
-          price: typeof item.price === "number" ? `Rs. ${Math.round(item.price).toLocaleString()}` : item.price,
+          category: item.category || "Tech & Gadgets",
+          price: typeof item.price === "number" ? `Rs. ${Math.round(item.price).toLocaleString()}` : (typeof item.price === "string" && !item.price.startsWith("Rs.") ? `Rs. ${item.price}` : item.price || "Rs. 0"),
           slashedPrice: item.slashed_price ? `Rs. ${Math.round(item.slashed_price).toLocaleString()}` : "",
           discount: item.discount || "",
-          description: item.description,
+          description: item.description || "",
           color: item.color || "purple",
           colors: item.colors || [],
           images: item.images || [],

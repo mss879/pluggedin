@@ -3,6 +3,9 @@ import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS } from "./products";
 import HomeClient from "./HomeClient";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 async function getProducts() {
   try {
     if (supabase) {

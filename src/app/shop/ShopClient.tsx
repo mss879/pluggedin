@@ -161,46 +161,44 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
     fetchCollections();
   }, []);
 
-  // Fetch products from Supabase (offline fallback to MOCK_PRODUCTS)
+  // Fetch products from Supabase on mount (fall back to initialProducts or MOCK_PRODUCTS if offline)
   useEffect(() => {
-    if (initialProducts && initialProducts.length > 0) {
-      setLoading(false);
-      return;
-    }
     const fetchProducts = async () => {
-      setLoading(true);
       try {
         if (supabase) {
           const { data, error } = await supabase
             .from("products")
-            .select("*");
+            .select("*")
+            .order("created_at", { ascending: false });
           if (!error && data && data.length > 0) {
             const mapped = data.map((item: any) => ({
               id: item.id,
               name: item.name,
-              category: item.category,
-              price: `Rs. ${Math.round(item.price).toLocaleString()}`,
+              category: item.category || "Tech & Gadgets",
+              price: typeof item.price === "number" ? `Rs. ${Math.round(item.price).toLocaleString()}` : (typeof item.price === "string" && !item.price.startsWith("Rs.") ? `Rs. ${item.price}` : item.price || "Rs. 0"),
               slashedPrice: item.slashed_price ? `Rs. ${Math.round(item.slashed_price).toLocaleString()}` : "",
               discount: item.discount || "",
-              description: item.description,
+              description: item.description || "",
               color: item.color || "purple",
               colors: item.colors || [],
               images: item.images || [],
               tags: item.tags || [],
               features: item.features || [],
               metaTitle: item.meta_title || "",
-              icon: getCategoryIcon(item.category, item.id)
+              icon: getCategoryIcon(item.category || "", item.id)
             }));
             setProducts(mapped);
-          } else {
+          } else if (!initialProducts || initialProducts.length === 0) {
             setProducts(MOCK_PRODUCTS);
           }
-        } else {
+        } else if (!initialProducts || initialProducts.length === 0) {
           setProducts(MOCK_PRODUCTS);
         }
       } catch (err) {
-        console.warn("Supabase fetch failed, using mock data:", err);
-        setProducts(MOCK_PRODUCTS);
+        console.warn("Supabase fetch failed, using initial/mock data:", err);
+        if (!initialProducts || initialProducts.length === 0) {
+          setProducts(MOCK_PRODUCTS);
+        }
       } finally {
         setLoading(false);
       }
@@ -218,8 +216,10 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
   }, [products]);
 
   // Helper to parse price string to number
-  const parsePrice = (priceStr: string) => {
-    const cleanStr = priceStr.replace(/rs\.?/i, "").replace(/[^0-9.]/g, "");
+  const parsePrice = (priceStr: string | number) => {
+    if (typeof priceStr === "number") return priceStr;
+    if (!priceStr) return 0;
+    const cleanStr = String(priceStr).replace(/rs\.?/i, "").replace(/[^0-9.]/g, "");
     return parseFloat(cleanStr) || 0;
   };
 
@@ -331,7 +331,7 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
       p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tagsList.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const pCatLower = p.category.toLowerCase().trim();
+    const pCatLower = (p.category || "").toLowerCase().trim();
     const selCatLower = selectedCategory.toLowerCase().trim();
     const matchesCategory = selectedCategory === "All" ||
       pCatLower === selCatLower ||
