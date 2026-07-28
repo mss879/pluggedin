@@ -71,18 +71,33 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
   useEffect(() => {
     setMounted(true);
 
-    // Sync categories & tags from URL query
-    if (initialCategory) {
-      // Find case-insensitive match in CATEGORIES
+    // Sync categories, tags, collections & query from URL params
+    const catParam = searchParams.get("category");
+    if (catParam) {
       const cats = ["Home and kitchen", "Tech & Gadgets", "Mobile & Auto", "Best sellers", "Trending"];
-      const matchedCat = cats.find(c => c.toLowerCase() === initialCategory.toLowerCase());
+      const lower = catParam.toLowerCase();
+      const matchedCat = cats.find(c =>
+        c.toLowerCase() === lower ||
+        (lower.includes("home") && c === "Home and kitchen") ||
+        (lower.includes("tech") && c === "Tech & Gadgets") ||
+        (lower.includes("mobile") && c === "Mobile & Auto") ||
+        (lower.includes("best") && c === "Best sellers") ||
+        (lower.includes("trend") && c === "Trending")
+      );
       if (matchedCat) {
         setSelectedCategory(matchedCat);
       }
+    } else if (!searchParams.get("collection") && !searchParams.get("tag") && !searchParams.get("q")) {
+      setSelectedCategory("All");
     }
-    if (initialTag) {
-      setSelectedTags([initialTag.toLowerCase()]);
+
+    const tagParam = searchParams.get("tag");
+    if (tagParam) {
+      setSelectedTags([tagParam.toLowerCase()]);
+    } else {
+      setSelectedTags([]);
     }
+
     const collectionParam = searchParams.get("collection");
     if (collectionParam) {
       setSelectedCollection(collectionParam);
@@ -99,7 +114,7 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
     } catch (e) {
       console.error("Failed to load cart from localStorage", e);
     }
-  }, [initialCategory, initialTag, searchParams]);
+  }, [searchParams]);
 
   // Sync Cart with event listener
   useEffect(() => {
@@ -316,8 +331,15 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
       p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tagsList.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
 
+    const pCatLower = p.category.toLowerCase().trim();
+    const selCatLower = selectedCategory.toLowerCase().trim();
     const matchesCategory = selectedCategory === "All" ||
-      p.category.toLowerCase() === selectedCategory.toLowerCase();
+      pCatLower === selCatLower ||
+      (selCatLower.includes("home") && (pCatLower.includes("home") || pCatLower.includes("kitchen"))) ||
+      (selCatLower.includes("tech") && (pCatLower.includes("tech") || pCatLower.includes("gadget"))) ||
+      (selCatLower.includes("mobile") && (pCatLower.includes("mobile") || pCatLower.includes("auto"))) ||
+      (selCatLower.includes("best") && (pCatLower.includes("best") || pCatLower.includes("seller"))) ||
+      (selCatLower.includes("trend") && pCatLower.includes("trend"));
 
     const matchesTags = selectedTags.length === 0 ||
       (tagsList.length > 0 && selectedTags.some(tag => tagsList.map(t => t.toLowerCase()).includes(tag.toLowerCase())));

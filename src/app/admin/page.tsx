@@ -350,7 +350,7 @@ export default function AdminDashboardPage() {
             console.error("Failed to load marquee_offers:", e);
             setMarqueeOffers([
               { id: "MO-1", text: "Summer Sale: 20% Off All Audio Devices", row_number: 1 },
-              { id: "MO-2", text: "Free Delivery on orders over Rs. 45,000", row_number: 1 },
+              { id: "MO-2", text: "Islandwide Express Delivery Available", row_number: 1 },
               { id: "MO-3", text: "Use Code CREATE20 for extra discounts", row_number: 1 },
               { id: "MO-4", text: "Limited stock on mechanical keyboards", row_number: 1 },
               { id: "MO-5", text: "Premium creator bundles now available", row_number: 1 },
@@ -472,7 +472,7 @@ export default function AdminDashboardPage() {
           // Mock marquee offers fallback
           setMarqueeOffers([
             { id: "MO-1", text: "Summer Sale: 20% Off All Audio Devices", row_number: 1 },
-            { id: "MO-2", text: "Free Delivery on orders over Rs. 45,000", row_number: 1 },
+            { id: "MO-2", text: "Islandwide Express Delivery Available", row_number: 1 },
             { id: "MO-3", text: "Use Code CREATE20 for extra discounts", row_number: 1 },
             { id: "MO-4", text: "Limited stock on mechanical keyboards", row_number: 1 },
             { id: "MO-5", text: "Premium creator bundles now available", row_number: 1 },

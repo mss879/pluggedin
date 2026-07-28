@@ -1595,7 +1595,9 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   {/* Content Overlay */}
                   <div className="relative z-10 flex flex-col justify-between h-full w-full">
                     <div className="flex justify-end w-full">
-                      <span className="text-white/60 text-xs font-medium">EXPLORE →</span>
+                      <span className="text-[10px] font-black tracking-widest text-purple-200 bg-purple-950/85 border border-purple-500/50 backdrop-blur-md px-3 py-1 rounded-full uppercase shadow-md shadow-purple-950/50 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-400 transition-all duration-300">
+                        EXPLORE →
+                      </span>
                     </div>
                     
                     <div className="max-w-md text-left">
@@ -1606,7 +1608,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Home and kitchen&tag=lightbar");
+                            router.push("/shop?category=Home and kitchen");
                           }}
                           className="text-[9px] font-bold tracking-widest text-pink-300 bg-pink-955/40 hover:bg-pink-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-pink-500/30 uppercase transition-all"
                         >
@@ -1615,7 +1617,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Home and kitchen&tag=speaker");
+                            router.push("/shop?category=Home and kitchen");
                           }}
                           className="text-[9px] font-bold tracking-widest text-pink-300 bg-pink-955/40 hover:bg-pink-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-pink-500/30 uppercase transition-all"
                         >
@@ -1649,7 +1651,9 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   {/* Content Overlay */}
                   <div className="relative z-10 flex flex-col justify-between h-full w-full">
                     <div className="flex justify-end w-full">
-                      <span className="text-white/60 text-xs font-medium">EXPLORE →</span>
+                      <span className="text-[10px] font-black tracking-widest text-purple-200 bg-purple-950/85 border border-purple-500/50 backdrop-blur-md px-3 py-1 rounded-full uppercase shadow-md shadow-purple-950/50 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-400 transition-all duration-300">
+                        EXPLORE →
+                      </span>
                     </div>
                     
                     <div className="text-left">
@@ -1660,7 +1664,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Tech & Gadgets&tag=keyboard");
+                            router.push("/shop?category=Tech & Gadgets");
                           }}
                           className="text-[9px] font-bold tracking-widest text-blue-300 bg-blue-955/40 hover:bg-blue-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-blue-500/30 uppercase transition-all"
                         >
@@ -1669,7 +1673,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Tech & Gadgets&tag=mouse");
+                            router.push("/shop?category=Tech & Gadgets");
                           }}
                           className="text-[9px] font-bold tracking-widest text-blue-300 bg-blue-955/40 hover:bg-blue-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-blue-500/30 uppercase transition-all"
                         >
@@ -1680,10 +1684,9 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   </div>
                 </div>
 
-                {/* Card 3: Trending (span-1) */}
+                {/* Card 3: Trending (span-1) - COMING SOON */}
                 <div 
-                  onClick={() => router.push("/shop?category=Trending")}
-                  className="md:col-span-1 group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6"
+                  className="md:col-span-1 group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-50 cursor-not-allowed flex flex-col justify-between p-6 select-none"
                 >
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
@@ -1693,39 +1696,37 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
-                      className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                      className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] filter grayscale-[15%]"
                       loading="eager"
                       unoptimized
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-zinc-950/30 opacity-90" />
                   </div>
 
                   {/* Content Overlay */}
                   <div className="relative z-10 flex flex-col justify-between h-full w-full">
-                    <div className="flex justify-end w-full">
-                      <span className="text-white/60 text-xs font-medium">EXPLORE →</span>
+                    <div className="flex justify-between items-center w-full">
+                      <div className="flex items-center gap-1.5 bg-zinc-950/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-amber-500/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        <span className="text-[8px] font-bold text-amber-300 tracking-wider uppercase">LOCKED</span>
+                      </div>
+                      <span className="text-[9px] font-black tracking-widest text-amber-300 bg-amber-950/90 border border-amber-500/50 backdrop-blur-md px-3 py-1 rounded-full uppercase shadow-md shadow-amber-950/50">
+                        COMING SOON
+                      </span>
                     </div>
                     
                     <div className="text-left">
-                      <h3 className="text-xl font-extrabold text-white font-outfit">
+                      <h3 className="text-xl font-extrabold text-white/90 font-outfit">
                         Trending Creator Essentials
                       </h3>
-                      <div className="flex flex-wrap gap-2 mt-3 relative z-20 pointer-events-auto">
+                      <div className="flex flex-wrap gap-2 mt-3 pointer-events-none">
                         <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push("/shop?category=Trending&tag=mic");
-                          }}
-                          className="text-[9px] font-bold tracking-widest text-amber-300 bg-amber-955/40 hover:bg-amber-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-amber-500/30 uppercase transition-all"
+                          className="text-[9px] font-bold tracking-widest text-amber-300/70 bg-amber-955/30 backdrop-blur-md px-3 py-1 rounded-full border border-amber-500/20 uppercase"
                         >
                           #mic
                         </span>
                         <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push("/shop?category=Trending&tag=webcam");
-                          }}
-                          className="text-[9px] font-bold tracking-widest text-amber-300 bg-amber-955/40 hover:bg-amber-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-amber-500/30 uppercase transition-all"
+                          className="text-[9px] font-bold tracking-widest text-amber-300/70 bg-amber-955/30 backdrop-blur-md px-3 py-1 rounded-full border border-amber-500/20 uppercase"
                         >
                           #webcam
                         </span>
@@ -1757,7 +1758,9 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   {/* Content Overlay */}
                   <div className="relative z-10 flex flex-col justify-between h-full w-full">
                     <div className="flex justify-end w-full">
-                      <span className="text-white/60 text-xs font-medium">EXPLORE →</span>
+                      <span className="text-[10px] font-black tracking-widest text-purple-200 bg-purple-950/85 border border-purple-500/50 backdrop-blur-md px-3 py-1 rounded-full uppercase shadow-md shadow-purple-950/50 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-400 transition-all duration-300">
+                        EXPLORE →
+                      </span>
                     </div>
                     
                     <div className="text-left">
@@ -1768,7 +1771,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Mobile & Auto&tag=backpack");
+                            router.push("/shop?category=Mobile & Auto");
                           }}
                           className="text-[9px] font-bold tracking-widest text-emerald-300 bg-emerald-955/40 hover:bg-emerald-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-500/30 uppercase transition-all"
                         >
@@ -1777,7 +1780,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Mobile & Auto&tag=stand");
+                            router.push("/shop?category=Mobile & Auto");
                           }}
                           className="text-[9px] font-bold tracking-widest text-emerald-300 bg-emerald-955/40 hover:bg-emerald-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-500/30 uppercase transition-all"
                         >
@@ -1811,7 +1814,9 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   {/* Content Overlay */}
                   <div className="relative z-10 flex flex-col justify-between h-full w-full">
                     <div className="flex justify-end w-full">
-                      <span className="text-white/60 text-xs font-medium">EXPLORE →</span>
+                      <span className="text-[10px] font-black tracking-widest text-purple-200 bg-purple-950/85 border border-purple-500/50 backdrop-blur-md px-3 py-1 rounded-full uppercase shadow-md shadow-purple-950/50 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-400 transition-all duration-300">
+                        EXPLORE →
+                      </span>
                     </div>
                     
                     <div className="text-left">
@@ -1822,7 +1827,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Best sellers&tag=headphones");
+                            router.push("/shop?category=Best sellers");
                           }}
                           className="text-[9px] font-bold tracking-widest text-purple-300 bg-purple-955/40 hover:bg-purple-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-purple-500/30 uppercase transition-all"
                         >
@@ -1831,7 +1836,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         <span 
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push("/shop?category=Best sellers&tag=keyboard");
+                            router.push("/shop?category=Best sellers");
                           }}
                           className="text-[9px] font-bold tracking-widest text-purple-300 bg-purple-955/40 hover:bg-purple-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-purple-500/30 uppercase transition-all"
                         >
@@ -1985,9 +1990,9 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
                       {/* Premium card divider footer */}
                       <div className="flex justify-between items-center mt-3 pt-3 border-t border-zinc-100/70">
-                        <span className="text-[8px] font-bold text-emerald-600 tracking-wider uppercase flex items-center gap-1">
-                          <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                          Free Shipping
+                        <span className="text-[8px] font-bold text-purple-600 tracking-wider uppercase flex items-center gap-1">
+                          <span className="w-1 h-1 rounded-full bg-purple-500 animate-pulse" />
+                          Fast Delivery
                         </span>
                         <span className="text-[8px] font-bold text-zinc-400 tracking-wider uppercase">
                           In Stock
@@ -2136,9 +2141,9 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
                       {/* Premium card divider footer */}
                       <div className="flex justify-between items-center mt-3 pt-3 border-t border-zinc-100/70">
-                        <span className="text-[8px] font-bold text-emerald-600 tracking-wider uppercase flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Free Shipping
+                        <span className="text-[8px] font-bold text-purple-600 tracking-wider uppercase flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                          Fast Delivery
                         </span>
                         <span className="text-[8px] font-bold text-zinc-400 tracking-wider uppercase">
                           In Stock
@@ -2212,10 +2217,10 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   </div>
                   <div>
                     <h3 className="text-base font-extrabold text-zinc-950 font-outfit mb-2 group-hover:text-purple-700 transition-colors duration-200 uppercase">
-                      Free Global Shipping
+                      Islandwide Express Delivery
                     </h3>
                     <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
-                      Enjoy 24-hour dispatch and free delivery on all orders over Rs. 45,000, including our full premium setups.
+                      Enjoy 24-hour priority dispatch and tracked islandwide delivery on all orders and setups.
                     </p>
                   </div>
                 </div>
@@ -2261,7 +2266,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   },
                   {
                     q: "How long does shipping take?",
-                    a: "Delivery typically takes 3 to 5 business days depending on your region. All smart setup packages and orders over Rs. 45,000 benefit from free shipping and automatic 24-hour priority dispatch."
+                    a: "Delivery typically takes 3 to 5 business days depending on your region. All smart setup packages and orders benefit from tracked delivery and automatic 24-hour priority dispatch."
                   },
                   {
                     q: "Can I return items under the trial?",
@@ -2269,7 +2274,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   },
                   {
                     q: "Do you ship internationally?",
-                    a: "Yes, we ship islandwide. All local shipments are fully tracked and insured. Express shipping is free for all orders exceeding Rs. 45,000, or available for a flat rate of Rs. 500 on smaller items."
+                    a: "Yes, we ship islandwide. All local shipments are fully tracked and insured for safe delivery to your doorstep."
                   }
                 ].map((item, idx) => {
                   const isOpen = openFaq === idx;

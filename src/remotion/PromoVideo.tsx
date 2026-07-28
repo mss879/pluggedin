@@ -242,7 +242,7 @@ const ProductScene: React.FC<{ productId: string; accentColor: string }> = ({ pr
           <div className="flex items-center gap-4 mt-2">
             <span className="text-3xl font-black text-white font-syne">{product.price}</span>
             <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg tracking-widest uppercase">
-              Free Delivery
+              Fast Delivery
             </span>
           </div>
         </div>

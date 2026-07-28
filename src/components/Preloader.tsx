@@ -763,37 +763,8 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       {/* 3D WebGL Canvas background */}
       <div ref={containerRef} className="absolute inset-0 z-0 w-full h-full" />
 
-      {/* Futuristic Dashboard Header */}
-      <div className="pt-8 px-6 sm:px-12 flex justify-between items-start w-full relative z-10">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[10px] font-bold tracking-[0.3em] text-purple-600 uppercase">
-            System Initialization
-          </span>
-          <span className="text-[8px] tracking-[0.15em] text-zinc-400 font-semibold">
-            CORE ENGINE VERSION 2.0.26
-          </span>
-        </div>
-        
-        {/* Shifting Diagnostic Grid */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-right text-[9px] text-zinc-400 leading-normal">
-          <div>TEMP: <span className="text-zinc-800 font-bold">{stats.temp}</span></div>
-          <div>PING: <span className="text-zinc-800 font-bold">{stats.ping}</span></div>
-          <div>LINK: <span className="text-purple-600 font-bold">{stats.link}</span></div>
-          <div>FPS: <span className="text-zinc-800 font-bold">{stats.fps}</span></div>
-        </div>
-      </div>
-
-      {/* Futuristic HUD Sidebar / Boot Log - Responsive layout fits mobile screens perfectly */}
-      <div className="absolute left-6 sm:left-12 top-[22%] w-[calc(100%-48px)] sm:w-[320px] max-h-[105px] sm:max-h-[140px] z-10 pointer-events-none flex flex-col gap-1 text-[8px] sm:text-[9px] text-zinc-500 overflow-hidden bg-white/45 backdrop-blur-md p-3 sm:p-4 rounded-xl border border-zinc-200/50 shadow-xl shadow-zinc-200/25">
-        <div className="font-bold text-purple-600 border-b border-zinc-200/60 pb-1 mb-1.5 tracking-wider uppercase">
-          Diagnostic Process Monitor:
-        </div>
-        {terminalLogs.map((log, index) => (
-          <div key={index} className="truncate tracking-wide font-medium text-zinc-600">
-            {log}
-          </div>
-        ))}
-      </div>
+      {/* Spacer to keep bottom progress positioned naturally */}
+      <div className="flex-grow" />
 
       {/* Cybernetic Progress Indicator at the Bottom */}
       <div className="pb-12 px-6 sm:px-12 flex flex-col items-center sm:flex-row sm:justify-between w-full relative z-10 gap-6 sm:gap-0">

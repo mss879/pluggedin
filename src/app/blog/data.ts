@@ -64,7 +64,7 @@ Ergonomics is not just a buzzword; it is a vital health consideration. When sele
 Premium setups are highly visual. Before adding an item to your cart, check the website's product gallery or review section. Look for unedited photographs that show the product in real-world lighting. Pay close attention to how the colors coordinate with wood, steel, or dark setup themes.
 
 ### 5. Look for Localized Delivery and Return Policies
-Reliable logistics are the backbone of high-end e-commerce. Choose online stores that offer secure, tracked delivery across Sri Lanka and clearly outline their refund policies. A secure storefront should offer free shipping inside the country for orders that exceed a threshold, alongside customer support channels that can answer technical questions immediately.
+Reliable logistics are the backbone of high-end e-commerce. Choose online stores that offer secure, tracked delivery across Sri Lanka and clearly outline their refund policies. A secure storefront should offer tracked delivery inside the country, alongside customer support channels that can answer technical questions immediately.
 
 ---
 
