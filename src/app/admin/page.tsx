@@ -103,12 +103,15 @@ export default function AdminDashboardPage() {
   const [prodImages, setProdImages] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
 
-  // Collection Form State
+  // Collection Form & View State
+  const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null);
+  const [expandedCollectionId, setExpandedCollectionId] = useState<string | null>(null);
   const [collName, setCollName] = useState("");
   const [collDescription, setCollDescription] = useState("");
   const [collType, setCollType] = useState<"manual" | "smart">("manual");
   const [collTags, setCollTags] = useState("");
   const [collSelectedProducts, setCollSelectedProducts] = useState<string[]>([]);
+  const [quickAddProductId, setQuickAddProductId] = useState<string>("");
 
   // Load Admin session & data on mount
   useEffect(() => {
@@ -786,11 +789,39 @@ export default function AdminDashboardPage() {
   // -------------------------
   // COLLECTIONS HANDLER
   // -------------------------
+  const handleEditCollection = (collection: Collection) => {
+    setEditingCollectionId(collection.id);
+    setCollName(collection.name);
+    setCollDescription(collection.description || "");
+    setCollType(collection.type);
+    setCollTags((collection.rules?.tags || []).join(", "));
+    if (collection.type === "manual") {
+      const currentProdIds = collectionProducts
+        .filter((cp) => cp.collection_id === collection.id)
+        .map((cp) => cp.product_id);
+      setCollSelectedProducts(currentProdIds);
+    } else {
+      setCollSelectedProducts([]);
+    }
+  };
+
+  const handleCancelEditCollection = () => {
+    setEditingCollectionId(null);
+    setCollName("");
+    setCollDescription("");
+    setCollType("manual");
+    setCollTags("");
+    setCollSelectedProducts([]);
+  };
+
   const handleCollectionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaveStatus("Creating collection...");
+    const isEdit = Boolean(editingCollectionId);
+    setSaveStatus(isEdit ? "Updating collection..." : "Creating collection...");
 
-    const id = collName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const id = isEdit
+      ? editingCollectionId!
+      : collName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     const tagsArr = collTags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean);
 
     const payload = {
@@ -804,39 +835,124 @@ export default function AdminDashboardPage() {
 
     try {
       if (supabase) {
-        const { error } = await supabase.from("collections").insert(payload);
-        if (error) throw error;
+        if (isEdit) {
+          const { error } = await supabase.from("collections").update({
+            name: collName,
+            description: collDescription,
+            type: collType,
+            rules: { tags: tagsArr },
+            updated_at: new Date().toISOString(),
+          }).eq("id", id);
+          if (error) throw error;
 
-        // If manual and products selected, link them
+          if (collType === "manual") {
+            await supabase.from("collection_products").delete().eq("collection_id", id);
+            if (collSelectedProducts.length > 0) {
+              const joins = collSelectedProducts.map((pId) => ({
+                collection_id: id,
+                product_id: pId,
+              }));
+              const { error: joinErr } = await supabase.from("collection_products").insert(joins);
+              if (joinErr) throw joinErr;
+            }
+          }
+        } else {
+          const { error } = await supabase.from("collections").insert(payload);
+          if (error) throw error;
+
+          if (collType === "manual" && collSelectedProducts.length > 0) {
+            const joins = collSelectedProducts.map((pId) => ({
+              collection_id: id,
+              product_id: pId,
+            }));
+            const { error: joinErr } = await supabase.from("collection_products").insert(joins);
+            if (joinErr) throw joinErr;
+          }
+        }
+      }
+
+      if (isEdit) {
+        setCollections((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, ...payload } : c))
+        );
+        if (collType === "manual") {
+          setCollectionProducts((prev) => {
+            const filtered = prev.filter((cp) => cp.collection_id !== id);
+            const newJoins = collSelectedProducts.map((pId) => ({
+              collection_id: id,
+              product_id: pId,
+            }));
+            return [...filtered, ...newJoins];
+          });
+        }
+        setSaveStatus("Collection updated!");
+      } else {
+        setCollections([payload, ...collections]);
         if (collType === "manual" && collSelectedProducts.length > 0) {
           const joins = collSelectedProducts.map((pId) => ({
             collection_id: id,
             product_id: pId,
           }));
-          const { error: joinErr } = await supabase.from("collection_products").insert(joins);
-          if (joinErr) throw joinErr;
+          setCollectionProducts((prev) => [...prev, ...joins]);
         }
+        setSaveStatus("Collection created!");
       }
 
-      setCollections([payload, ...collections]);
-      if (collType === "manual" && collSelectedProducts.length > 0) {
-        const joins = collSelectedProducts.map((pId) => ({
-          collection_id: id,
-          product_id: pId,
-        }));
-        setCollectionProducts((prev) => [...prev, ...joins]);
-      }
-      setSaveStatus("Collection created!");
-      setCollName("");
-      setCollDescription("");
-      setCollType("manual");
-      setCollTags("");
-      setCollSelectedProducts([]);
-
+      handleCancelEditCollection();
       setTimeout(() => setSaveStatus(null), 1500);
     } catch (err: any) {
       console.error("Save collection failed:", err);
-      setSaveStatus(`Error creating: ${err.message}`);
+      setSaveStatus(`Error: ${err.message}`);
+    }
+  };
+
+  const handleDeleteCollection = async (collectionId: string) => {
+    if (!confirm(`Are you sure you want to delete collection "${collectionId}"?`)) return;
+
+    try {
+      if (supabase) {
+        const { error } = await supabase.from("collections").delete().eq("id", collectionId);
+        if (error) throw error;
+      }
+      setCollections((prev) => prev.filter((c) => c.id !== collectionId));
+      setCollectionProducts((prev) => prev.filter((cp) => cp.collection_id !== collectionId));
+      if (expandedCollectionId === collectionId) setExpandedCollectionId(null);
+      if (editingCollectionId === collectionId) handleCancelEditCollection();
+    } catch (err: any) {
+      alert(`Failed to delete collection: ${err.message}`);
+    }
+  };
+
+  const handleRemoveProductFromCollection = async (collectionId: string, productId: string) => {
+    try {
+      if (supabase) {
+        const { error } = await supabase
+          .from("collection_products")
+          .delete()
+          .eq("collection_id", collectionId)
+          .eq("product_id", productId);
+        if (error) throw error;
+      }
+      setCollectionProducts((prev) =>
+        prev.filter((cp) => !(cp.collection_id === collectionId && cp.product_id === productId))
+      );
+    } catch (err: any) {
+      alert(`Failed to remove product from collection: ${err.message}`);
+    }
+  };
+
+  const handleAddProductToCollection = async (collectionId: string, productId: string) => {
+    if (!productId) return;
+    try {
+      if (supabase) {
+        const { error } = await supabase
+          .from("collection_products")
+          .insert({ collection_id: collectionId, product_id: productId });
+        if (error) throw error;
+      }
+      setCollectionProducts((prev) => [...prev, { collection_id: collectionId, product_id: productId }]);
+    } catch (err: any) {
+      alert(`Failed to add product to collection: ${err.message}`);
     }
   };
 
@@ -848,16 +964,22 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Helper to fetch collection items dynamically (Shopify Smart logic!)
-  const getCollectionProductCount = (collection: Collection) => {
+  // Helper to fetch collection items
+  const getProductsForCollection = (collection: Collection): Product[] => {
     if (collection.type === "smart") {
       const matchTags = collection.rules?.tags || [];
       return products.filter((p) =>
         p.tags?.some((t) => matchTags.includes(t.toLowerCase()))
-      ).length;
+      );
     }
-    // Count join rows matching this collection's ID
-    return collectionProducts.filter((cp) => cp.collection_id === collection.id).length;
+    const linkedIds = collectionProducts
+      .filter((cp) => cp.collection_id === collection.id)
+      .map((cp) => cp.product_id);
+    return products.filter((p) => linkedIds.includes(p.id));
+  };
+
+  const getCollectionProductCount = (collection: Collection) => {
+    return getProductsForCollection(collection).length;
   };
 
   // -------------------------
@@ -1583,11 +1705,22 @@ export default function AdminDashboardPage() {
           {activeTab === "collections" && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               
-              {/* Left Form: Create Collection */}
+              {/* Left Form: Create / Edit Collection */}
               <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-[2rem] p-6 flex flex-col gap-6 shadow-xs">
-                <h3 className="text-xs font-black tracking-[0.2em] text-slate-550 uppercase">
-                  Create Collection
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-black tracking-[0.2em] text-slate-550 uppercase">
+                    {editingCollectionId ? "Edit Collection" : "Create Collection"}
+                  </h3>
+                  {editingCollectionId && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEditCollection}
+                      className="text-[10px] font-bold text-slate-400 hover:text-slate-600 underline cursor-pointer"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                </div>
 
                 {saveStatus && (
                   <div className="bg-purple-50 border border-purple-100 text-purple-600 text-xs font-semibold px-4 py-2 rounded-xl text-center">
@@ -1667,7 +1800,7 @@ export default function AdminDashboardPage() {
                         className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
                       />
                       <span className="text-[10px] text-slate-400 font-semibold leading-normal mt-1 block">
-                        💡 Shopify logic: Creating a product with any of these tags will automatically bind it to this collection.
+                        💡 Shopify logic: Products with any of these tags will automatically belong to this collection.
                       </span>
                     </div>
                   )}
@@ -1676,9 +1809,9 @@ export default function AdminDashboardPage() {
                   {collType === "manual" && (
                     <div className="flex flex-col gap-2 border border-slate-200 rounded-2xl p-4 animate-in fade-in duration-200">
                       <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase">
-                        Select Products to Add
+                        Select Products to Include
                       </label>
-                      <div className="max-h-40 overflow-y-auto flex flex-col gap-2 pr-1 scrollbar-thin">
+                      <div className="max-h-44 overflow-y-auto flex flex-col gap-2 pr-1 scrollbar-thin">
                         {products.map((p) => {
                           const isSelected = collSelectedProducts.includes(p.id);
                           return (
@@ -1686,13 +1819,18 @@ export default function AdminDashboardPage() {
                               key={p.id}
                               type="button"
                               onClick={() => toggleProductSelectForCollection(p.id)}
-                              className={`flex items-center justify-between p-2 rounded-xl text-left transition-all border cursor-pointer ${
+                              className={`flex items-center justify-between p-2.5 rounded-xl text-left transition-all border cursor-pointer ${
                                 isSelected
                                   ? "bg-purple-50 border-purple-200 text-slate-900 font-bold"
                                   : "bg-slate-50 border-slate-200/60 text-slate-500 hover:bg-slate-100"
                               }`}
                             >
-                              <span className="truncate max-w-[80%]">{p.name}</span>
+                              <div className="flex items-center gap-2 truncate max-w-[75%]">
+                                <span className={`w-4 h-4 rounded-md border flex items-center justify-center text-[10px] font-bold ${isSelected ? "bg-purple-600 border-purple-600 text-white" : "border-slate-300"}`}>
+                                  {isSelected ? "✓" : ""}
+                                </span>
+                                <span className="truncate">{p.name}</span>
+                              </div>
                               <span className="text-[10px] font-bold text-slate-400">{p.price}</span>
                             </button>
                           );
@@ -1701,59 +1839,214 @@ export default function AdminDashboardPage() {
                     </div>
                   )}
 
-                  <button
-                    type="submit"
-                    className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-black tracking-widest py-4 rounded-full mt-2 transition-all cursor-pointer border-0 shadow-sm"
-                  >
-                    CREATE COLLECTION
-                  </button>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="submit"
+                      className="flex-1 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black tracking-widest py-4 rounded-full transition-all cursor-pointer border-0 shadow-sm"
+                    >
+                      {editingCollectionId ? "SAVE COLLECTION CHANGES" : "CREATE COLLECTION"}
+                    </button>
+                    {editingCollectionId && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEditCollection}
+                        className="px-5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-full transition-all cursor-pointer border-0"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                 </form>
               </div>
 
               {/* Right List: Collections List */}
               <div className="lg:col-span-7 bg-white border border-slate-200/80 rounded-[2rem] p-6 flex flex-col gap-4 shadow-xs">
                 <h3 className="text-xs font-black tracking-[0.2em] text-slate-555 uppercase">
-                  Existing Collections
+                  Existing Collections ({collections.length})
                 </h3>
 
                 <div className="flex flex-col gap-4">
                   {collections.map((c) => {
-                    const count = getCollectionProductCount(c);
+                    const collProds = getProductsForCollection(c);
+                    const isExpanded = expandedCollectionId === c.id;
+                    const isEditingThis = editingCollectionId === c.id;
+
                     return (
-                      <div key={c.id} className="bg-slate-50/50 border border-slate-200/80 p-5 rounded-3xl flex items-center justify-between hover:border-slate-350 transition-all duration-305 shadow-2xs">
-                        <div className="flex flex-col gap-1 text-left max-w-[70%]">
-                          <div className="flex items-center gap-2">
-                            <span className="font-extrabold text-slate-800 text-base">{c.name}</span>
-                            <span className={`text-[8px] font-black tracking-widest px-2.5 py-0.5 rounded-full border uppercase ${
-                              c.type === "smart"
-                                ? "bg-purple-50 border-purple-200/80 text-purple-650"
-                                : "bg-blue-50 border-blue-200/80 text-blue-650"
-                            }`}>
-                              {c.type}
+                      <div
+                        key={c.id}
+                        className={`bg-slate-50/50 border p-5 rounded-3xl flex flex-col gap-4 transition-all duration-300 shadow-2xs ${
+                          isEditingThis
+                            ? "border-purple-300 bg-purple-50/30 ring-2 ring-purple-500/10"
+                            : "border-slate-200/80 hover:border-slate-350"
+                        }`}
+                      >
+                        {/* Collection Top Info Header */}
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex flex-col gap-1 text-left max-w-[70%]">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-extrabold text-slate-800 text-base">{c.name}</span>
+                              <span className={`text-[8px] font-black tracking-widest px-2.5 py-0.5 rounded-full border uppercase ${
+                                c.type === "smart"
+                                  ? "bg-purple-50 border-purple-200/80 text-purple-650"
+                                  : "bg-blue-50 border-blue-200/80 text-blue-650"
+                              }`}>
+                                {c.type}
+                              </span>
+                            </div>
+                            <p className="text-slate-500 text-xs line-clamp-2 leading-relaxed">
+                              {c.description || "No description provided."}
+                            </p>
+                            {c.type === "smart" && c.rules?.tags && c.rules.tags.length > 0 && (
+                              <div className="flex gap-1.5 flex-wrap mt-1">
+                                {c.rules.tags.map((tag) => (
+                                  <span key={tag} className="text-[9px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
+                                    tag:{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col items-end shrink-0 gap-1">
+                            <span className="text-2xl font-black font-inter text-slate-800">
+                              {collProds.length}
+                            </span>
+                            <span className="text-[9px] font-black tracking-widest text-slate-400 uppercase">
+                              Products
                             </span>
                           </div>
-                          <p className="text-slate-500 text-xs line-clamp-2 leading-relaxed">
-                            {c.description || "No description provided."}
-                          </p>
-                          {c.type === "smart" && c.rules?.tags && (
-                            <div className="flex gap-1.5 flex-wrap mt-1">
-                              {c.rules.tags.map((tag) => (
-                                <span key={tag} className="text-[9px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                                  tag:{tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
                         </div>
 
-                        <div className="flex flex-col items-end shrink-0 gap-1.5">
-                          <span className="text-2xl font-black font-inter text-slate-800">
-                            {count}
-                          </span>
-                          <span className="text-[9px] font-black tracking-widest text-slate-400 uppercase">
-                            Products
-                          </span>
+                        {/* Action Buttons Row */}
+                        <div className="flex items-center justify-between pt-3 border-t border-slate-200/60">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedCollectionId(isExpanded ? null : c.id)}
+                            className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-purple-600 transition-colors cursor-pointer"
+                          >
+                            <svg
+                              className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180 text-purple-600" : ""}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                            </svg>
+                            <span>{isExpanded ? "Hide Products" : `View Products (${collProds.length})`}</span>
+                          </button>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleEditCollection(c)}
+                              className="px-3 py-1.5 text-[11px] font-bold text-slate-700 bg-white border border-slate-250 hover:bg-slate-50 hover:border-slate-350 rounded-xl transition-all cursor-pointer shadow-xs"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCollection(c.id)}
+                              className="px-3 py-1.5 text-[11px] font-bold text-red-600 bg-red-50 border border-red-200/80 hover:bg-red-100 rounded-xl transition-all cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
+
+                        {/* EXPANDED PRODUCTS LIST */}
+                        {isExpanded && (
+                          <div className="flex flex-col gap-3 pt-3 border-t border-purple-100/80 bg-white p-4 rounded-2xl animate-in fade-in duration-200">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">
+                                Products in Collection ({collProds.length})
+                              </span>
+                              {c.type === "smart" && (
+                                <span className="text-[10px] font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-100">
+                                  ⚡ Auto-linked by tags
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Product List */}
+                            {collProds.length === 0 ? (
+                              <div className="text-center py-6 text-xs text-slate-400 font-medium bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                                No products in this collection yet.
+                              </div>
+                            ) : (
+                              <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
+                                {collProds.map((prod) => (
+                                  <div
+                                    key={prod.id}
+                                    className="flex items-center justify-between p-2.5 bg-slate-50/80 border border-slate-200/70 rounded-xl hover:bg-slate-100/80 transition-all"
+                                  >
+                                    <div className="flex items-center gap-3 truncate max-w-[70%]">
+                                      <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center p-1 shrink-0">
+                                        {prod.images?.[0] ? (
+                                          <img src={prod.images[0]} alt={prod.name} className="w-full h-full object-contain" />
+                                        ) : (
+                                          <span className="text-[10px] font-bold text-slate-400">📦</span>
+                                        )}
+                                      </div>
+                                      <div className="flex flex-col truncate">
+                                        <span className="font-bold text-slate-800 text-xs truncate">{prod.name}</span>
+                                        <span className="text-[10px] text-slate-400">{prod.category} • {prod.price}</span>
+                                      </div>
+                                    </div>
+
+                                    {/* Action per product */}
+                                    {c.type === "manual" ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveProductFromCollection(c.id, prod.id)}
+                                        className="text-[11px] font-bold text-red-500 hover:text-red-700 bg-white hover:bg-red-50 border border-red-100 px-2.5 py-1 rounded-lg transition-all cursor-pointer shrink-0"
+                                        title="Remove product from collection"
+                                      >
+                                        Remove
+                                      </button>
+                                    ) : (
+                                      <span className="text-[9px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                                        Smart Tag
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Quick Add Product for Manual Collection */}
+                            {c.type === "manual" && (
+                              <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
+                                <select
+                                  value={quickAddProductId}
+                                  onChange={(e) => setQuickAddProductId(e.target.value)}
+                                  className="flex-1 bg-slate-50 border border-slate-250 text-xs font-semibold text-slate-800 rounded-xl px-3 py-2 focus:outline-none focus:border-purple-500"
+                                >
+                                  <option value="">+ Choose product to add...</option>
+                                  {products
+                                    .filter((p) => !collProds.some((cp) => cp.id === p.id))
+                                    .map((p) => (
+                                      <option key={p.id} value={p.id}>
+                                        {p.name} ({p.price})
+                                      </option>
+                                    ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  disabled={!quickAddProductId}
+                                  onClick={async () => {
+                                    if (quickAddProductId) {
+                                      await handleAddProductToCollection(c.id, quickAddProductId);
+                                      setQuickAddProductId("");
+                                    }
+                                  }}
+                                  className="bg-purple-600 hover:bg-purple-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer border-0 shrink-0"
+                                >
+                                  Add
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
