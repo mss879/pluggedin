@@ -445,52 +445,50 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
         <div className="hidden md:block relative rounded-[2rem] overflow-hidden bg-gradient-to-r from-purple-900 via-indigo-955 to-slate-900 px-8 py-10 md:py-14 text-left shadow-lg border border-purple-950/20">
           <div className="absolute top-0 right-0 w-[400px] h-full bg-purple-500/10 blur-[120px] rounded-full pointer-events-none" />
           <div className="relative z-10 max-w-2xl flex flex-col gap-2">
-            <span className="text-[10px] font-bold tracking-[0.25em] text-purple-300 uppercase">
-              {activeCollectionObj 
-                ? `COLLECTION: ${activeCollectionObj.name}` 
-                : selectedCollection 
-                  ? `COLLECTION: ${selectedCollection}` 
-                  : "CREATOR HUB CATALOG"}
-            </span>
+            {(activeCollectionObj || selectedCollection) && (
+              <span className="text-[10px] font-bold tracking-[0.25em] text-purple-300 uppercase">
+                {activeCollectionObj 
+                  ? `COLLECTION: ${activeCollectionObj.name}` 
+                  : `COLLECTION: ${selectedCollection}`}
+              </span>
+            )}
             <h1 className="text-3xl md:text-5xl font-extrabold text-white font-syne uppercase tracking-tight leading-tight">
               {activeCollectionObj 
                 ? activeCollectionObj.name 
                 : selectedCollection 
                   ? selectedCollection 
-                  : "Elevate Your Workspace"}
+                  : "Elevate your space"}
             </h1>
             <p className="text-purple-200/80 text-xs sm:text-sm font-medium leading-relaxed mt-1">
               {activeCollectionObj 
                 ? activeCollectionObj.description 
                 : selectedCollection 
                   ? `Browse our selected products in the ${selectedCollection} collection.` 
-                  : "Browse our professional range of tactile gear, high-fidelity audio systems, ambient desk lights, and smart travel configurations."}
+                  : "Browse our diverse selection of personal electronics, smart gadgets, and home essentials."}
             </p>
           </div>
         </div>
 
         {/* Mobile Simple Banner */}
         <div className="block md:hidden text-left px-2 py-1 flex flex-col gap-1">
-          <span className="text-[9px] font-extrabold tracking-widest text-purple-650 uppercase">
-            {activeCollectionObj 
-              ? `Collection` 
-              : selectedCollection 
-                ? `Collection` 
-                : "Catalog"}
-          </span>
+          {(activeCollectionObj || selectedCollection) && (
+            <span className="text-[9px] font-extrabold tracking-widest text-purple-650 uppercase">
+              Collection
+            </span>
+          )}
           <h1 className="text-2xl font-black text-zinc-950 font-outfit uppercase tracking-tight leading-tight">
             {activeCollectionObj 
               ? activeCollectionObj.name 
               : selectedCollection 
                 ? selectedCollection 
-                : "Elevate Your Workspace"}
+                : "Elevate your space"}
           </h1>
           <p className="text-zinc-500 text-xs leading-relaxed font-medium">
             {activeCollectionObj 
               ? activeCollectionObj.description 
               : selectedCollection 
                 ? `Browse our selected products in the ${selectedCollection} collection.` 
-                : "Browse our professional range of tactile gear, audio systems, and desk setup essentials."}
+                : "Browse our diverse selection of personal electronics, smart gadgets, and home essentials."}
           </p>
         </div>
 
@@ -666,7 +664,11 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
 
             {/* Results count info */}
             <div className="text-left text-xs font-bold text-zinc-450 uppercase tracking-widest flex items-center justify-between border-b border-zinc-200/50 pb-3">
-              <span>Showing {sortedProducts.length} Setup Essentials</span>
+              <span>
+                {selectedCategory === "All" && selectedTags.length === 0 && !searchQuery.trim() && !selectedCollection
+                  ? "Showing all products"
+                  : `Showing ${sortedProducts.length} products`}
+              </span>
               {loading && <div className="w-4 h-4 border-2 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />}
             </div>
 

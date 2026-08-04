@@ -1501,7 +1501,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   isLoading ? "opacity-0 translate-y-6" : "opacity-100 translate-y-0"
                 }`}
               >
-                A curated fusion of premium personal electronics, smart devices, and elevated lifestyle accessories built for the modern creator.
+                A curated collection of premium electronics, smart devices, and elevated accessories for modern living.
               </p>
               <div
                 className={`flex items-center justify-center gap-4 transition-all duration-[1000ms] delay-[950ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
@@ -1719,7 +1719,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                     
                     <div className="text-left">
                       <h3 className="text-xl font-extrabold text-white/90 font-outfit">
-                        Trending Creator Essentials
+                        Trending Featured Collection
                       </h3>
                       <div className="flex flex-wrap gap-2 mt-3 pointer-events-none">
                         <span 
@@ -1875,9 +1875,9 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                 </div>
 
                 <div className="max-w-xl text-left">
-                  <h3 className="text-2xl md:text-4xl font-extrabold text-white font-outfit tracking-tight leading-tight">
-                    ELEVATED ESSENTIALS.<br />
-                    BUILT FOR MODERN CREATORS.
+                  <h3 className="text-2xl md:text-4xl font-extrabold text-white font-outfit tracking-tight leading-tight uppercase">
+                    Curated Living<br />
+                    Essentials Elevated.
                   </h3>
                 </div>
               </div>
@@ -1887,7 +1887,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
             <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 pt-16 pb-8 px-6 lg:px-8 flex flex-col gap-8 content-visibility-lazy">
               <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
                 <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
-                  Creator Essentials
+                  Featured collection
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 font-outfit tracking-tight">
                   TRENDING PRODUCTS

@@ -42,10 +42,10 @@ async function getProducts() {
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.pluggedin.lk"),
   title: "Shop All Essentials | PluggedIn Premium Creator Workspace",
-  description: "Browse our curated range of tactile mechanical keyboards, smart desktop chargers, studio monitor speakers, and workspace lighting.",
+  description: "Browse our diverse selection of personal electronics, smart gadgets, and home essentials.",
   openGraph: {
     title: "Shop All Essentials | PluggedIn Premium Creator Workspace",
-    description: "Browse our curated range of tactile mechanical keyboards, smart desktop chargers, studio monitor speakers, and workspace lighting.",
+    description: "Browse our diverse selection of personal electronics, smart gadgets, and home essentials.",
     url: "https://www.pluggedin.lk/shop",
     images: ["/banner_1.webp"],
   },
@@ -59,7 +59,7 @@ export default async function ShopPage() {
     "@type": "CollectionPage",
     "name": "Shop All Essentials | PluggedIn",
     "url": "https://www.pluggedin.lk/shop",
-    "description": "Browse our curated range of tactile mechanical keyboards, smart desktop chargers, studio monitor speakers, and workspace lighting.",
+    "description": "Browse our diverse selection of personal electronics, smart gadgets, and home essentials.",
     "mainEntity": {
       "@type": "ItemList",
       "numberOfItems": products.length,
