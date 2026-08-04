@@ -90,8 +90,10 @@ export default function CheckoutClient() {
     }
   };
 
-  const parsePrice = (priceStr: string) => {
-    const cleanStr = priceStr.replace(/rs\.?/i, "").replace(/[^0-9.]/g, "");
+  const parsePrice = (priceStr: string | number) => {
+    if (typeof priceStr === "number") return priceStr;
+    if (!priceStr) return 0;
+    const cleanStr = String(priceStr).replace(/rs\.?/i, "").replace(/[^0-9.]/g, "");
     return parseFloat(cleanStr) || 0;
   };
 

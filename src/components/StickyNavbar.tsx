@@ -148,7 +148,7 @@ export default function StickyNavbar() {
               id: item.id,
               name: item.name,
               category: item.category,
-              price: `Rs. ${Math.round(item.price).toLocaleString()}`,
+              price: typeof item.price === "number" ? `Rs. ${Math.round(item.price).toLocaleString()}` : (typeof item.price === "string" && !item.price.startsWith("Rs.") ? `Rs. ${item.price}` : item.price || "Rs. 0"),
               slashedPrice: item.slashed_price ? `Rs. ${Math.round(item.slashed_price).toLocaleString()}` : "",
               discount: item.discount || "",
               description: item.description,
@@ -278,8 +278,10 @@ export default function StickyNavbar() {
     setTimeout(() => setSearchToast(null), 3000);
   };
 
-  const parsePrice = (priceStr: string) => {
-    const cleanStr = priceStr.replace(/rs\.?/i, "").replace(/[^0-9.]/g, "");
+  const parsePrice = (priceStr: string | number) => {
+    if (typeof priceStr === "number") return priceStr;
+    if (!priceStr) return 0;
+    const cleanStr = String(priceStr).replace(/rs\.?/i, "").replace(/[^0-9.]/g, "");
     return parseFloat(cleanStr) || 0;
   };
 

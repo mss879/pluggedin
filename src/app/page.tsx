@@ -19,7 +19,7 @@ async function getProducts() {
           id: item.id,
           name: item.name,
           category: item.category,
-          price: `Rs. ${Math.round(item.price).toLocaleString()}`,
+          price: typeof item.price === "number" ? `Rs. ${Math.round(item.price).toLocaleString()}` : (typeof item.price === "string" && !item.price.startsWith("Rs.") ? `Rs. ${item.price}` : item.price || "Rs. 0"),
           slashedPrice: item.slashed_price ? `Rs. ${Math.round(item.slashed_price).toLocaleString()}` : "",
           discount: item.discount || "",
           description: item.description,
