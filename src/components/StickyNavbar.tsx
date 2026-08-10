@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { MOCK_PRODUCTS, getCategoryIcon, getColorHex, Product } from "@/app/products";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase-lazy";
 
 interface CartItem {
   product: Product;
@@ -17,7 +17,9 @@ export default function StickyNavbar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const [isVisible, setIsVisible] = useState(pathname !== "/");
+  const [isVisible, setIsVisible] = useState(true);
+  // Mirrors isVisible so the scroll handler can compare without re-subscribing.
+  const visibleRef = React.useRef(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartAnimate, setCartAnimate] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -33,7 +35,7 @@ export default function StickyNavbar() {
   // Track whether we're on an admin page (checked after all hooks)
   const isAdminPage = pathname && pathname.startsWith("/admin");
 
-  // On non-homepage routes, show the navbar immediately and ensure scroll is unlocked
+  // Show the navbar immediately and ensure scroll is unlocked
   useEffect(() => {
     const unlockScroll = () => {
       document.documentElement.style.overflow = "";
@@ -44,59 +46,32 @@ export default function StickyNavbar() {
       document.body.style.width = "";
     };
 
-    if (pathname !== "/") {
-      setIsVisible(true);
-      // Reset any home page scroll locks defensively
-      unlockScroll();
-      // Re-check after a short delay to catch late-running HomeClient cleanup effects
-      const timer = setTimeout(unlockScroll, 100);
-      return () => clearTimeout(timer);
-    } else {
-      setIsVisible(false);
-    }
+    visibleRef.current = true;
+    setIsVisible(true);
+    unlockScroll();
+    const timer = setTimeout(unlockScroll, 100);
+    return () => clearTimeout(timer);
   }, [pathname]);
 
-  // Monitor scrolling globally (only needed on homepage for the delayed reveal)
-  useEffect(() => {
-    const handleScroll = (e: Event) => {
-      // On non-home pages the navbar is always visible; skip scroll checks
-      if (pathname !== "/") return;
-
-      const target = e.target as HTMLElement;
-      let scrollTop = 0;
-
-      // Scrollable div container (h-screen overflow-y-auto wrapper)
-      if (target && target.tagName && target.nodeType === 1 && target.clientHeight && target.clientHeight > window.innerHeight - 100) {
-        scrollTop = target.scrollTop;
-      }
-      // Document-level scroll
-      else {
-        scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
-      }
-
-      // Homepage: show after scrolling 1120px
-      setIsVisible(scrollTop > 1120);
-    };
-
-    window.addEventListener("scroll", handleScroll, true);
-    return () => {
-      window.removeEventListener("scroll", handleScroll, true);
-    };
-  }, [pathname]);
-
-  // Sync cart state with localStorage and custom events
-  const syncCart = () => {
+  // Sync cart state with localStorage and custom events.
+  //
+  // This used to also run on a setInterval every 1000ms. Because JSON.parse
+  // returns a brand new array each time, that handed React a new `cart`
+  // reference every second and re-rendered this (large) navbar on every page
+  // of the site, forever — burning main-thread time and battery while idle.
+  // The stored string is compared instead, and state is only touched when the
+  // cart actually changed.
+  const lastCartRawRef = React.useRef<string | null>(null);
+  const syncCart = React.useCallback(() => {
     try {
       const savedCart = localStorage.getItem("pluggedin_cart");
-      if (savedCart) {
-        setCart(JSON.parse(savedCart));
-      } else {
-        setCart([]);
-      }
+      if (savedCart === lastCartRawRef.current) return;
+      lastCartRawRef.current = savedCart;
+      setCart(savedCart ? JSON.parse(savedCart) : []);
     } catch (e) {
       console.error("Failed to load cart in sticky navbar", e);
     }
-  };
+  }, []);
 
   // Trigger bounce animation purely on cart changes
   const prevCartCountRef = React.useRef(0);
@@ -125,24 +100,38 @@ export default function StickyNavbar() {
       console.error(err);
     }
 
-    // Interval fallback to keep state in sync
-    const interval = setInterval(syncCart, 1000);
+    // Re-sync when the tab regains focus instead of polling on a timer — this
+    // covers the case the old interval was there for (cart changed in another
+    // tab or by a full page navigation) at zero idle cost.
+    window.addEventListener("focus", syncCart);
+    document.addEventListener("visibilitychange", syncCart);
 
     return () => {
       window.removeEventListener("cart-updated", syncCart);
       window.removeEventListener("storage", syncCart);
-      clearInterval(interval);
+      window.removeEventListener("focus", syncCart);
+      document.removeEventListener("visibilitychange", syncCart);
     };
-  }, []);
+  }, [syncCart]);
 
-  // Fetch real database products on mount
+  // Load the product list for the search box.
+  //
+  // This used to run on mount on every single page — an extra Supabase round
+  // trip (plus JSON parse and icon construction for every product) on page
+  // loads where the user never opens search. It now runs the first time the
+  // search UI is opened, and only once.
+  const productsLoadedRef = React.useRef(false);
   useEffect(() => {
+    if (!isSearching || productsLoadedRef.current) return;
+    productsLoadedRef.current = true;
+
     const fetchProducts = async () => {
       try {
+        const supabase = await getSupabase();
         if (supabase) {
           const { data, error } = await supabase
             .from("products")
-            .select("*");
+            .select("id,name,category,price,slashed_price,discount,description,color,colors,images,tags,features,meta_title");
           if (!error && data && data.length > 0) {
             const mapped = data.map((item: any) => ({
               id: item.id,
@@ -168,7 +157,7 @@ export default function StickyNavbar() {
       }
     };
     fetchProducts();
-  }, []);
+  }, [isSearching]);
 
   // Filter products for search
   useEffect(() => {
@@ -244,7 +233,11 @@ export default function StickyNavbar() {
   const saveCart = (newCart: CartItem[]) => {
     setCart(newCart);
     try {
-      localStorage.setItem("pluggedin_cart", JSON.stringify(newCart));
+      const raw = JSON.stringify(newCart);
+      // Record what we just wrote so the "cart-updated" listener below doesn't
+      // treat our own write as an external change and render a second time.
+      lastCartRawRef.current = raw;
+      localStorage.setItem("pluggedin_cart", raw);
       window.dispatchEvent(new Event("cart-updated"));
     } catch (e) {
       console.error("Failed to save cart in sticky navbar", e);
@@ -383,7 +376,7 @@ export default function StickyNavbar() {
             <div className="hidden md:flex items-center gap-2 sm:gap-4 lg:gap-6">
               {[
                 { name: "ABOUT", href: "/about" },
-                { name: "BLOG", href: "/blog" },
+                { name: "NEW IN", href: "/shop?collection=new-in" },
                 { name: "SHOP", href: "/shop" },
                 { name: "TRENDING", href: "/shop?collection=trending" },
               ].map((link) => (
@@ -406,7 +399,7 @@ export default function StickyNavbar() {
             </Link>
           </div>
 
-          {/* RIGHT BLOCK: NEW IN, CONTACT + Search/Cart Buttons */}
+          {/* RIGHT BLOCK: BLOG, CONTACT + Search/Cart Buttons */}
           <div className="flex items-center w-[35%] justify-end gap-3 sm:gap-4 lg:gap-5 pr-1 lg:pr-3">
 
             {/* Desktop-only Links */}
@@ -417,7 +410,7 @@ export default function StickyNavbar() {
                 }`}
             >
               {[
-                { name: "NEW IN", href: "/shop?collection=new-in" },
+                { name: "BLOG", href: "/blog" },
                 { name: "CONTACT", href: "/contact" },
               ].map((link) => (
                 <Link
@@ -823,7 +816,12 @@ export default function StickyNavbar() {
       )}
 
       {/* Mobile Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-[130] md:hidden bg-white/80 backdrop-blur-xl border-t border-zinc-200/40 shadow-[0_-8px_32px_rgba(0,0,0,0.04)] px-4 py-2 pb-[calc(8px+env(safe-area-inset-bottom))] flex items-center justify-around">
+      {/* This bar is mounted on every page and never unmounts, so its
+          backdrop-filter was re-blurring a full-width strip on every scroll
+          frame — one of the more expensive things you can ask a phone GPU to
+          do. At 88% white the frosting is carried by the fill, so a 4px blur
+          looks the same as the old 24px one for a fraction of the cost. */}
+      <div className="fixed bottom-0 left-0 right-0 z-[130] md:hidden bg-white/88 backdrop-blur-sm border-t border-zinc-200/40 shadow-[0_-8px_32px_rgba(0,0,0,0.04)] px-4 py-2 pb-[calc(8px+env(safe-area-inset-bottom))] flex items-center justify-around">
         {/* Home Tab */}
         <Link
           href="/"

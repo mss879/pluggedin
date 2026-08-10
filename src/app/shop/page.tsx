@@ -4,8 +4,9 @@ import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS } from "../products";
 import ShopClient from "./ShopClient";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// See the note in src/app/page.tsx — ISR instead of force-dynamic so the shop
+// is served from cache and regenerated at most once a minute.
+export const revalidate = 60;
 
 async function getProducts() {
   try {
@@ -39,6 +40,27 @@ async function getProducts() {
   return MOCK_PRODUCTS.map(({ icon, ...p }) => p);
 }
 
+// Fetched here rather than from the browser on mount: it keeps the Supabase
+// SDK out of the shop's client bundle and lets the collection filters render
+// with the first paint instead of popping in after hydration.
+async function getCollections() {
+  try {
+    if (supabase) {
+      const [collections, collectionProducts] = await Promise.all([
+        supabase.from("collections").select("*"),
+        supabase.from("collection_products").select("collection_id,product_id"),
+      ]);
+      return {
+        collections: collections.error ? [] : collections.data ?? [],
+        collectionProducts: collectionProducts.error ? [] : collectionProducts.data ?? [],
+      };
+    }
+  } catch (e) {
+    console.warn("Failed to fetch collections on server for shop:", e);
+  }
+  return { collections: [], collectionProducts: [] };
+}
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.pluggedin.lk"),
   title: "Shop All Essentials | PluggedIn Premium Creator Workspace",
@@ -52,8 +74,12 @@ export const metadata: Metadata = {
 };
 
 export default async function ShopPage() {
-  const products = await getProducts();
-  
+  const [products, { collections, collectionProducts }] = await Promise.all([
+    getProducts(),
+    getCollections(),
+  ]);
+
+
   const schema = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
@@ -86,7 +112,11 @@ export default async function ShopPage() {
           </div>
         </div>
       }>
-        <ShopClient initialProducts={products as any} />
+        <ShopClient
+          initialProducts={products as any}
+          initialCollections={collections}
+          initialCollectionProducts={collectionProducts}
+        />
       </Suspense>
     </>
   );

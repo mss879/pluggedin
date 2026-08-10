@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS, getColorHex, getCategoryIcon, getProductColors, Product } from "../products";
 
 interface CartItem {
@@ -13,7 +12,15 @@ interface CartItem {
   color: string;
 }
 
-function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
+function ShopContent({
+  initialProducts,
+  initialCollections = [],
+  initialCollectionProducts = [],
+}: {
+  initialProducts?: Product[];
+  initialCollections?: any[];
+  initialCollectionProducts?: any[];
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -33,8 +40,8 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
   const [loading, setLoading] = useState(!initialProducts || initialProducts.length === 0);
 
   // Collections State
-  const [collections, setCollections] = useState<any[]>([]);
-  const [collectionProducts, setCollectionProducts] = useState<any[]>([]);
+  const [collections] = useState<any[]>(initialCollections);
+  const [collectionProducts] = useState<any[]>(initialCollectionProducts);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(initialCollection);
 
   // Filter & Sort State
@@ -137,74 +144,17 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
     };
   }, []);
 
-  // Fetch collections and collection products relationships from Supabase
+  // Products and collections are supplied by the server component, which has
+  // already queried Supabase. This component used to re-run both queries from
+  // the browser on mount — doubling the database round trips per visit and
+  // pulling the Supabase SDK into the shop's client bundle. The only thing
+  // left to do here is drop the loading state when the server sent nothing.
   useEffect(() => {
-    const fetchCollections = async () => {
-      try {
-        if (supabase) {
-          const [collectionsRes, collectionProductsRes] = await Promise.all([
-            supabase.from("collections").select("*"),
-            supabase.from("collection_products").select("*")
-          ]);
-          
-          if (!collectionsRes.error && collectionsRes.data) {
-            setCollections(collectionsRes.data);
-          }
-          if (!collectionProductsRes.error && collectionProductsRes.data) {
-            setCollectionProducts(collectionProductsRes.data);
-          }
-        }
-      } catch (e) {
-        console.warn("Failed to fetch collections or join table data from Supabase:", e);
-      }
-    };
-    fetchCollections();
-  }, []);
-
-  // Fetch products from Supabase on mount (fall back to initialProducts or MOCK_PRODUCTS if offline)
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        if (supabase) {
-          const { data, error } = await supabase
-            .from("products")
-            .select("*")
-            .order("created_at", { ascending: false });
-          if (!error && data && data.length > 0) {
-            const mapped = data.map((item: any) => ({
-              id: item.id,
-              name: item.name,
-              category: item.category || "Tech & Gadgets",
-              price: typeof item.price === "number" ? `Rs. ${Math.round(item.price).toLocaleString()}` : (typeof item.price === "string" && !item.price.startsWith("Rs.") ? `Rs. ${item.price}` : item.price || "Rs. 0"),
-              slashedPrice: item.slashed_price ? `Rs. ${Math.round(item.slashed_price).toLocaleString()}` : "",
-              discount: item.discount || "",
-              description: item.description || "",
-              color: item.color || "purple",
-              colors: item.colors || [],
-              images: item.images || [],
-              tags: item.tags || [],
-              features: item.features || [],
-              metaTitle: item.meta_title || "",
-              icon: getCategoryIcon(item.category || "", item.id)
-            }));
-            setProducts(mapped);
-          } else if (!initialProducts || initialProducts.length === 0) {
-            setProducts(MOCK_PRODUCTS);
-          }
-        } else if (!initialProducts || initialProducts.length === 0) {
-          setProducts(MOCK_PRODUCTS);
-        }
-      } catch (err) {
-        console.warn("Supabase fetch failed, using initial/mock data:", err);
-        if (!initialProducts || initialProducts.length === 0) {
-          setProducts(MOCK_PRODUCTS);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
-  }, []);
+    if (!initialProducts || initialProducts.length === 0) {
+      setProducts(MOCK_PRODUCTS);
+    }
+    setLoading(false);
+  }, [initialProducts]);
 
   // Update dynamic max price range once products are loaded
   useEffect(() => {
@@ -1340,7 +1290,15 @@ function ShopContent({ initialProducts }: { initialProducts?: Product[] }) {
   );
 }
 
-export default function ShopPage({ initialProducts }: { initialProducts?: Product[] }) {
+export default function ShopPage({
+  initialProducts,
+  initialCollections = [],
+  initialCollectionProducts = [],
+}: {
+  initialProducts?: Product[];
+  initialCollections?: any[];
+  initialCollectionProducts?: any[];
+}) {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-slate-50/50 flex items-center justify-center font-outfit">
@@ -1350,7 +1308,11 @@ export default function ShopPage({ initialProducts }: { initialProducts?: Produc
         </div>
       </div>
     }>
-      <ShopContent initialProducts={initialProducts} />
+      <ShopContent
+        initialProducts={initialProducts}
+        initialCollections={initialCollections}
+        initialCollectionProducts={initialCollectionProducts}
+      />
     </Suspense>
   );
 }

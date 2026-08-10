@@ -63,6 +63,22 @@ interface MarqueeOffer {
   created_at?: string;
 }
 
+export interface HeroBanner {
+  id: string;
+  title: string;
+  subtitle: string;
+  badge: string;
+  tag: string;
+  image_url: string;
+  primary_cta_text: string;
+  primary_cta_href: string;
+  secondary_cta_text: string;
+  secondary_cta_href: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at?: string;
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter();
 
@@ -85,6 +101,26 @@ export default function AdminDashboardPage() {
   const [newOfferText, setNewOfferText] = useState("");
   const [newOfferRow, setNewOfferRow] = useState<number>(1);
   const [savingOffer, setSavingOffer] = useState(false);
+
+  // Hero Banners State
+  const [heroBanners, setHeroBanners] = useState<HeroBanner[]>([]);
+  const [editingBanner, setEditingBanner] = useState<HeroBanner | null>(null);
+  const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
+  const [bannerForm, setBannerForm] = useState<Partial<HeroBanner>>({
+    title: "",
+    subtitle: "",
+    badge: "⚡ FAST ISLANDWIDE SHIPPING",
+    tag: "FEATURED COLLECTION 2026",
+    image_url: "",
+    primary_cta_text: "SHOP CREATOR GEAR",
+    primary_cta_href: "/shop",
+    secondary_cta_text: "EXPLORE COLLECTION",
+    secondary_cta_href: "/shop?collection=trending",
+    sort_order: 1,
+    is_active: true,
+  });
+  const [uploadingBannerImage, setUploadingBannerImage] = useState(false);
+  const [savingBanner, setSavingBanner] = useState(false);
   const [collectionProducts, setCollectionProducts] = useState<{ collection_id: string; product_id: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
@@ -366,6 +402,66 @@ export default function AdminDashboardPage() {
               { id: "MO-14", text: "All desk accessories starting at Rs. 9,000", row_number: 2 },
               { id: "MO-15", text: "Smart wireless chargers best price", row_number: 2 },
               { id: "MO-16", text: "Water resistant travel cases on sale", row_number: 2 }
+            ]);
+          }
+
+          // 7. Fetch Hero Banners
+          try {
+            const { data: bannerData, error: bannerErr } = await supabase
+              .from("hero_banners")
+              .select("*")
+              .order("sort_order", { ascending: true });
+            if (bannerErr) throw bannerErr;
+            if (bannerData && bannerData.length > 0) {
+              setHeroBanners(bannerData);
+            } else {
+              throw new Error("Hero banners empty");
+            }
+          } catch (e) {
+            console.error("Failed to load hero_banners:", e);
+            setHeroBanners([
+              {
+                id: "HB-1",
+                title: "ELEVATE YOUR CREATIVE SETUP",
+                subtitle: "A curated collection of space-saving workspace essentials, tactile mechanical keyboards, smart desktop chargers & studio gear built for creator performance.",
+                badge: "⚡ FAST ISLANDWIDE SHIPPING",
+                tag: "FEATURED COLLECTION 2026",
+                image_url: "/posters/hero.webp",
+                primary_cta_text: "SHOP CREATOR GEAR",
+                primary_cta_href: "/shop",
+                secondary_cta_text: "EXPLORE TRENDING",
+                secondary_cta_href: "/shop?collection=trending",
+                sort_order: 1,
+                is_active: true,
+              },
+              {
+                id: "HB-2",
+                title: "CRAFTSMANSHIP REDEFINED",
+                subtitle: "Ultra-responsive tactile switches, custom acoustic damping, and studio-grade audio components engineered for seamless everyday speed.",
+                badge: "🛡️ 1-YEAR OFFICIAL WARRANTY",
+                tag: "MECHANICAL & AUDIO GEAR",
+                image_url: "/posters/Create_commercial_for_web_store_202606112343.webp",
+                primary_cta_text: "SHOP KEYBOARDS",
+                primary_cta_href: "/shop",
+                secondary_cta_text: "VIEW NEW ARRIVALS",
+                secondary_cta_href: "/shop?collection=new-in",
+                sort_order: 2,
+                is_active: true,
+              },
+              {
+                id: "HB-3",
+                title: "CLEAN DESK. ZERO CLUTTER.",
+                subtitle: "Smart wireless charging docks, carbon fiber laptop lifts & glare-free monitor lightbars to transform your workspace into a productive sanctuary.",
+                badge: "🚚 SAME DAY DISPATCH",
+                tag: "DESK ACCESSORIES & LIGHTING",
+                image_url: "/banner_1.webp",
+                primary_cta_text: "EXPLORE ACCESSORIES",
+                primary_cta_href: "/shop",
+                secondary_cta_text: "DISCOVER ALL PRODUCTS",
+                secondary_cta_href: "/shop",
+                sort_order: 3,
+                is_active: true,
+              }
             ]);
           }
         } else {
@@ -985,6 +1081,185 @@ export default function AdminDashboardPage() {
   };
 
   // -------------------------
+  // HERO BANNER HANDLERS
+  // -------------------------
+  const handleOpenAddBannerModal = () => {
+    if (heroBanners.length >= 5) {
+      alert("Maximum limit of 5 hero banners reached! Please edit or delete an existing banner.");
+      return;
+    }
+    setEditingBanner(null);
+    setBannerForm({
+      title: "",
+      subtitle: "",
+      badge: "⚡ FAST ISLANDWIDE SHIPPING",
+      tag: "FEATURED COLLECTION 2026",
+      image_url: "",
+      primary_cta_text: "SHOP CREATOR GEAR",
+      primary_cta_href: "/shop",
+      secondary_cta_text: "EXPLORE COLLECTION",
+      secondary_cta_href: "/shop?collection=trending",
+      sort_order: heroBanners.length + 1,
+      is_active: true,
+    });
+    setIsBannerModalOpen(true);
+  };
+
+  const handleOpenEditBannerModal = (banner: HeroBanner) => {
+    setEditingBanner(banner);
+    setBannerForm(banner);
+    setIsBannerModalOpen(true);
+  };
+
+  const handleUploadBannerFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingBannerImage(true);
+    try {
+      if (supabase) {
+        const fileExt = file.name.split(".").pop();
+        const fileName = `hero_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+        const filePath = `hero-banners/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("products")
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from("products").getPublicUrl(filePath);
+        if (data?.publicUrl) {
+          setBannerForm((prev) => ({ ...prev, image_url: data.publicUrl }));
+        }
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => {
+          setBannerForm((prev) => ({ ...prev, image_url: reader.result as string }));
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch (err: any) {
+      console.error("Banner upload failed:", err);
+      alert(`Image upload error: ${err.message || "Failed to upload image"}`);
+    } finally {
+      setUploadingBannerImage(false);
+    }
+  };
+
+  const handleSaveBanner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bannerForm.title || !bannerForm.image_url) {
+      alert("Please enter a title and select/upload an image.");
+      return;
+    }
+
+    setSavingBanner(true);
+    try {
+      if (supabase) {
+        if (editingBanner) {
+          const { error } = await supabase
+            .from("hero_banners")
+            .update({
+              title: bannerForm.title,
+              subtitle: bannerForm.subtitle || "",
+              badge: bannerForm.badge || "",
+              tag: bannerForm.tag || "",
+              image_url: bannerForm.image_url,
+              primary_cta_text: bannerForm.primary_cta_text || "SHOP CREATOR GEAR",
+              primary_cta_href: bannerForm.primary_cta_href || "/shop",
+              secondary_cta_text: bannerForm.secondary_cta_text || "EXPLORE COLLECTION",
+              secondary_cta_href: bannerForm.secondary_cta_href || "/shop?collection=trending",
+              sort_order: bannerForm.sort_order || 1,
+              is_active: bannerForm.is_active ?? true,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", editingBanner.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("hero_banners").insert([
+            {
+              title: bannerForm.title,
+              subtitle: bannerForm.subtitle || "",
+              badge: bannerForm.badge || "",
+              tag: bannerForm.tag || "",
+              image_url: bannerForm.image_url,
+              primary_cta_text: bannerForm.primary_cta_text || "SHOP CREATOR GEAR",
+              primary_cta_href: bannerForm.primary_cta_href || "/shop",
+              secondary_cta_text: bannerForm.secondary_cta_text || "EXPLORE COLLECTION",
+              secondary_cta_href: bannerForm.secondary_cta_href || "/shop?collection=trending",
+              sort_order: bannerForm.sort_order || heroBanners.length + 1,
+              is_active: bannerForm.is_active ?? true,
+            }
+          ]);
+          if (error) throw error;
+        }
+      }
+
+      if (editingBanner) {
+        setHeroBanners(
+          heroBanners.map((b) =>
+            b.id === editingBanner.id ? ({ ...b, ...bannerForm } as HeroBanner) : b
+          )
+        );
+      } else {
+        const newBanner: HeroBanner = {
+          id: `HB-${Date.now()}`,
+          title: bannerForm.title!,
+          subtitle: bannerForm.subtitle || "",
+          badge: bannerForm.badge || "",
+          tag: bannerForm.tag || "",
+          image_url: bannerForm.image_url!,
+          primary_cta_text: bannerForm.primary_cta_text || "SHOP CREATOR GEAR",
+          primary_cta_href: bannerForm.primary_cta_href || "/shop",
+          secondary_cta_text: bannerForm.secondary_cta_text || "EXPLORE COLLECTION",
+          secondary_cta_href: bannerForm.secondary_cta_href || "/shop?collection=trending",
+          sort_order: bannerForm.sort_order || heroBanners.length + 1,
+          is_active: bannerForm.is_active ?? true,
+        };
+        setHeroBanners([...heroBanners, newBanner]);
+      }
+
+      setIsBannerModalOpen(false);
+      setSaveStatus("Hero banner saved successfully!");
+      setTimeout(() => setSaveStatus(null), 2500);
+    } catch (err: any) {
+      console.error("Save hero banner error:", err);
+      alert(`Save error: ${err.message || "Failed to save banner"}`);
+    } finally {
+      setSavingBanner(false);
+    }
+  };
+
+  const handleDeleteBanner = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this hero banner?")) return;
+    try {
+      if (supabase) {
+        await supabase.from("hero_banners").delete().eq("id", id);
+      }
+      setHeroBanners(heroBanners.filter((b) => b.id !== id));
+      setSaveStatus("Banner deleted");
+      setTimeout(() => setSaveStatus(null), 2000);
+    } catch (err) {
+      console.error("Failed to delete banner:", err);
+    }
+  };
+
+  const handleToggleBannerActive = async (id: string, currentActive: boolean) => {
+    const updatedActive = !currentActive;
+    try {
+      if (supabase) {
+        await supabase.from("hero_banners").update({ is_active: updatedActive }).eq("id", id);
+      }
+      setHeroBanners(
+        heroBanners.map((b) => (b.id === id ? { ...b, is_active: updatedActive } : b))
+      );
+    } catch (err) {
+      console.error("Failed to toggle banner status:", err);
+    }
+  };
+
+  // -------------------------
   // ANALYTICS AGGREGATIONS
   // -------------------------
   const totalVisits = visits.length;
@@ -1176,6 +1451,29 @@ export default function AdminDashboardPage() {
                   {contactInquiries.length}
                 </span>
               )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab("hero-banners")}
+              className={`flex items-center justify-between gap-3 px-4 py-3 rounded-2xl transition-all cursor-pointer font-bold border-0 text-left ${
+                activeTab === "hero-banners"
+                  ? "bg-purple-600 text-white shadow-md shadow-purple-600/15"
+                  : "bg-transparent text-slate-550 hover:text-slate-900 hover:bg-slate-50"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Hero Banners
+              </div>
+              <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+                activeTab === "hero-banners"
+                  ? "bg-white text-purple-600"
+                  : "bg-purple-50 text-purple-655"
+              }`}>
+                {heroBanners.length} / 5
+              </span>
             </button>
 
             <button
@@ -2626,8 +2924,340 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
+          {/* ================= HERO BANNERS TAB ================= */}
+          {activeTab === "hero-banners" && (
+            <div className="flex flex-col gap-8 text-left animate-in fade-in duration-300">
+              
+              {/* Header Bar */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white border border-slate-200/80 p-6 rounded-[2rem] shadow-xs">
+                <div>
+                  <span className="text-[9px] font-black tracking-[0.25em] text-purple-600 uppercase">
+                    Homepage Customization
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-syne mt-0.5">
+                    Hero Section Banners
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-1">
+                    Upload and manage up to 5 custom banners for the storefront 3/4 hero carousel.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full border border-purple-200/40">
+                    {heroBanners.length} / 5 Banners Active
+                  </span>
+                  <button
+                    onClick={handleOpenAddBannerModal}
+                    disabled={heroBanners.length >= 5}
+                    className={`px-5 py-3 rounded-full text-xs font-extrabold tracking-wider transition-all cursor-pointer border-0 shadow-md flex items-center gap-2 ${
+                      heroBanners.length >= 5
+                        ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                        : "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20 hover:scale-105 active:scale-95"
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>ADD HERO BANNER</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Banners Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {heroBanners.map((banner, index) => (
+                  <div 
+                    key={banner.id} 
+                    className={`bg-white border rounded-[2rem] overflow-hidden flex flex-col justify-between shadow-xs transition-all duration-200 relative group ${
+                      banner.is_active ? "border-slate-200/80 hover:border-purple-300 hover:shadow-lg" : "border-slate-200 opacity-60 bg-slate-50/50"
+                    }`}
+                  >
+                    {/* Image Preview & Overlay */}
+                    <div className="relative h-48 w-full bg-slate-900 overflow-hidden">
+                      <img 
+                        src={banner.image_url} 
+                        alt={banner.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                      
+                      {/* Badge Pill Overlay */}
+                      <div className="absolute top-3 left-3 right-3 flex justify-between items-center z-10">
+                        <span className="text-[9px] font-bold px-2.5 py-1 bg-black/60 backdrop-blur-md text-white rounded-full border border-white/20 uppercase tracking-wider">
+                          Order #{banner.sort_order || index + 1}
+                        </span>
+                        <button
+                          onClick={() => handleToggleBannerActive(banner.id, banner.is_active)}
+                          className={`text-[9px] font-extrabold px-3 py-1 rounded-full border cursor-pointer transition-all ${
+                            banner.is_active
+                              ? "bg-emerald-500/90 text-white border-emerald-400"
+                              : "bg-amber-500/90 text-white border-amber-400"
+                          }`}
+                        >
+                          {banner.is_active ? "ACTIVE" : "HIDDEN"}
+                        </button>
+                      </div>
+
+                      <div className="absolute bottom-3 left-4 right-4 z-10 text-left">
+                        <span className="text-[9px] font-bold text-purple-300 uppercase tracking-widest block">
+                          {banner.badge}
+                        </span>
+                        <h4 className="text-sm font-extrabold text-white uppercase font-syne line-clamp-1">
+                          {banner.title}
+                        </h4>
+                      </div>
+                    </div>
+
+                    {/* Details Body */}
+                    <div className="p-5 flex flex-col gap-3 text-left flex-1 justify-between">
+                      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-medium">
+                        {banner.subtitle || "No subtitle provided"}
+                      </p>
+
+                      <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-100 text-[10px] font-semibold text-slate-500">
+                        <div className="flex justify-between items-center">
+                          <span>Primary CTA:</span>
+                          <span className="font-bold text-slate-800 truncate max-w-[180px]">{banner.primary_cta_text} ({banner.primary_cta_href})</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Secondary CTA:</span>
+                          <span className="font-bold text-slate-800 truncate max-w-[180px]">{banner.secondary_cta_text} ({banner.secondary_cta_href})</span>
+                        </div>
+                      </div>
+
+                      {/* Card Action Buttons */}
+                      <div className="flex items-center gap-2 pt-3 border-t border-slate-100 mt-2">
+                        <button
+                          onClick={() => handleOpenEditBannerModal(banner)}
+                          className="flex-1 bg-slate-100 hover:bg-purple-50 hover:text-purple-650 text-slate-700 text-xs font-extrabold py-2.5 rounded-xl transition-colors cursor-pointer border-0 flex items-center justify-center gap-1.5"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteBanner(banner.id)}
+                          className="bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-400 p-2.5 rounded-xl transition-colors cursor-pointer border-0"
+                          title="Delete banner"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+            </div>
+          )}
+
         </div>
       </main>
+
+      {/* Hero Banner Add / Edit Modal */}
+      {isBannerModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 relative text-left my-8">
+            <button
+              onClick={() => setIsBannerModalOpen(false)}
+              className="absolute top-6 right-6 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full p-2.5 transition-colors cursor-pointer border-0"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="mb-6">
+              <span className="text-[9px] font-black tracking-widest text-purple-600 uppercase">
+                {editingBanner ? "Edit Banner" : "New Hero Banner (Max 5)"}
+              </span>
+              <h3 className="text-xl font-extrabold text-slate-900 font-syne">
+                {editingBanner ? "Modify Hero Banner" : "Create Hero Banner"}
+              </h3>
+            </div>
+
+            <form onSubmit={handleSaveBanner} className="flex flex-col gap-5">
+              
+              {/* Image Upload Area */}
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] font-extrabold tracking-widest text-slate-500 uppercase">
+                  Banner Image <span className="text-red-500">*</span>
+                </label>
+                
+                {bannerForm.image_url ? (
+                  <div className="relative h-44 w-full rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 group">
+                    <img src={bannerForm.image_url} alt="Preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <label className="bg-white text-slate-900 text-xs font-bold px-4 py-2 rounded-full cursor-pointer hover:bg-slate-100">
+                        Change Image
+                        <input type="file" accept="image/*" onChange={handleUploadBannerFile} className="hidden" />
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-slate-250 hover:border-purple-400 bg-slate-50 hover:bg-purple-50/20 rounded-2xl p-6 text-center flex flex-col items-center justify-center transition-all cursor-pointer relative min-h-[140px]">
+                    <input type="file" accept="image/*" onChange={handleUploadBannerFile} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                    <svg className="w-8 h-8 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-xs font-bold text-slate-700">Click to upload banner image</span>
+                    <span className="text-[10px] text-slate-400 mt-1">PNG, JPG, WEBP recommended</span>
+                  </div>
+                )}
+
+                {uploadingBannerImage && (
+                  <span className="text-xs font-bold text-purple-600 animate-pulse">Uploading image file...</span>
+                )}
+
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">OR Image URL:</span>
+                  <input
+                    type="text"
+                    value={bannerForm.image_url || ""}
+                    onChange={(e) => setBannerForm({ ...bannerForm, image_url: e.target.value })}
+                    placeholder="/banner_1.webp or https://..."
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800"
+                  />
+                </div>
+              </div>
+
+              {/* Title & Badge */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-extrabold tracking-widest text-slate-500 uppercase">
+                    Banner Title <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={bannerForm.title || ""}
+                    onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })}
+                    placeholder="e.g. ELEVATE YOUR SETUP"
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-900"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-extrabold tracking-widest text-slate-500 uppercase">
+                    Badge Text
+                  </label>
+                  <input
+                    type="text"
+                    value={bannerForm.badge || ""}
+                    onChange={(e) => setBannerForm({ ...bannerForm, badge: e.target.value })}
+                    placeholder="e.g. ⚡ FAST ISLANDWIDE SHIPPING"
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-extrabold tracking-widest text-slate-500 uppercase">
+                  Subtitle Description
+                </label>
+                <textarea
+                  rows={2}
+                  value={bannerForm.subtitle || ""}
+                  onChange={(e) => setBannerForm({ ...bannerForm, subtitle: e.target.value })}
+                  placeholder="Brief subtitle text for the hero banner slide..."
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800"
+                />
+              </div>
+
+              {/* Primary & Secondary CTAs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-extrabold tracking-widest text-slate-500 uppercase">
+                    Primary CTA Text & Href
+                  </label>
+                  <input
+                    type="text"
+                    value={bannerForm.primary_cta_text || ""}
+                    onChange={(e) => setBannerForm({ ...bannerForm, primary_cta_text: e.target.value })}
+                    placeholder="SHOP CREATOR GEAR"
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold text-slate-900"
+                  />
+                  <input
+                    type="text"
+                    value={bannerForm.primary_cta_href || ""}
+                    onChange={(e) => setBannerForm({ ...bannerForm, primary_cta_href: e.target.value })}
+                    placeholder="/shop"
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-1.5 text-[11px] text-slate-600"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-extrabold tracking-widest text-slate-500 uppercase">
+                    Secondary CTA Text & Href
+                  </label>
+                  <input
+                    type="text"
+                    value={bannerForm.secondary_cta_text || ""}
+                    onChange={(e) => setBannerForm({ ...bannerForm, secondary_cta_text: e.target.value })}
+                    placeholder="EXPLORE COLLECTION"
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold text-slate-900"
+                  />
+                  <input
+                    type="text"
+                    value={bannerForm.secondary_cta_href || ""}
+                    onChange={(e) => setBannerForm({ ...bannerForm, secondary_cta_href: e.target.value })}
+                    placeholder="/shop?collection=trending"
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-1.5 text-[11px] text-slate-600"
+                  />
+                </div>
+              </div>
+
+              {/* Order & Active Status */}
+              <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+                <div className="flex items-center gap-3">
+                  <label className="text-[10px] font-extrabold tracking-widest text-slate-500 uppercase">
+                    Sort Order:
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={bannerForm.sort_order || 1}
+                    onChange={(e) => setBannerForm({ ...bannerForm, sort_order: parseInt(e.target.value) || 1 })}
+                    className="w-20 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-center"
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={bannerForm.is_active ?? true}
+                    onChange={(e) => setBannerForm({ ...bannerForm, is_active: e.target.checked })}
+                    className="w-4 h-4 text-purple-600 rounded"
+                  />
+                  <span className="text-xs font-bold text-slate-800">Banner Active</span>
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsBannerModalOpen(false)}
+                  className="px-6 py-3 rounded-full text-xs font-bold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 cursor-pointer border-0"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingBanner}
+                  className="px-7 py-3 rounded-full text-xs font-extrabold text-white bg-purple-600 hover:bg-purple-700 cursor-pointer border-0 shadow-md shadow-purple-600/20"
+                >
+                  {savingBanner ? "Saving..." : editingBanner ? "Update Hero Banner" : "Create Hero Banner"}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

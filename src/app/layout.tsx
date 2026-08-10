@@ -1,23 +1,24 @@
 import type { Metadata } from "next";
-import { Syne, Outfit, Inter } from "next/font/google";
+import { Syne, Outfit } from "next/font/google";
 import "./globals.css";
 
+// Only the families the storefront actually renders are loaded here.
+// Inter moved to src/app/admin/layout.tsx — `font-inter` appears nowhere
+// outside the admin dashboard, so public visitors were downloading a whole
+// extra family (6 weights) for nothing. Weight 300 was dropped from Outfit:
+// `font-light` appears zero times in the codebase.
 const syne = Syne({
   variable: "--font-syne",
   subsets: ["latin"],
   weight: ["400", "700", "800"],
+  display: "swap",
 });
 
 const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -107,7 +108,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${syne.variable} ${outfit.variable} ${inter.variable} antialiased`}
+      className={`${syne.variable} ${outfit.variable} antialiased`}
     >
       <body className="min-h-full flex flex-col bg-white font-outfit text-zinc-900">
         <AnalyticsTracker />

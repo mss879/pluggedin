@@ -4,9 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import Preloader from "../components/Preloader";
 import LazyVideo from "../components/LazyVideo";
-import { supabase } from "../lib/supabase";
 import { sanitizeHtml } from "@/lib/sanitize";
 import Footer from "../components/Footer";
 
@@ -342,23 +340,57 @@ const MOCK_PRODUCTS: Product[] = [
   }
 ];
 
-export default function HomeClient({ initialProducts }: { initialProducts: Product[] }) {
+const HERO_SLIDES_DEFAULT = [
+  {
+    id: "slide-1",
+    tag: "FEATURED COLLECTION 2026",
+    title: "ELEVATE YOUR CREATIVE SETUP",
+    subtitle: "A curated collection of space-saving workspace essentials, tactile mechanical keyboards, smart desktop chargers & studio gear built for creator performance.",
+    badge: "⚡ FAST ISLANDWIDE SHIPPING",
+    primaryCta: { text: "SHOP CREATOR GEAR", href: "/shop" },
+    secondaryCta: { text: "EXPLORE TRENDING", href: "/shop?collection=trending" },
+    mediaType: "video",
+    videoSrc: "/Products_drifting_in_frame_202606111905.mp4",
+    posterSrc: "/posters/hero.webp",
+  },
+  {
+    id: "slide-2",
+    tag: "MECHANICAL & AUDIO PRECISION",
+    title: "CRAFTSMANSHIP REDEFINED",
+    subtitle: "Ultra-responsive tactile switches, custom acoustic damping, and studio-grade audio components engineered for seamless everyday speed.",
+    badge: "🛡️ 1-YEAR OFFICIAL WARRANTY",
+    primaryCta: { text: "SHOP KEYBOARDS", href: "/shop" },
+    secondaryCta: { text: "VIEW NEW ARRIVALS", href: "/shop?collection=new-in" },
+    mediaType: "video",
+    videoSrc: "/Create_commercial_for_web_store_202606112343.mp4",
+    posterSrc: "/posters/Create_commercial_for_web_store_202606112343.webp",
+  },
+  {
+    id: "slide-3",
+    tag: "DESK ACCESSORIES & LIGHTING",
+    title: "CLEAN DESK. ZERO CLUTTER.",
+    subtitle: "Smart wireless charging docks, carbon fiber laptop lifts & glare-free monitor lightbars to transform your workspace into a productive sanctuary.",
+    badge: "🚚 SAME DAY DISPATCH",
+    primaryCta: { text: "EXPLORE ACCESSORIES", href: "/shop" },
+    secondaryCta: { text: "DISCOVER ALL PRODUCTS", href: "/shop" },
+    mediaType: "image",
+    imageSrc: "/banner_1.webp",
+  }
+];
+
+export default function HomeClient({
+  initialProducts,
+  initialCollections = [],
+  initialCollectionProducts = [],
+  initialHeroBanners = [],
+}: {
+  initialProducts: Product[];
+  initialCollections?: any[];
+  initialCollectionProducts?: any[];
+  initialHeroBanners?: any[];
+}) {
   const router = useRouter();
-  const [isClient, setIsClient] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [preloadedAssets, setPreloadedAssets] = useState<{ videoUrl: string; logoUrl: string; isVideoMobile: boolean } | null>(null);
-
   useEffect(() => {
-    setIsClient(true);
-    try {
-      const seen = sessionStorage.getItem("pluggedin_preloader_seen");
-      if (seen === "true") {
-        setIsLoading(false);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
     // Lock scroll on home page mount
     document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
@@ -378,58 +410,32 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
     };
   }, []);
 
-  const heroVideoRef = useRef<HTMLVideoElement>(null);
-  const [isHeroVisible, setIsHeroVisible] = useState(true);
-  const [videoSource, setVideoSource] = useState<string>("/Products_drifting_in_frame_202606111905.mp4");
+  const HERO_SLIDES = (initialHeroBanners && initialHeroBanners.length > 0)
+    ? initialHeroBanners.map((b: any, i: number) => ({
+        id: b.id || `slide-${i + 1}`,
+        tag: b.tag || "FEATURED COLLECTION 2026",
+        title: b.title,
+        subtitle: b.subtitle || "",
+        badge: b.badge || "⚡ FAST ISLANDWIDE SHIPPING",
+        primaryCta: { text: b.primary_cta_text || "SHOP CREATOR GEAR", href: b.primary_cta_href || "/shop" },
+        secondaryCta: { text: b.secondary_cta_text || "EXPLORE COLLECTION", href: b.secondary_cta_href || "/shop?collection=trending" },
+        mediaType: b.image_url?.endsWith(".mp4") ? "video" : "image",
+        videoSrc: b.image_url?.endsWith(".mp4") ? b.image_url : undefined,
+        posterSrc: b.image_url?.endsWith(".mp4") ? "/posters/hero.webp" : undefined,
+        imageSrc: !b.image_url?.endsWith(".mp4") ? b.image_url : undefined,
+      }))
+    : HERO_SLIDES_DEFAULT;
+
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const handleResize = () => {
-      const isMobile = window.innerWidth < 768;
-      if (isMobile) {
-        setVideoSource(
-          preloadedAssets?.isVideoMobile
-            ? preloadedAssets.videoUrl
-            : "/Improve_product_movement_erratic_202606140038.mp4"
-        );
-      } else {
-        setVideoSource(
-          (preloadedAssets && !preloadedAssets.isVideoMobile)
-            ? preloadedAssets.videoUrl
-            : "/Products_drifting_in_frame_202606111905.mp4"
-        );
-      }
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [preloadedAssets]);
-
-  // Track scroll position of the bento drawer sheet relative to viewport height
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const scrollTop = e.currentTarget.scrollTop;
-    const clientHeight = e.currentTarget.clientHeight;
-    // When the user scrolls past the viewport height, the hero background video is completely covered
-    const visible = scrollTop < clientHeight - 20; // 20px buffer before it fully disappears
-    if (visible !== isHeroVisible) {
-      setIsHeroVisible(visible);
-    }
-  };
-
-  // Play/pause the background video programmatically when it is active/covered
-  useEffect(() => {
-    if (!heroVideoRef.current) return;
-    if (isHeroVisible) {
-      heroVideoRef.current.play().catch(err => {
-        // Safe check for autoplay interrupt restrictions
-        console.log("Hero background video playback status:", err);
-      });
-    } else {
-      heroVideoRef.current.pause();
-    }
-  }, [isHeroVisible]);
+    if (!isAutoPlaying) return;
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+    }, 5500);
+    return () => clearInterval(timer);
+  }, [isAutoPlaying, HERO_SLIDES.length]);
 
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -446,8 +452,8 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
       icon: getIconForProduct(p.id, p.category, p.color),
     }))
   );
-  const [collections, setCollections] = useState<any[]>([]);
-  const [collectionProducts, setCollectionProducts] = useState<any[]>([]);
+  const [collections] = useState<any[]>(initialCollections);
+  const [collectionProducts] = useState<any[]>(initialCollectionProducts);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isSearchingDb, setIsSearchingDb] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -483,50 +489,10 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
     };
   }, []);
 
-  // Fetch products and collections from Supabase on mount (fall back to MOCK_PRODUCTS if offline/unconfigured)
+  // Products and collections now arrive as props from the server component,
+  // which already queried Supabase. Re-querying them here duplicated every
+  // request and forced the Supabase SDK into the homepage's client bundle.
   useEffect(() => {
-    const fetchStorefrontData = async () => {
-      try {
-        if (supabase) {
-          const [productsRes, collectionsRes, collectionProductsRes] = await Promise.all([
-            supabase.from("products").select("*"),
-            supabase.from("collections").select("*"),
-            supabase.from("collection_products").select("*")
-          ]);
-
-          if (!productsRes.error && productsRes.data && productsRes.data.length > 0) {
-            const mapped = productsRes.data.map((item: any) => ({
-              id: item.id,
-              name: item.name,
-              category: item.category,
-              price: typeof item.price === "number" ? `Rs. ${Math.round(item.price).toLocaleString()}` : (typeof item.price === "string" && !item.price.startsWith("Rs.") ? `Rs. ${item.price}` : item.price || "Rs. 0"),
-              slashedPrice: item.slashed_price ? `Rs. ${Math.round(item.slashed_price).toLocaleString()}` : "",
-              discount: item.discount || "",
-              description: item.description,
-              color: item.color || "purple",
-              colors: item.colors || [],
-              images: item.images || [],
-              tags: item.tags || [],
-              features: item.features || [],
-              metaTitle: item.meta_title || "",
-              icon: getIconForProduct(item.id, item.category, item.color)
-            }));
-            setProducts(mapped);
-          }
-
-          if (!collectionsRes.error && collectionsRes.data) {
-            setCollections(collectionsRes.data);
-          }
-          if (!collectionProductsRes.error && collectionProductsRes.data) {
-            setCollectionProducts(collectionProductsRes.data);
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to load storefront products or collections from Supabase, using mock fallback:", err);
-      }
-    };
-    fetchStorefrontData();
-
     // Load recent searches
     try {
       const saved = localStorage.getItem("pluggedin_recent_searches");
@@ -796,7 +762,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
       return products.filter(p => {
         const pTags = (p.tags || []).map((t: string) => t.toLowerCase());
         return matchTags.some((t: string) => pTags.includes(t));
-      });
+});
     } else {
       return products.filter(p => 
         collectionProducts.some(cp => cp.collection_id === coll.id && cp.product_id === p.id)
@@ -806,722 +772,180 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
   return (
     <>
-      {(!isClient || isLoading) && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-between bg-[#fbfbfe] select-none text-zinc-800 font-mono">
-          {isClient ? (
-            <Preloader
-              onComplete={(assets) => {
-                try {
-                  sessionStorage.setItem("pluggedin_preloader_seen", "true");
-                } catch (e) {
-                  console.error(e);
-                }
-                setPreloadedAssets(assets);
-                setIsLoading(false);
-              }}
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full gap-4">
-              <div className="w-12 h-12 border-[4px] border-purple-500/20 border-t-purple-600 rounded-full animate-spin" />
-              <span className="text-[10px] font-bold tracking-[0.3em] text-purple-650 uppercase">
-                LOADING ARCHITECTURE...
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-      <div
-        className={`w-screen h-screen overflow-hidden bg-white p-1.5 lg:p-2.5 flex flex-col justify-stretch relative font-outfit select-none transition-all duration-[1600ms] ease-out ${
-          (!isClient || isLoading) ? "opacity-0 scale-90 translate-y-12 pointer-events-none" : "opacity-100 scale-100 translate-y-0"
-        }`}
-        style={{
-          transform: (!isClient || isLoading) ? "perspective(1200px) rotateX(10deg)" : "perspective(1200px) rotateX(0deg)",
-          transformOrigin: "bottom center",
-        }}
-      >
-
-      {/* Custom SVG Background Shape with Rounded Corners & Smoothed Center Dip */}
-      <div className="absolute inset-1.5 lg:inset-2.5 z-0 pointer-events-none drop-shadow-[0_12px_24px_rgba(0,0,0,0.12)] drop-shadow-[0_4px_8px_rgba(0,0,0,0.06)]">
-        <svg className="w-full h-full overflow-visible" viewBox="0 0 1000 600" preserveAspectRatio="none">
-          <defs>
-            <clipPath id="card-clip" clipPathUnits="objectBoundingBox">
-              <path
-                d="M 0.032 0.00167 
-                   L 0.32 0.00167 
-                   C 0.34 0.00167, 0.35 0.11833, 0.37 0.11833 
-                   L 0.63 0.11833 
-                   C 0.65 0.11833, 0.66 0.00167, 0.68 0.00167 
-                   L 0.968 0.00167 
-                   A 0.031 0.05167 0 0 1 0.999 0.05333 
-                   L 0.999 0.93333 
-                   A 0.03 0.05 0 0 1 0.969 0.98333 
-                   L 0.031 0.98333 
-                   A 0.03 0.05 0 0 1 0.001 0.93333 
-                   L 0.001 0.05333 
-                   A 0.031 0.05167 0 0 1 0.032 0.00167 Z"
-              />
-            </clipPath>
-            <clipPath id="card-clip-mobile" clipPathUnits="objectBoundingBox">
-              <path
-                d="M 0.08 0.00167 
-                   L 0.92 0.00167 
-                   A 0.08 0.04 0 0 1 0.999 0.04167 
-                   L 0.999 0.95833 
-                   A 0.08 0.04 0 0 1 0.92 0.99833 
-                   L 0.08 0.99833 
-                   A 0.08 0.04 0 0 1 0.001 0.95833 
-                   L 0.001 0.04167 
-                   A 0.08 0.04 0 0 1 0.08 0.00167 Z"
-              />
-            </clipPath>
-          </defs>
-
-          {/* Desktop/Tablet Card Shape (with Logo Cutout) */}
-          <g className="hidden md:block">
-            {/* 1. Back 3D Extrusion Layer */}
-            <path
-              d="M 32 1 
-                 L 320 1 
-                 C 340 1, 350 71, 370 71 
-                 L 630 71 
-                 C 650 71, 660 1, 680 1 
-                 L 968 1 
-                 A 31 31 0 0 1 999 32 
-                 L 999 560 
-                 A 30 30 0 0 1 969 590 
-                 L 31 590 
-                 A 30 30 0 0 1 1 560 
-                 L 1 32 
-                 A 31 31 0 0 1 32 1 Z"
-              fill="#9674eb"
-              stroke="#9674eb"
-              strokeWidth="8"
-              transform="translate(0, 8)"
-            />
-
-            {/* 2. Main card shape front face */}
-            <path
-              d="M 32 1 
-                 L 320 1 
-                 C 340 1, 350 71, 370 71 
-                 L 630 71 
-                 C 650 71, 660 1, 680 1 
-                 L 968 1 
-                 A 31 31 0 0 1 999 32 
-                 L 999 560 
-                 A 30 30 0 0 1 969 590 
-                 L 31 590 
-                 A 30 30 0 0 1 1 560 
-                 L 1 32 
-                 A 31 31 0 0 1 32 1 Z"
-              fill="white"
-              stroke="#c1a8f6"
-              strokeWidth="8"
-              opacity="0.95"
-            />
-          </g>
-
-          {/* Mobile Card Shape (Clean rounded rect with shallow logo cutout) */}
-          <g className="block md:hidden">
-            {/* 1. Back 3D Extrusion Layer */}
-            <path
-              d="M 80 1 
-                 L 920 1 
-                 A 80 24 0 0 1 999 25 
-                 L 999 575 
-                 A 80 24 0 0 1 920 599 
-                 L 80 599 
-                 A 80 24 0 0 1 1 575 
-                 L 1 25 
-                 A 80 24 0 0 1 80 1 Z"
-              fill="#9674eb"
-              stroke="#9674eb"
-              strokeWidth="8"
-              transform="translate(0, 8)"
-            />
-
-            {/* 2. Main card shape front face */}
-            <path
-              d="M 80 1 
-                 L 920 1 
-                 A 80 24 0 0 1 999 25 
-                 L 999 575 
-                 A 80 24 0 0 1 920 599 
-                 L 80 599 
-                 A 80 24 0 0 1 1 575 
-                 L 1 25 
-                 A 80 24 0 0 1 80 1 Z"
-              fill="white"
-              stroke="#c1a8f6"
-              strokeWidth="8"
-              opacity="0.95"
-            />
-          </g>
-        </svg>
-      </div>
-
-      {/* Background Video clipped to the card shape (fills container, white overlays blend it seamlessly) */}
-      <div
-        className="absolute inset-1.5 lg:inset-2.5 z-0 overflow-hidden pointer-events-none"
-        style={{ clipPath: "var(--card-clip-path)" }}
-      >
-        <video
-          ref={heroVideoRef}
-          className="w-full h-full object-cover"
-          style={{ display: (isHeroVisible && !isLoading) ? "block" : "none" }}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          src={preloadedAssets ? videoSource : undefined}
-        >
-          {!preloadedAssets && (
-            <>
-              <source src="/Improve_product_movement_erratic_202606140038.mp4" type="video/mp4" media="(max-width: 767px)" />
-              <source src="/Products_drifting_in_frame_202606111905.mp4" type="video/mp4" />
-            </>
-          )}
-        </video>
-        {/* Top-to-Bottom Gradient: protects the navbar options and logo area from overlapping video content */}
-        <div
-          className="absolute top-0 left-0 right-0 h-[100px] lg:h-[130px] pointer-events-none backdrop-blur-[2px]"
-          style={{
-            background: "linear-gradient(to bottom, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.92) 35%, rgba(255, 255, 255, 0.55) 65%, rgba(255, 255, 255, 0.15) 85%, rgba(255, 255, 255, 0) 100%)"
-          }}
-        />
-        {/* Bottom-to-Top Gradient: protects the bottom content area from overlapping video content */}
-        <div
-          className="absolute bottom-0 left-0 right-0 h-[35px] lg:h-[50px] pointer-events-none"
-          style={{
-            background: "linear-gradient(to top, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.7) 20%, rgba(255, 255, 255, 0.35) 45%, rgba(255, 255, 255, 0.1) 70%, rgba(255, 255, 255, 0) 100%)"
-          }}
-        />
-      </div>
-
-      {/* Main Inner Custom Shape Card */}
-      <main className="absolute inset-0 overflow-hidden flex flex-col justify-between z-10">
-
-        {/* Content Wrapper */}
-        <div 
-          onScroll={handleScroll}
-          className="relative z-10 w-full h-full overflow-y-auto scrollbar-thin flex flex-col p-0 min-h-0 pb-20 md:pb-0"
-        >
-
-          {/* Sticky Hero Section Wrapper (remains fixed on first fold, covered by solid white sheet on scroll) */}
-          <div className="sticky top-0 z-10 w-full min-h-full flex flex-col justify-between shrink-0 pointer-events-none pt-6 lg:pt-8 px-6 lg:px-8 pb-4 relative">
-
-            {/* Logo inside the card wrapper, nestled in the top center cutout (fluidly scaled with parent Y-height) */}
-            <div
-              className={`absolute top-[2.2%] md:top-[2.0%] left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex items-center justify-center w-[32%] md:w-[22%] lg:w-[23%] h-[5.5%] md:h-[8.0%] transition-all duration-[1000ms] delay-[300ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                isLoading ? "opacity-0 -translate-y-4 scale-95" : "opacity-100 translate-y-0 scale-100"
-              }`}
-            >
-              <a href="#" className="block w-full h-full hover:opacity-75 transition-opacity duration-300 relative">
-                <Image
-                  src={preloadedAssets?.logoUrl || "/logo.webp"}
-                  alt="Pluggedin Logo"
-                  fill
-                  sizes="(max-width: 768px) 32vw, 23vw"
-                  style={{ objectFit: "contain" }}
-                  preload={true}
-                  loading="eager"
-                />
-              </a>
-            </div>
-
-          {/* Header Navigation Layer (pushed away from the center cutout) */}
-          <header className="w-full flex items-center justify-between h-[40px] md:h-[50px] pointer-events-none -mt-1 md:-mt-1.5 lg:-mt-2 shrink-0">
-
-            {/* Left Nav Block */}
-            <div
-              className={`flex items-center gap-2 sm:gap-4 lg:gap-6 w-[35%] justify-center -ml-4 lg:-ml-8 pointer-events-auto transition-all duration-[800ms] delay-[450ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                isLoading ? "opacity-0 translate-y-3" : "opacity-100 translate-y-0"
-              } ${isSearching ? "opacity-0 pointer-events-none scale-95" : ""}`}
-            >
-              <div className="hidden md:flex items-center gap-2 sm:gap-4 lg:gap-6">
-                {[
-                  { name: "ABOUT", href: "/about", isExternal: true },
-                  { name: "BLOG", href: "/blog", isExternal: true },
-                  { name: "SHOP", href: "/shop", isExternal: true },
-                  { name: "TRENDING", href: "/shop?collection=trending", isExternal: true },
-                ].map((link) => (
-                  link.isExternal ? (
-                    <Link
-                      key={link.name}
-                      href={link.href}
-                      className="text-[10px] sm:text-xs lg:text-sm font-bold tracking-widest text-black hover:text-zinc-600 transition-colors duration-300 relative group"
-                    >
-                      {link.name}
-                      <span className="absolute bottom-[-4px] left-0 w-0 h-[1.5px] bg-zinc-950 transition-all duration-300 group-hover:w-full" />
-                    </Link>
-                  ) : (
-                    <a
-                      key={link.name}
-                      href={link.href}
-                      className="text-[10px] sm:text-xs lg:text-sm font-bold tracking-widest text-black hover:text-zinc-600 transition-colors duration-300 relative group"
-                    >
-                      {link.name}
-                      <span className="absolute bottom-[-4px] left-0 w-0 h-[1.5px] bg-zinc-950 transition-all duration-300 group-hover:w-full" />
-                    </a>
-                  )
-                ))}
-              </div>
-            </div>
-
-            {/* Center Spacer for Logo Cutout */}
-            <div className="w-[30%]" />
-
-            {/* Right Nav Block (links centered in the gap, action icons aligned right) */}
-            <div
-              className={`flex items-center w-[35%] pointer-events-auto pr-1 lg:pr-3 transition-all duration-[800ms] delay-[550ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                isLoading ? "opacity-0 translate-y-3" : "opacity-100 translate-y-0"
-              }`}
-            >
-              <div 
-                className={`hidden lg:flex flex-grow items-center justify-center gap-4 lg:gap-6 transition-all duration-500 ease-out origin-center ${
-                  isSearching 
-                    ? "opacity-0 -translate-x-4 pointer-events-none max-w-0 overflow-hidden" 
-                    : "opacity-100 translate-x-4"
-                }`}
-              >
-                {[
-                  { name: "NEW IN", href: "/shop?collection=new-in", isExternal: true },
-                  { name: "CONTACT", href: "/contact", isExternal: true }
-                ].map((item) => (
-                  item.isExternal ? (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className="text-xs lg:text-sm font-bold tracking-widest text-black hover:text-zinc-600 transition-colors duration-300 relative group"
-                    >
-                      {item.name}
-                      <span className="absolute bottom-[-4px] left-0 w-0 h-[1.5px] bg-zinc-950 transition-all duration-300 group-hover:w-full" />
-                    </Link>
-                  ) : (
-                    <a
-                      key={item.name}
-                      href={item.href}
-                      className="text-xs lg:text-sm font-bold tracking-widest text-black hover:text-zinc-600 transition-colors duration-300 relative group"
-                    >
-                      {item.name}
-                      <span className="absolute bottom-[-4px] left-0 w-0 h-[1.5px] bg-zinc-950 transition-all duration-300 group-hover:w-full" />
-                    </a>
-                  )
-                ))}
-              </div>
-
-              {/* Action Buttons (Search & Cart) / Search Input Container */}
-              <div 
-                id="interactive-search-container"
-                className="relative flex items-center justify-end ml-auto shrink-0"
-              >
-                {/* Expanding Search Bar Input */}
+      <div className="w-full bg-white font-outfit select-none pt-[70px] md:pt-[80px]">
+        
+        {/* Section 0: Creative 3/4 Screen Height Hero Banner Carousel */}
+        <section className="w-full px-3 sm:px-6 lg:px-8 max-w-[1700px] mx-auto py-2 sm:py-4">
+          <div 
+            className="relative w-full h-[70vh] min-h-[480px] max-h-[720px] rounded-2xl md:rounded-3xl overflow-hidden bg-zinc-950 shadow-2xl group border border-purple-500/20"
+            onMouseEnter={() => setIsAutoPlaying(false)}
+            onMouseLeave={() => setIsAutoPlaying(true)}
+          >
+            {HERO_SLIDES.map((slide, idx) => {
+              const isActive = idx === currentSlide;
+              return (
                 <div
-                  className={`flex items-center bg-white/75 backdrop-blur-xl border border-purple-300/40 border-b-[3px] border-purple-600/30 rounded-full shadow-[0_4px_16px_rgba(139,92,246,0.1),inset_0_1.5px_1.5px_rgba(255,255,255,0.6)] px-4 py-1.5 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                    isSearching
-                      ? "w-[calc(100vw-40px)] sm:w-[300px] md:w-[380px] lg:w-[450px] opacity-100 scale-100"
-                      : "w-0 opacity-0 scale-95 pointer-events-none overflow-hidden border-none shadow-none py-0 px-0"
+                  key={slide.id}
+                  className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                    isActive ? "opacity-100 z-10 pointer-events-auto" : "opacity-0 z-0 pointer-events-none"
                   }`}
                 >
-                  <svg className="w-5 h-5 text-purple-600 shrink-0 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <input
-                    id="interactive-search-input"
-                    type="text"
-                    placeholder="Search essentials, tech, gear..."
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setFocusedIndex(-1);
-                    }}
-                    onKeyDown={handleKeyDown}
-                    className="w-full bg-transparent text-xs sm:text-sm font-semibold text-zinc-950 placeholder-zinc-400 focus:outline-none py-1"
-                    autoComplete="off"
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery("")}
-                      className="text-zinc-400 hover:text-zinc-600 p-1 mr-1 transition-colors cursor-pointer"
+                  {/* Background Media */}
+                  {slide.mediaType === "video" ? (
+                    <video
+                      className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      poster={slide.posterSrc}
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                      <source src={slide.videoSrc} type="video/mp4" />
+                    </video>
+                  ) : (
+                    <Image
+                      src={slide.imageSrc!}
+                      alt={slide.title}
+                      fill
+                      priority={idx === 0}
+                      className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                    />
                   )}
-                  <button
-                    onClick={() => {
-                      setIsSearching(false);
-                      setSearchQuery("");
-                    }}
-                    className="bg-purple-600/10 hover:bg-purple-600/20 text-purple-900 rounded-full p-1.5 transition-colors cursor-pointer shrink-0"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
 
-                {/* Standard Search Trigger and Cart Buttons */}
-                <div
-                  className={`hidden md:flex items-center gap-4 lg:gap-5 transition-all duration-300 ${
-                    isSearching 
-                      ? "opacity-0 scale-95 pointer-events-none w-0 overflow-hidden" 
-                      : "opacity-100 scale-100"
-                  }`}
-                >
-                  {/* Search Trigger Button */}
-                  <button
-                    id="search-bar-toggle-button"
-                    onClick={() => setIsSearching(true)}
-                    className="bg-purple-600/10 backdrop-blur-md text-purple-950 border border-purple-300/30 border-b-[3px] border-purple-600/40 p-3 lg:p-3.5 rounded-full hover:bg-purple-600/20 hover:-translate-y-0.5 active:translate-y-[2px] active:border-b-[1px] transition-all duration-200 flex items-center justify-center cursor-pointer shrink-0 shadow-[0_4px_12px_rgba(139,92,246,0.15),inset_0_1.5px_1.5px_rgba(255,255,255,0.4)]"
-                  >
-                    <svg className="w-5 h-5 lg:w-5.5 lg:h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </button>
+                  {/* Premium Gradient Overlays for High Contrast Text Readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/20" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/35 to-transparent" />
 
-                  {/* Cart Button Container with Hover Dropdown */}
-                  <div className="relative group/cart">
-                    <button 
-                      onClick={() => setIsCartOpen(true)}
-                      className="relative border-0 bg-transparent text-zinc-950 hover:text-zinc-700 hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer shrink-0 p-1"
-                    >
-                      <svg className="w-7 h-7 lg:w-8 lg:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                      {/* Quantity Badge */}
-                      {cart.reduce((sum, item) => sum + item.quantity, 0) > 0 && (
-                        <span className={`absolute -top-1.5 -right-1.5 bg-purple-600 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center shadow-md border border-white transition-all duration-300 ${
-                          cartAnimate ? "animate-bounce scale-110 shadow-[0_0_12px_rgba(139,92,246,0.5)]" : ""
-                        }`}>
-                          {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                  {/* Content Container */}
+                  <div className="absolute inset-0 z-20 flex flex-col justify-end p-6 sm:p-10 md:p-14 lg:p-16 max-w-4xl text-left">
+                    {/* Badges (Only on subsequent slides) */}
+                    {idx !== 0 && (
+                      <div className="flex items-center gap-3 mb-3 sm:mb-4 flex-wrap">
+                        <span className="text-[10px] sm:text-xs font-bold tracking-[0.25em] text-purple-300 bg-purple-950/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-purple-500/30 uppercase shadow-md">
+                          {slide.badge}
                         </span>
-                      )}
-                    </button>
-
-                    {/* Desktop Hover Cart Preview Dropdown */}
-                    <div className="absolute top-[35px] right-0 w-[280px] sm:w-[320px] bg-white/95 backdrop-blur-xl border border-zinc-200/50 shadow-2xl rounded-2xl overflow-hidden opacity-0 translate-y-2 pointer-events-none group-hover/cart:opacity-100 group-hover/cart:translate-y-0 group-hover/cart:pointer-events-auto transition-all duration-300 z-50 text-left origin-top-right p-4 flex flex-col gap-3">
-                      <div className="flex justify-between items-center border-b border-zinc-100 pb-2">
-                        <h4 className="text-[10px] font-bold tracking-[0.2em] text-zinc-400 uppercase">
-                          Cart Preview
-                        </h4>
-                        <span className="text-[10px] font-bold text-purple-600">
-                          {cart.reduce((sum, item) => sum + item.quantity, 0)} items
+                        <span className="text-[10px] sm:text-xs font-extrabold tracking-[0.2em] text-zinc-300 uppercase">
+                          // {slide.tag}
                         </span>
                       </div>
+                    )}
 
-                      {cart.length === 0 ? (
-                        <div className="py-6 flex flex-col items-center justify-center gap-2 text-zinc-400">
-                          <svg className="w-8 h-8 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    {/* Title */}
+                    <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white font-syne tracking-tight leading-[1.08] uppercase mb-3 sm:mb-4 drop-shadow-md">
+                      {slide.title}
+                    </h1>
+
+                    {/* Subtitle (Only on subsequent slides) */}
+                    {idx !== 0 && (
+                      <p className="text-xs sm:text-sm md:text-base text-zinc-300 font-medium leading-relaxed max-w-2xl mb-6 sm:mb-8 drop-shadow-sm">
+                        {slide.subtitle}
+                      </p>
+                    )}
+
+                    {/* Action CTAs (Only on subsequent slides) */}
+                    {idx !== 0 && (
+                      <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                        <Link
+                          href={slide.primaryCta.href}
+                          className="bg-gradient-to-r from-purple-600 to-indigo-650 hover:from-purple-500 hover:to-indigo-600 text-white text-xs sm:text-sm font-extrabold tracking-widest px-7 py-3.5 rounded-full shadow-lg shadow-purple-600/30 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center gap-2"
+                        >
+                          <span>{slide.primaryCta.text}</span>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                           </svg>
-                          <span className="text-xs font-semibold select-none">Your cart is empty</span>
-                        </div>
-                      ) : (
-                        <>
-                          {/* Items List (max 3 items) */}
-                          <div className="flex flex-col gap-2.5 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin">
-                            {cart.slice(0, 3).map((item, idx) => (
-                              <div key={`${item.product.id}-${item.color}`} className="flex gap-2.5 items-center">
-                                <div className="w-10 h-10 rounded-lg overflow-hidden bg-zinc-50 border border-zinc-100 flex-shrink-0 flex items-center justify-center p-0.5">
-                                  <Image 
-                                    src={item.product.images && item.product.images.length > 0 ? item.product.images[0] : `/products/${item.product.id}.webp`}
-                                    alt={item.product.name}
-                                    width={40}
-                                    height={40}
-                                    style={{ objectFit: "contain" }}
-                                    loading="eager"
-                                  />
-                                </div>
-                                <div className="flex-grow min-w-0">
-                                  <h5 className="text-[11px] font-bold text-zinc-950 truncate">
-                                    {item.product.name}
-                                  </h5>
-                                  <p className="text-[9px] text-zinc-500 font-semibold truncate mt-0.5">
-                                    Color: {item.color} • Qty: {item.quantity}
-                                  </p>
-                                </div>
-                                <div className="text-[11px] font-bold text-purple-950 flex-shrink-0">
-                                  {item.product.price}
-                                </div>
-                              </div>
-                            ))}
-                            {cart.length > 3 && (
-                              <p className="text-[9px] text-zinc-400 font-semibold text-center italic mt-1">
-                                + {cart.length - 3} more items in cart
-                              </p>
-                            )}
-                          </div>
+                        </Link>
 
-                          {/* Divider */}
-                          <div className="border-t border-zinc-100 pt-2 flex flex-col gap-2">
-                            <div className="flex justify-between items-center">
-                              <span className="text-[10px] font-bold tracking-widest text-zinc-400 uppercase">
-                                Subtotal
-                              </span>
-                              <span className="text-xs font-black text-purple-950 font-outfit">
-                                Rs. {cartSubtotal.toLocaleString()}
-                              </span>
-                            </div>
-                            <button
-                              onClick={() => setIsCartOpen(true)}
-                              className="w-full bg-zinc-950 text-white text-[10px] font-bold tracking-widest py-2 rounded-full hover:bg-zinc-800 transition-colors cursor-pointer border-0 mt-1 shadow-md shadow-zinc-950/10"
-                            >
-                              VIEW FULL CART
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
+                        <Link
+                          href={slide.secondaryCta.href}
+                          className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 text-xs sm:text-sm font-extrabold tracking-widest px-7 py-3.5 rounded-full hover:scale-105 active:scale-95 transition-all duration-300"
+                        >
+                          {slide.secondaryCta.text}
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 </div>
+              );
+            })}
 
-                {/* Search Dropdown / Autocomplete Results */}
-                <div
-                  className={`absolute top-[55px] right-0 w-[calc(100vw-40px)] sm:w-[350px] md:w-[420px] lg:w-[480px] bg-white/95 backdrop-blur-xl border border-zinc-200/50 shadow-2xl rounded-2xl overflow-hidden transition-all duration-300 z-50 text-left origin-top-right flex flex-col max-h-[450px] ${
-                    isSearching
-                      ? "opacity-100 translate-y-0 scale-100 pointer-events-auto"
-                      : "opacity-0 -translate-y-4 scale-95 pointer-events-none"
-                  }`}
-                >
-                  {/* Suggestions State (Empty query) */}
-                  {!searchQuery.trim() && (
-                    <div className="p-5 flex flex-col gap-4">
-                      {recentSearches.length > 0 && (
-                        <div>
-                          <div className="flex justify-between items-center mb-2.5">
-                            <h4 className="text-[10px] font-bold tracking-[0.25em] text-zinc-400 uppercase">
-                              Recent Searches
-                            </h4>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setRecentSearches([]);
-                                try {
-                                  localStorage.removeItem("pluggedin_recent_searches");
-                                } catch (err) {
-                                  console.error(err);
-                                }
-                              }}
-                              className="text-[9px] font-bold text-zinc-400 hover:text-purple-650 transition-colors uppercase tracking-widest cursor-pointer border-0 bg-transparent"
-                            >
-                              Clear
-                            </button>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {recentSearches.map((term) => (
-                              <button
-                                key={term}
-                                onClick={() => {
-                                  setSearchQuery(term);
-                                  const input = document.getElementById("interactive-search-input") as HTMLInputElement;
-                                  if (input) input.focus();
-                                }}
-                                className="text-[11px] sm:text-xs font-semibold px-3 py-1.5 bg-purple-500/[0.03] border border-purple-200/30 text-zinc-700 rounded-full transition-all duration-200 cursor-pointer flex items-center gap-1.5 hover:bg-purple-50 hover:text-purple-700"
-                              >
-                                <svg className="w-3 h-3 text-zinc-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                {term}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+            {/* Previous Arrow Button */}
+            <button
+              onClick={() => setCurrentSlide((prev) => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-30 bg-black/40 hover:bg-purple-600 text-white backdrop-blur-md p-3 rounded-full border border-white/20 hover:scale-110 active:scale-95 transition-all duration-300 cursor-pointer hidden sm:flex items-center justify-center shadow-lg"
+              aria-label="Previous slide"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
 
-                      <div className={recentSearches.length > 0 ? "border-t border-zinc-100 pt-4" : ""}>
-                        <h4 className="text-[10px] font-bold tracking-[0.2em] text-zinc-400 uppercase mb-2.5">
-                          Trending Searches
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                          {["Headphones", "Mechanical Keyboard", "Wireless Charger", "Tech Sleeve", "Laptop Lift"].map((term) => (
-                            <button
-                              key={term}
-                              onClick={() => {
-                                setSearchQuery(term);
-                                const input = document.getElementById("interactive-search-input") as HTMLInputElement;
-                                if (input) input.focus();
-                              }}
-                              className="text-[11px] sm:text-xs font-semibold px-3 py-1.5 bg-zinc-100 hover:bg-purple-50 hover:text-purple-700 text-zinc-700 rounded-full transition-all duration-200 cursor-pointer border border-zinc-200/40"
-                            >
-                              {term}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+            {/* Next Arrow Button */}
+            <button
+              onClick={() => setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-30 bg-black/40 hover:bg-purple-600 text-white backdrop-blur-md p-3 rounded-full border border-white/20 hover:scale-110 active:scale-95 transition-all duration-300 cursor-pointer hidden sm:flex items-center justify-center shadow-lg"
+              aria-label="Next slide"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
 
-                      <div className="border-t border-zinc-100 pt-4">
-                        <h4 className="text-[10px] font-bold tracking-[0.2em] text-zinc-400 uppercase mb-2.5">
-                          Browse Categories
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                          {[
-                            { name: "Home and kitchen", color: "text-pink-700 bg-pink-50 border-pink-200/30" },
-                            { name: "Tech & Gadgets", color: "text-blue-700 bg-blue-50 border-blue-200/30" },
-                            { name: "Mobile & Auto", color: "text-emerald-700 bg-emerald-50 border-emerald-200/30" },
-                            { name: "Best sellers", color: "text-purple-700 bg-purple-50 border-purple-200/30" },
-                            { name: "Trending", color: "text-amber-700 bg-amber-50 border-amber-200/30" }
-                          ].map((cat) => (
-                            <button
-                              key={cat.name}
-                              onClick={() => {
-                                setSearchQuery(cat.name);
-                                const input = document.getElementById("interactive-search-input") as HTMLInputElement;
-                                if (input) input.focus();
-                              }}
-                              className={`text-[11px] sm:text-xs font-bold px-3.5 py-1.5 rounded-full border transition-all duration-200 cursor-pointer ${cat.color} hover:brightness-95`}
-                            >
-                              {cat.name}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+            {/* Bottom Slide Indicators */}
+            <div className="absolute bottom-4 sm:bottom-6 right-6 sm:right-10 z-30 flex items-center gap-3">
+              <span className="text-xs font-bold text-white/80 font-syne tracking-wider">
+                0{currentSlide + 1} / 0{HERO_SLIDES.length}
+              </span>
+              <div className="flex items-center gap-1.5">
+                {HERO_SLIDES.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentSlide(idx)}
+                    className={`h-2 rounded-full transition-all duration-500 cursor-pointer ${
+                      idx === currentSlide
+                        ? "w-8 bg-purple-500 shadow-[0_0_10px_#8b5cf6]"
+                        : "w-2 bg-white/40 hover:bg-white/70"
+                    }`}
+                    aria-label={`Go to slide ${idx + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
 
-                  {/* Matches State (Typing query) */}
-                  {searchQuery.trim() && (
-                    <>
-                      <div className="p-3 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
-                        <span className="text-[9px] font-bold tracking-widest text-zinc-400 uppercase">
-                          {isSearchingDb ? "Searching..." : `Search Results (${searchResults.length})`}
-                        </span>
-                        {!isSearchingDb && (
-                          <span className="text-[9px] text-zinc-400 hidden sm:inline-block">
-                            Use ↑↓ to navigate • Enter to view
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="overflow-y-auto flex-1 max-h-[350px] divide-y divide-zinc-100/50">
-                        {isSearchingDb ? (
-                          <div className="py-12 flex flex-col items-center justify-center gap-3">
-                            {/* Beautiful Glassmorphic Loader */}
-                            <div className="relative w-8 h-8">
-                              <div className="absolute inset-0 rounded-full border-2 border-purple-500/10"></div>
-                              <div className="absolute inset-0 rounded-full border-2 border-t-purple-600 animate-spin"></div>
-                            </div>
-                            <span className="text-[10px] font-bold tracking-widest text-zinc-450 uppercase animate-pulse">
-                              Searching database...
-                            </span>
-                          </div>
-                        ) : searchResults.length > 0 ? (
-                          searchResults.map((product, index) => {
-                            const isFocused = focusedIndex === index;
-                            
-                            // Category colors setup
-                            const colorMap: Record<string, string> = {
-                              purple: "bg-purple-100 text-purple-600",
-                              amber: "bg-amber-100 text-amber-600",
-                              blue: "bg-blue-100 text-blue-600",
-                              emerald: "bg-emerald-100 text-emerald-600",
-                              pink: "bg-pink-100 text-pink-600",
-                              slate: "bg-slate-100 text-slate-600",
-                            };
-
-                            return (
-                              <button
-                                key={product.id}
-                                onClick={() => handleSelectProduct(product)}
-                                onMouseEnter={() => setFocusedIndex(index)}
-                                className={`w-full flex items-start p-3 text-left transition-all duration-200 outline-none ${
-                                  isFocused 
-                                    ? "bg-purple-50/80 border-l-[3.5px] border-purple-600 pl-2" 
-                                    : "hover:bg-zinc-50/60 border-l-[3.5px] border-transparent"
-                                }`}
-                              >
-                                <div className={`p-2 rounded-xl shrink-0 mr-3 ${colorMap[product.color] || "bg-zinc-100"}`}>
-                                  {product.icon}
-                                </div>
-                                <div className="flex-grow min-w-0 pr-2">
-                                  <div className="flex items-center justify-between gap-1 mb-0.5">
-                                    <h5 className="text-xs sm:text-sm font-bold text-zinc-950 truncate">
-                                      {highlightMatch(product.name, searchQuery)}
-                                    </h5>
-                                    <span className="text-xs font-extrabold text-purple-950 shrink-0 font-syne">
-                                      {product.price}
-                                    </span>
-                                  </div>
-                                  <p className="text-[10px] sm:text-xs text-zinc-500 line-clamp-1 leading-normal font-medium">
-                                    {highlightMatch(product.description ? product.description.replace(/<[^>]*>/g, '') : '', searchQuery)}
-                                  </p>
-                                  <span className="inline-block text-[8px] font-extrabold tracking-wider text-zinc-400 uppercase mt-1">
-                                    {product.category}
-                                  </span>
-                                </div>
-                              </button>
-                            );
-                          })
-                        ) : (
-                          <div className="py-8 px-4 text-center flex flex-col items-center justify-center">
-                            <div className="p-3 bg-zinc-50 rounded-full text-zinc-400 mb-3 border border-zinc-200/20">
-                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            </div>
-                            <h5 className="text-xs sm:text-sm font-bold text-zinc-700 mb-1">
-                              No creator essentials match
-                            </h5>
-                            <p className="text-[10px] sm:text-xs text-zinc-400 max-w-[240px] leading-relaxed">
-                              Try searching for something else like &ldquo;headphones&rdquo;, &ldquo;keyboard&rdquo;, or &ldquo;charger&rdquo;.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
+        {/* Section 0.5: Trust Perks Bar */}
+        <div className="w-full px-3 sm:px-6 lg:px-8 max-w-[1700px] mx-auto py-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 p-4 sm:p-5 bg-purple-50/40 border border-purple-100/60 rounded-2xl md:rounded-3xl shadow-sm">
+            {[
+              { image: "/perks/perk_delivery.png", title: "ISLANDWIDE DELIVERY", desc: "Express shipping Sri Lanka wide" },
+              { image: "/perks/perk_warranty.png", title: "1-YEAR WARRANTY", desc: "Official manufacturer warranty" },
+              { image: "/perks/perk_cod.png", title: "CASH ON DELIVERY", desc: "Pay safely at your doorstep" },
+              { image: "/perks/perk_support.png", title: "CREATOR SUPPORT", desc: "24/7 dedicated assistance" },
+            ].map((perk, idx) => (
+              <div key={idx} className="flex items-center gap-3.5 p-2 text-left group">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 relative shrink-0 p-1 bg-white rounded-2xl shadow-xs border border-purple-100/80 group-hover:border-purple-300 group-hover:scale-105 transition-all duration-300">
+                  <Image 
+                    src={perk.image} 
+                    alt={perk.title} 
+                    fill 
+                    className="object-contain p-1 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-extrabold text-zinc-950 font-outfit uppercase tracking-tight group-hover:text-purple-700 transition-colors">
+                    {perk.title}
+                  </h4>
+                  <p className="text-[10px] sm:text-xs text-zinc-500 font-medium leading-tight mt-0.5">
+                    {perk.desc}
+                  </p>
                 </div>
               </div>
-            </div>
-
-          </header>
-
-          {/* Hero Section Content centered */}
-          <div className="flex-grow flex flex-col justify-center items-center text-center px-6 lg:px-16 py-4 pointer-events-auto shrink-0">
-            <div className="max-w-md lg:max-w-lg flex flex-col items-center justify-center">
-              <span
-                className={`text-[9px] lg:text-xs font-bold tracking-[0.3em] text-zinc-600 mb-2 lg:mb-3 transition-all duration-[800ms] delay-[650ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                  isLoading ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"
-                }`}
-              >
-                PLUGGEDIN // ESSENTIALS 2026
-              </span>
-              <h1
-                className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-zinc-950 font-syne leading-[1.1] mb-4 lg:mb-6 transition-all duration-[1000ms] delay-[750ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                  isLoading ? "opacity-0 translate-y-6" : "opacity-100 translate-y-0"
-                }`}
-              >
-                TECH & STYLE<br />
-                <span className="text-zinc-600 font-medium">IN PERFECT SYNC.</span>
-              </h1>
-              <p
-                className={`text-xs lg:text-sm text-zinc-700 leading-relaxed mb-6 lg:mb-8 font-medium transition-all duration-[1000ms] delay-[850ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                  isLoading ? "opacity-0 translate-y-6" : "opacity-100 translate-y-0"
-                }`}
-              >
-                A curated collection of premium electronics, smart devices, and elevated accessories for modern living.
-              </p>
-              <div
-                className={`flex items-center justify-center gap-4 transition-all duration-[1000ms] delay-[950ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                  isLoading ? "opacity-0 translate-y-6 scale-95" : "opacity-100 translate-y-0 scale-100"
-                }`}
-              >
-                <button className="bg-zinc-950 text-white text-[10px] lg:text-xs font-bold tracking-widest px-6 lg:px-8 py-3 lg:py-3.5 rounded-full hover:bg-zinc-800 transition-all duration-300 shadow-lg shadow-zinc-950/20 hover:scale-105 active:scale-95 cursor-pointer">
-                  SHOP ELECTRONICS
-                </button>
-                <button className="bg-white/60 backdrop-blur-md border border-white text-zinc-900 text-[10px] lg:text-xs font-bold tracking-widest px-6 lg:px-8 py-3 lg:py-3.5 rounded-full hover:bg-white hover:border-zinc-300 transition-all duration-300 shadow-sm hover:scale-105 active:scale-95 cursor-pointer">
-                  EXPLORE LIFESTYLE
-                </button>
-              </div>
-            </div>
+            ))}
           </div>
+        </div>
 
-          </div>
-
-          {/* Solid White Content Wrapper (covers video on scroll) */}
-          <div className="relative z-20 bg-white w-full px-6 lg:px-8 pt-12 pb-16 lg:pb-20 rounded-t-[2.5rem] md:rounded-t-[3.5rem] border-t border-purple-100/50 shadow-[0_-25px_50px_rgba(139,92,246,0.06)] shrink-0">
+        {/* Solid White Content Wrapper */}
+        <div className="relative z-20 bg-white w-full px-4 sm:px-6 lg:px-8 pt-8 pb-16 lg:pb-20 max-w-[1700px] mx-auto">
             {/* Section 1: Infinite Carousel */}
             <div className="w-full py-8 border-y border-purple-100/30 bg-purple-50/5 relative overflow-hidden rounded-2xl">
               {/* Ambient Background glow */}
@@ -1582,14 +1006,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <Image 
-                      src="/categories/home_kitchen.webp?v=3" 
+                      src="/categories/home_kitchen.webp" 
                       alt="Home and kitchen" 
                       fill
                       sizes="(max-width: 768px) 100vw, 66vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                      loading="eager"
-                      unoptimized
+                      loading="lazy"
                       />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1638,14 +1061,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <Image 
-                      src="/categories/tech_gadgets.webp?v=2" 
+                      src="/categories/tech_gadgets.webp" 
                       alt="Tech & Gadgets" 
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                      loading="eager"
-                      unoptimized
+                      loading="lazy"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1693,14 +1115,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <Image 
-                      src="/categories/trending.webp?v=2" 
+                      src="/categories/trending.webp" 
                       alt="Trending" 
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] filter grayscale-[15%]"
-                      loading="eager"
-                      unoptimized
+                      loading="lazy"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-zinc-950/30 opacity-90" />
                   </div>
@@ -1745,14 +1166,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <Image 
-                      src="/categories/mobile_auto.webp?v=2" 
+                      src="/categories/mobile_auto.webp" 
                       alt="Mobile & Auto" 
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                      loading="eager"
-                      unoptimized
+                      loading="lazy"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1801,14 +1221,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
                     <Image 
-                      src="/categories/best_sellers.webp?v=2" 
+                      src="/categories/best_sellers.webp" 
                       alt="Best sellers" 
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                      loading="eager"
-                      unoptimized
+                      loading="lazy"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1861,19 +1280,14 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                 muted
                 playsInline
                 src="/Create_commercial_for_web_store_202606112343.mp4"
+                poster="/posters/Create_commercial_for_web_store_202606112343.webp"
               />
               
               {/* Premium Gradient Overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent z-10" />
 
               {/* Content Overlay */}
-              <div className="absolute inset-0 z-20 flex flex-col justify-between p-8 md:p-12">
-                <div className="flex justify-between items-start">
-                  <span className="text-[10px] font-bold tracking-[0.3em] text-purple-300 bg-purple-950/40 backdrop-blur-md px-4 py-1.5 rounded-full border border-purple-500/20">
-                    PLUGGEDIN // FEATURED VIDEO
-                  </span>
-                </div>
-
+              <div className="absolute inset-0 z-20 flex flex-col justify-end p-8 md:p-12">
                 <div className="max-w-xl text-left">
                   <h3 className="text-2xl md:text-4xl font-extrabold text-white font-outfit tracking-tight leading-tight uppercase">
                     Curated Living<br />
@@ -1912,7 +1326,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                         style={{ objectFit: "contain" }}
                         className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-2"
-                        loading="eager"
+                        loading="lazy"
                       />
                       
                       {/* Floating Discount Badge */}
@@ -2017,6 +1431,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                     muted
                     playsInline
                     src="/Wireless_noodle_maker_commercial_202606120110.mp4"
+                    poster="/posters/Wireless_noodle_maker_commercial_202606120110.webp"
                   />
                   <div className="absolute inset-0 bg-purple-950/5 pointer-events-none" />
                 </div>
@@ -2028,6 +1443,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                     muted
                     playsInline
                     src="/Automatic_pet_feeder_commercial_202606120038.mp4"
+                    poster="/posters/Automatic_pet_feeder_commercial_202606120038.webp"
                   />
                   <div className="absolute inset-0 bg-purple-950/5 pointer-events-none" />
                 </div>
@@ -2063,7 +1479,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                         sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                         style={{ objectFit: "contain" }}
                         className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-2"
-                        loading="eager"
+                        loading="lazy"
                       />
                       
                       {/* Floating Discount Badge */}
@@ -2169,7 +1585,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/banner:scale-105"
-                      loading="eager"
+                      loading="lazy"
                     />
                     <div className="absolute inset-0 bg-purple-950/5 opacity-0 group-hover/banner:opacity-100 transition-opacity duration-500 pointer-events-none" />
                   </div>
@@ -2319,11 +1735,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
             <Footer />
 
           </div>
-
         </div>
-
-      </main>
-    </div>
 
     {/* Product Detail Modal */}
     {activeProduct && (
@@ -2517,7 +1929,7 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
                       width={64}
                       height={64}
                       style={{ objectFit: "contain" }}
-                      loading="eager"
+                      loading="lazy"
                     />
                   </div>
 

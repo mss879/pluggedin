@@ -24,6 +24,57 @@ body {
   }
 }
 
+/* ============================================================
+   Hero entrance stagger.
+   Previously these elements were held at opacity-0 by a React state flag
+   that only flipped once the Three.js preloader finished (~3.5s), which
+   meant the server-rendered hero was invisible until hydration. Driving it
+   from CSS instead means the animation starts at first paint and costs no
+   JavaScript at all.
+   Uses `transform` (not Tailwind's `translate`/`scale` properties), so it
+   composes with utilities like `-translate-x-1/2` instead of clobbering them.
+   ============================================================ */
+/* `backwards`, not `both`: the animated opacity must stop applying once the
+   entrance finishes, otherwise it would outrank the Tailwind `opacity-0`
+   classes some of these elements toggle later (e.g. when search opens). */
+.hero-rise {
+  animation: hero-rise 0.8s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: var(--rise-delay, 0ms);
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Opacity-only variant for elements whose transform is already spoken for. */
+.hero-fade {
+  animation: hero-fade 0.9s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: var(--rise-delay, 0ms);
+}
+
+@keyframes hero-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-rise,
+  .hero-fade {
+    animation: none;
+  }
+}
+
 /* Subtle background perspective lines */
 .perspective-line {
   position: absolute;
@@ -129,9 +180,16 @@ body {
   scrollbar-color: rgba(150, 116, 235, 0.2) transparent;
 }
 
-/* Off-screen rendering optimizations (Largest Contentful Paint & INP support) */
+/* Off-screen rendering optimizations (Largest Contentful Paint & INP support).
+   This was `content-visibility: visible`, which is the CSS default and did
+   nothing at all — the eight homepage sections carrying this class were still
+   fully laid out and painted on load. `auto` is the value that actually skips
+   rendering work for off-screen content.
+   contain-intrinsic-size supplies a placeholder height so skipping a section
+   doesn't collapse the scrollbar and cause jumpy scrolling. */
 .content-visibility-lazy {
-  content-visibility: visible;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
 }
 
 /* Global vertical stretch for Syne font elements to prevent a squashed look */
@@ -171,6 +229,13 @@ span.font-syne {
     transform 1s cubic-bezier(0.16, 1, 0.3, 1),
     filter 1s ease;
   transition-delay: var(--reveal-delay, 0ms);
+}
+
+/* `will-change` promotes the element to its own compositor layer and holds it
+   there. Left on permanently it pinned a layer (and its GPU memory) for every
+   .reveal element for the whole page lifetime. Scoping it to the not-yet-
+   revealed state means the hint is dropped once the animation is done. */
+.reveal:not(.is-visible) {
   will-change: opacity, transform;
 }
 .reveal.reveal-scale { transform: translateY(28px) scale(0.94); }
@@ -250,6 +315,11 @@ span.font-syne {
     filter: none !important;
     transition: none !important;
   }
+  /* These three were missing from the reduced-motion list even though they are
+     the ones that never stop: two 65s marquees and the play-button ring. */
+  .marquee-scroll,
+  .marquee-scroll-reverse,
+  .animate-pulse-ring,
   .animate-aurora,
   .animate-aurora-slow,
   .animate-float-slow,

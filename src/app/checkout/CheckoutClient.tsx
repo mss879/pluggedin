@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MOCK_PRODUCTS, getColorHex, getCategoryIcon, Product } from "../products";
-import { supabase } from "../../lib/supabase";
 
 interface CartItem {
   product: Product;

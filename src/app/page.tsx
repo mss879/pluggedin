@@ -3,8 +3,34 @@ import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS } from "./products";
 import HomeClient from "./HomeClient";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// Previously `dynamic = "force-dynamic"` + `revalidate = 0`, which meant every
+// single visitor waited on a live Supabase round trip before one byte of HTML
+// was sent. The catalogue changes rarely, so serve a cached render and
+// regenerate it in the background at most once a minute (ISR). Publishing a
+// product change can push it out immediately with revalidatePath("/").
+export const revalidate = 60;
+
+// Collections drive the "Trending" and "New In" sections. They used to be
+// fetched from the browser on mount, which forced the whole Supabase SDK into
+// the homepage's client bundle and delayed those sections until after
+// hydration. Fetching them here means the sections render in the HTML.
+async function getCollections() {
+  try {
+    if (supabase) {
+      const [collections, collectionProducts] = await Promise.all([
+        supabase.from("collections").select("*"),
+        supabase.from("collection_products").select("collection_id,product_id"),
+      ]);
+      return {
+        collections: collections.error ? [] : collections.data ?? [],
+        collectionProducts: collectionProducts.error ? [] : collectionProducts.data ?? [],
+      };
+    }
+  } catch (e) {
+    console.warn("Failed to fetch collections on server:", e);
+  }
+  return { collections: [], collectionProducts: [] };
+}
 
 async function getProducts() {
   try {
@@ -13,7 +39,7 @@ async function getProducts() {
         .from("products")
         .select("*")
         .order("created_at", { ascending: false });
-      
+
       if (!error && data && data.length > 0) {
         return data.map((item: any) => ({
           id: item.id,
@@ -85,8 +111,32 @@ export const metadata: Metadata = {
   description: "Elevate your creative setup with PluggedIn's premium creator gear. From tactile mechanical keyboards and smart desktop chargers to broadcast-quality microphones and studio monitors, we craft space-saving, premium essentials to power your productivity.",
 };
 
+async function getHeroBanners() {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from("hero_banners")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .limit(5);
+
+      if (!error && data && data.length > 0) {
+        return data;
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to fetch hero banners on server:", e);
+  }
+  return [];
+}
+
 export default async function Page() {
-  const products = await getProducts();
+  const [products, { collections, collectionProducts }, heroBanners] = await Promise.all([
+    getProducts(),
+    getCollections(),
+    getHeroBanners(),
+  ]);
   return (
     <>
       <script
@@ -97,7 +147,12 @@ export default async function Page() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(storeSchema) }}
       />
-      <HomeClient initialProducts={products as any} />
+      <HomeClient
+        initialProducts={products as any}
+        initialCollections={collections}
+        initialCollectionProducts={collectionProducts}
+        initialHeroBanners={heroBanners}
+      />
     </>
   );
 }
