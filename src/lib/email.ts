@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { BANK_RECEIPT_DEADLINE_NOTICE, hasBankDetails, type PaymentSettings } from "./payment-settings";
 
 /** Escape user-supplied values before interpolating into email HTML. */
 function escapeHtml(value: unknown): string {
@@ -36,6 +37,33 @@ interface OrderEmailPayload {
   items: EmailItem[];
   totalAmount: number;
   paymentMethod: string;
+  /** Included in the confirmation email for bank transfer orders. */
+  bankDetails?: PaymentSettings | null;
+}
+
+function bankDetailsHtml(bank: PaymentSettings, orderId: string) {
+  const row = (label: string, value: string) =>
+    value
+      ? `<tr>
+          <td style="padding: 4px 0; font-size: 13px; color: #64748b; font-weight: 500;">${label}</td>
+          <td style="padding: 4px 0; text-align: right; font-size: 13px; color: #0f172a; font-weight: 700;">${escapeHtml(value)}</td>
+        </tr>`
+      : "";
+
+  return `
+    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px 20px; margin-bottom: 24px;">
+      <div style="font-size: 11px; font-weight: 800; color: #7c3aed; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px;">Bank Transfer Details</div>
+      <table style="width: 100%;">
+        ${row("Bank", bank.bank_name)}
+        ${row("Account Name", bank.account_name)}
+        ${row("Account Number", bank.account_number)}
+        ${row("Branch", bank.branch)}
+        ${row("Reference", orderId)}
+      </table>
+      ${bank.payment_note ? `<p style="margin: 12px 0 0 0; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #334155; font-weight: 600; line-height: 1.5;">${escapeHtml(bank.payment_note).replace(/\n/g, "<br>")}</p>` : ""}
+      <p style="margin: 10px 0 0 0; font-size: 10px; color: #94a3b8; font-weight: 500; line-height: 1.5;">${BANK_RECEIPT_DEADLINE_NOTICE}</p>
+    </div>
+  `;
 }
 
 // Reusable premium HTML email generator (without logo)
@@ -52,11 +80,13 @@ function generateOrderEmailHtml({
   bannerSubtitle,
   bodyIntro,
   orderStatusLabel,
+  extraSectionHtml = "",
 }: OrderEmailPayload & {
   bannerTitle: string;
   bannerSubtitle: string;
   bodyIntro: string;
   orderStatusLabel: string;
+  extraSectionHtml?: string;
 }) {
   const formatPrice = (amount: number) => {
     return `Rs. ${Math.round(amount).toLocaleString()}`;
@@ -171,6 +201,8 @@ function generateOrderEmailHtml({
               <div style="font-size: 16px; font-weight: 800; color: #5b21b6; margin-top: 2px; letter-spacing: 0.02em;">${orderId}</div>
             </div>
 
+            ${extraSectionHtml}
+
             <!-- Items Table -->
             <table style="width: 100%; margin-top: 10px;">
               <thead>
@@ -279,12 +311,16 @@ export async function sendOrderConfirmationEmail(payload: OrderEmailPayload) {
     return { success: false, error: "Resend API Key missing" };
   }
 
+  const isBankTransfer = payload.paymentMethod === "bank_transfer" && hasBankDetails(payload.bankDetails);
   const emailHtml = generateOrderEmailHtml({
     ...payload,
     bannerTitle: "Order Confirmed",
     bannerSubtitle: "Thank you for your order",
-    bodyIntro: "Thank you for shopping at PluggedIn. We are excited to let you know that your order has been received and confirmed. Our team is preparing your premium creator gear for dispatch. Below is a detailed breakdown of your purchase.",
-    orderStatusLabel: "Pending Fulfillment",
+    bodyIntro: isBankTransfer
+      ? "Thank you for shopping at PluggedIn. Your order has been received. Please complete your bank transfer using the details below and send us your payment receipt so we can proceed with your order."
+      : "Thank you for shopping at PluggedIn. We are excited to let you know that your order has been received and confirmed. Our team is preparing your premium creator gear for dispatch. Below is a detailed breakdown of your purchase.",
+    orderStatusLabel: isBankTransfer ? "Awaiting Payment Receipt" : "Pending Fulfillment",
+    extraSectionHtml: isBankTransfer ? bankDetailsHtml(payload.bankDetails!, payload.orderId) : "",
   });
 
   try {
@@ -364,6 +400,122 @@ export async function sendOrderDeliveredEmail(payload: OrderEmailPayload) {
     return { success: true, data };
   } catch (error: any) {
     console.error("[Resend] Failed to send delivered email notification:", error?.message || error);
+    return { success: false, error: "email_send_failed" };
+  }
+}
+
+// 4. Bank Transfer Receipt Received Email
+export async function sendBankReceiptReceivedEmail(payload: OrderEmailPayload) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[Resend] API key is missing. Skipping email send.");
+    return { success: false, error: "Resend API Key missing" };
+  }
+
+  const emailHtml = generateOrderEmailHtml({
+    ...payload,
+    bannerTitle: "Payment Received",
+    bannerSubtitle: "We have received your bank slip",
+    bodyIntro: "We have received your bank slip and are proceeding with your order. Our team is now preparing your premium creator gear for dispatch, and we will let you know as soon as it is on its way.",
+    orderStatusLabel: "Payment Confirmed",
+  });
+
+  try {
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "PluggedIn Storefront <orders@pluggedin.lk>";
+    const data = await getResendClient().emails.send({
+      from: fromEmail,
+      to: [payload.customerEmail],
+      subject: `Payment Received: ${payload.orderId} - PluggedIn`,
+      html: emailHtml,
+    });
+
+    console.log(`[Resend] Bank receipt received email sent for ${payload.orderId}`);
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("[Resend] Failed to send bank receipt received email:", error?.message || error);
+    return { success: false, error: "email_send_failed" };
+  }
+}
+
+// 5. Bank Transfer Not Received / Order Cancelled Email
+export async function sendBankReceiptNotReceivedEmail(payload: OrderEmailPayload) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[Resend] API key is missing. Skipping email send.");
+    return { success: false, error: "Resend API Key missing" };
+  }
+
+  const emailHtml = generateOrderEmailHtml({
+    ...payload,
+    bannerTitle: "Order Cancelled",
+    bannerSubtitle: "Bank transfer not received",
+    bodyIntro: "Sorry, we did not receive your bank transfer for this order, so the order has been cancelled. If you believe this is a mistake or you have already made the payment, please contact us with your bank slip and order reference.",
+    orderStatusLabel: "Cancelled",
+  });
+
+  try {
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "PluggedIn Storefront <orders@pluggedin.lk>";
+    const data = await getResendClient().emails.send({
+      from: fromEmail,
+      to: [payload.customerEmail],
+      subject: `Order Cancelled: ${payload.orderId} - PluggedIn`,
+      html: emailHtml,
+    });
+
+    console.log(`[Resend] Bank receipt not received (cancelled) email sent for ${payload.orderId}`);
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("[Resend] Failed to send bank receipt not received email:", error?.message || error);
+    return { success: false, error: "email_send_failed" };
+  }
+}
+
+// 6. Admin Login Verification Code Email
+export async function sendAdminLoginCodeEmail(to: string, code: string, expiresInMinutes: number) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[Resend] API key is missing. Skipping email send.");
+    return { success: false, error: "Resend API Key missing" };
+  }
+
+  const emailHtml = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Admin Login Code - PluggedIn</title></head>
+    <body style="margin: 0; padding: 40px 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="max-width: 480px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; border: 1px solid #e2e8f0; overflow: hidden;">
+        <div style="background: #2e1065; background: linear-gradient(135deg, #2e1065 0%, #1e1b4b 50%, #0f172a 100%); padding: 32px; text-align: center;">
+          <div style="font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: 0.15em; text-transform: uppercase;">PLUGGEDIN</div>
+          <p style="color: #c084fc; font-size: 12px; font-weight: 600; margin: 8px 0 0 0; letter-spacing: 0.15em; text-transform: uppercase;">Admin Login Verification</p>
+        </div>
+        <div style="padding: 32px; text-align: center;">
+          <p style="margin: 0 0 20px 0; font-size: 14px; color: #334155; line-height: 1.6;">
+            Someone signed in to the PluggedIn admin dashboard. Enter this code to finish logging in:
+          </p>
+          <div style="font-size: 36px; font-weight: 800; letter-spacing: 0.35em; color: #5b21b6; background-color: #faf5ff; border: 1px dashed #d8b4fe; border-radius: 16px; padding: 18px 0;">
+            ${escapeHtml(code)}
+          </div>
+          <p style="margin: 20px 0 0 0; font-size: 12px; color: #64748b; line-height: 1.6;">
+            This code expires in ${expiresInMinutes} minutes. If this wasn't you, change the admin password immediately.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "PluggedIn Storefront <orders@pluggedin.lk>";
+    const data = await getResendClient().emails.send({
+      from: fromEmail,
+      to: [to],
+      subject: `${code} is your PluggedIn admin login code`,
+      html: emailHtml,
+    });
+    if (data.error) {
+      console.error("[Resend] Admin login code email rejected:", data.error.message);
+      return { success: false, error: "email_send_failed" };
+    }
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("[Resend] Failed to send admin login code email:", error?.message || error);
     return { success: false, error: "email_send_failed" };
   }
 }

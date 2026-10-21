@@ -1,8 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+
+const RESEND_COOLDOWN_SECONDS = 30;
+
+async function getAccessToken() {
+  const { data: { session } } = await supabase!.auth.getSession();
+  return session?.access_token || "";
+}
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -10,6 +17,31 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Step 2: emailed 6-digit code
+  const [step, setStep] = useState<"credentials" | "code">("credentials");
+  const [code, setCode] = useState("");
+  const [codeSentTo, setCodeSentTo] = useState("");
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  const sendLoginCode = async () => {
+    const response = await fetch("/api/admin/2fa/send", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${await getAccessToken()}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Could not send the login code.");
+    }
+    setCodeSentTo(data.sentTo || "");
+    setResendIn(RESEND_COOLDOWN_SECONDS);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,11 +70,16 @@ export default function AdminLoginPage() {
             throw new Error("Access denied: This email is not authorized as administrator.");
           }
 
-          localStorage.setItem(
-            "pluggedin_admin_session",
-            JSON.stringify({ email, token: data.session.access_token, mode: "supabase" })
-          );
-          router.push("/admin");
+          // Password OK — now require the emailed verification code
+          try {
+            await sendLoginCode();
+          } catch (sendErr) {
+            await supabase.auth.signOut();
+            throw sendErr;
+          }
+          setPassword("");
+          setCode("");
+          setStep("code");
           return;
         }
       } else {
@@ -55,6 +92,59 @@ export default function AdminLoginPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) return;
+    setIsLoading(true);
+    setErrorMsg(null);
+
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        throw new Error("Your session expired. Please sign in again.");
+      }
+      const response = await fetch("/api/admin/2fa/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ code }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Invalid verification code.");
+      }
+
+      localStorage.setItem(
+        "pluggedin_admin_session",
+        JSON.stringify({ email, token, mode: "supabase" })
+      );
+      router.push("/admin");
+    } catch (err: any) {
+      setErrorMsg(err.message || "Could not verify the code.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setErrorMsg(null);
+    setIsLoading(true);
+    try {
+      await sendLoginCode();
+      setCode("");
+    } catch (err: any) {
+      setErrorMsg(err.message || "Could not send the login code.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBackToLogin = async () => {
+    await supabase?.auth.signOut();
+    setStep("credentials");
+    setCode("");
+    setErrorMsg(null);
   };
 
   return (
@@ -83,50 +173,112 @@ export default function AdminLoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <label className="text-[9px] font-black tracking-widest text-slate-400 uppercase ml-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="e.g., admin@pluggedin.com"
-              className="bg-slate-50 border border-slate-200 focus:border-purple-500/80 focus:bg-white focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3.5 text-xs md:text-sm font-semibold text-slate-900 placeholder-slate-400 focus:outline-none transition-all"
-            />
-          </div>
+        {step === "code" ? (
+          <form onSubmit={handleVerifyCode} className="flex flex-col gap-5">
+            <p className="text-xs text-slate-500 font-semibold text-center leading-relaxed">
+              We emailed a 6-digit verification code to{" "}
+              <span className="text-slate-900 font-extrabold">{codeSentTo || "the admin inbox"}</span>.
+              Enter it below to finish logging in.
+            </p>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-[9px] font-black tracking-widest text-slate-400 uppercase ml-1">
-              Secret Password
-            </label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••••••"
-              className="bg-slate-50 border border-slate-200 focus:border-purple-500/80 focus:bg-white focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3.5 text-xs md:text-sm font-semibold text-slate-900 placeholder-slate-400 focus:outline-none transition-all"
-            />
-          </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-[9px] font-black tracking-widest text-slate-400 uppercase ml-1">
+                Verification Code
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoFocus
+                required
+                maxLength={6}
+                pattern="[0-9]{6}"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="••••••"
+                className="bg-slate-50 border border-slate-200 focus:border-purple-500/80 focus:bg-white focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3.5 text-xl font-black tracking-[0.5em] text-center text-slate-900 placeholder-slate-300 focus:outline-none transition-all"
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-black tracking-widest py-4 rounded-full mt-2 shadow-md hover:scale-[1.01] active:scale-95 transition-all cursor-pointer disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 border-0"
-          >
-            {isLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-slate-400 border-t-white rounded-full animate-spin" />
-                VERIFYING...
-              </>
-            ) : (
-              "ACCESS CONTROL PANEL"
-            )}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={isLoading || code.length !== 6}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-black tracking-widest py-4 rounded-full mt-2 shadow-md hover:scale-[1.01] active:scale-95 transition-all cursor-pointer disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 border-0"
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-slate-400 border-t-white rounded-full animate-spin" />
+                  VERIFYING...
+                </>
+              ) : (
+                "VERIFY & ENTER"
+              )}
+            </button>
+
+            <div className="flex items-center justify-between text-[10px] font-bold tracking-widest uppercase">
+              <button
+                type="button"
+                onClick={handleBackToLogin}
+                className="bg-transparent border-0 text-slate-400 hover:text-slate-800 cursor-pointer"
+              >
+                Back to login
+              </button>
+              <button
+                type="button"
+                onClick={handleResendCode}
+                disabled={isLoading || resendIn > 0}
+                className="bg-transparent border-0 text-purple-600 hover:text-purple-800 cursor-pointer disabled:text-slate-300 disabled:cursor-not-allowed"
+              >
+                {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleLogin} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <label className="text-[9px] font-black tracking-widest text-slate-400 uppercase ml-1">
+                Email Address
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="e.g., admin@pluggedin.com"
+                className="bg-slate-50 border border-slate-200 focus:border-purple-500/80 focus:bg-white focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3.5 text-xs md:text-sm font-semibold text-slate-900 placeholder-slate-400 focus:outline-none transition-all"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-[9px] font-black tracking-widest text-slate-400 uppercase ml-1">
+                Secret Password
+              </label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="bg-slate-50 border border-slate-200 focus:border-purple-500/80 focus:bg-white focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3.5 text-xs md:text-sm font-semibold text-slate-900 placeholder-slate-400 focus:outline-none transition-all"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-black tracking-widest py-4 rounded-full mt-2 shadow-md hover:scale-[1.01] active:scale-95 transition-all cursor-pointer disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 border-0"
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-slate-400 border-t-white rounded-full animate-spin" />
+                  VERIFYING...
+                </>
+              ) : (
+                "ACCESS CONTROL PANEL"
+              )}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

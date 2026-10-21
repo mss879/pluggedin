@@ -19,10 +19,10 @@ export default function AdminGate({
   useEffect(() => {
     let cancelled = false;
 
-    // Verify the actual Supabase session (validated against the auth server) and
-    // confirm it belongs to the admin — not just the presence of a localStorage
-    // flag, which anyone could set. Data is still protected by RLS as a second
-    // layer; this hardens the UI gate.
+    // Verify the actual Supabase session (validated against the auth server),
+    // confirm it belongs to the admin and has passed email 2FA — not just the
+    // presence of a localStorage flag, which anyone could set. Data is still
+    // protected by RLS as a second layer; this hardens the UI gate.
     const checkAuth = async () => {
       if (pathname === "/admin/login") {
         if (!cancelled) setIsAuthenticated(true);
@@ -38,23 +38,49 @@ export default function AdminGate({
       }
 
       const { data, error } = await supabase.auth.getUser();
-      const ok = !error && data?.user?.email === ADMIN_EMAIL;
+      const isAdmin = !error && data?.user?.email === ADMIN_EMAIL;
+
+      // A password-only session isn't enough: the emailed 2FA code must have
+      // been entered for this session too.
+      let verified = false;
+      if (isAdmin) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch("/api/admin/2fa/status", {
+            headers: { Authorization: `Bearer ${session?.access_token || ""}` },
+            cache: "no-store",
+          });
+          const status = await res.json().catch(() => ({}));
+          verified = res.ok && status.verified === true;
+        } catch {
+          verified = false;
+        }
+      }
 
       if (cancelled) return;
-      if (ok) {
+      if (verified) {
         setIsAuthenticated(true);
       } else {
         localStorage.removeItem("pluggedin_admin_session");
         setIsAuthenticated(false);
+        if (isAdmin) {
+          // Drop the half-authenticated session so login starts from scratch
+          await supabase.auth.signOut();
+        }
         router.replace("/admin/login");
       }
     };
 
     checkAuth();
 
-    // Re-check on auth changes (e.g. logout / token expiry / another tab)
+    // Re-check on auth changes (e.g. logout / token expiry / another tab).
+    // Deferred so checkAuth's own Supabase calls don't run inside the auth
+    // callback, which can deadlock supabase-js.
     const { data: sub } = supabase
-      ? supabase.auth.onAuthStateChange(() => checkAuth())
+      ? supabase.auth.onAuthStateChange((event) => {
+          if (event === "INITIAL_SESSION") return;
+          setTimeout(() => checkAuth(), 0);
+        })
       : { data: null };
 
     return () => {

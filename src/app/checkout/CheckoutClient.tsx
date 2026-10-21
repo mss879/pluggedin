@@ -4,11 +4,66 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MOCK_PRODUCTS, getColorHex, getCategoryIcon, Product } from "../products";
+import { getSupabase } from "@/lib/supabase-lazy";
+import {
+  BANK_RECEIPT_DEADLINE_NOTICE,
+  hasBankDetails,
+  normalizePaymentSettings,
+  type PaymentSettings,
+} from "@/lib/payment-settings";
 
 interface CartItem {
   product: Product;
   quantity: number;
   color: string;
+}
+
+function BankDetailsCard({
+  settings,
+  loading,
+  orderId,
+}: {
+  settings: PaymentSettings | null;
+  loading: boolean;
+  orderId?: string;
+}) {
+  return (
+    <div className="bg-slate-50 border border-zinc-200 p-4 rounded-2xl flex flex-col gap-2 text-left animate-in slide-in-from-top-3 duration-300">
+      <span className="text-[9px] font-black tracking-widest text-zinc-400 uppercase">Beneficiary Bank Account</span>
+      {loading ? (
+        <span className="text-[11px] text-zinc-400 font-semibold">Loading bank details...</span>
+      ) : hasBankDetails(settings) ? (
+        <div className="flex flex-col gap-1 text-[11px] text-zinc-650 font-semibold">
+          {([
+            ["Bank Name", settings.bank_name],
+            ["Account Name", settings.account_name],
+            ["Account Number", settings.account_number],
+            ["Branch", settings.branch],
+            ["Reference", orderId || ""],
+          ] as const).filter(([, value]) => value).map(([label, value]) => (
+            <div key={label} className="flex justify-between gap-3">
+              <span>{label}:</span>
+              <span className={`text-zinc-950 text-right ${label === "Account Number" || label === "Reference" ? "font-mono font-black" : "font-extrabold"}`}>
+                {value}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <span className="text-[11px] text-zinc-500 font-semibold">
+          Our bank details will be sent with your order confirmation email.
+        </span>
+      )}
+      {settings?.payment_note && (
+        <p className="text-[11px] text-zinc-700 font-semibold leading-relaxed border-t border-zinc-200/60 pt-2 mt-1 whitespace-pre-line">
+          {settings.payment_note}
+        </p>
+      )}
+      <p className="text-[9px] text-zinc-400 font-medium leading-relaxed">
+        {BANK_RECEIPT_DEADLINE_NOTICE}
+      </p>
+    </div>
+  );
 }
 
 export default function CheckoutClient() {
@@ -24,6 +79,8 @@ export default function CheckoutClient() {
   const [custAddress, setCustAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash_on_delivery" | "bank_transfer">("cash_on_delivery");
   const [formError, setFormError] = useState<string | null>(null);
+  const [bankDetails, setBankDetails] = useState<PaymentSettings | null>(null);
+  const [bankDetailsLoading, setBankDetailsLoading] = useState(true);
 
   // Step states: "shipping" | "payment" | "placing"
   const [checkoutStep, setCheckoutStep] = useState<"shipping" | "payment" | "placing">("shipping");
@@ -50,6 +107,31 @@ export default function CheckoutClient() {
       router.push("/cart");
     }
   }, [router]);
+
+  // Bank transfer details are managed from Admin → Bank Transfer
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const client = await getSupabase();
+        if (!client) return;
+        const { data, error } = await client
+          .from("payment_settings")
+          .select("bank_name, account_name, account_number, branch, payment_note")
+          .eq("id", 1)
+          .maybeSingle();
+        if (error) throw error;
+        if (!cancelled) setBankDetails(normalizePaymentSettings(data));
+      } catch (e) {
+        console.error("Failed to load bank transfer details", e);
+      } finally {
+        if (!cancelled) setBankDetailsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Sync Cart with event listener
   useEffect(() => {
@@ -181,9 +263,20 @@ export default function CheckoutClient() {
               <p className="text-zinc-550 text-xs font-bold uppercase tracking-wider">Reference Code: <span className="text-purple-650 font-black">{orderSuccess}</span></p>
             </div>
 
-            <p className="text-zinc-600 text-sm leading-relaxed max-w-sm mt-1">
-              Thank you for shopping with PluggedIn! Your premium creator essentials are being packaged. We have sent a confirmation email to <span className="font-extrabold text-zinc-900">{custEmail || "your email address"}</span>.
-            </p>
+            {paymentMethod === "bank_transfer" ? (
+              <>
+                <p className="text-zinc-600 text-sm leading-relaxed max-w-sm mt-1">
+                  Thank you for shopping with PluggedIn! Please complete your bank transfer using the details below and send us your payment receipt. We have also emailed these details to <span className="font-extrabold text-zinc-900">{custEmail || "your email address"}</span>.
+                </p>
+                <div className="w-full">
+                  <BankDetailsCard settings={bankDetails} loading={bankDetailsLoading} orderId={orderSuccess} />
+                </div>
+              </>
+            ) : (
+              <p className="text-zinc-600 text-sm leading-relaxed max-w-sm mt-1">
+                Thank you for shopping with PluggedIn! Your premium creator essentials are being packaged. We have sent a confirmation email to <span className="font-extrabold text-zinc-900">{custEmail || "your email address"}</span>.
+              </p>
+            )}
 
             <Link href="/" className="w-full bg-zinc-950 text-white text-xs font-bold tracking-widest py-4 rounded-full hover:bg-zinc-800 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-md shadow-zinc-950/10 cursor-pointer text-center block mt-4 border-0">
               RETURN TO STOREFRONT
@@ -426,37 +519,14 @@ export default function CheckoutClient() {
                       <div className="flex flex-col gap-1">
                         <span className="text-xs font-bold text-zinc-950 uppercase tracking-wide">Direct Bank Transfer</span>
                         <span className="text-[10px] text-zinc-500 font-semibold leading-relaxed">
-                          Send the payment directly to our corporate bank account.
+                          Transfer the payment to our bank account and send us your payment receipt.
                         </span>
                       </div>
                     </div>
 
                     {/* Bank Details Card */}
                     {paymentMethod === "bank_transfer" && (
-                      <div className="bg-slate-50 border border-zinc-200 p-4 rounded-2xl flex flex-col gap-2 text-left animate-in slide-in-from-top-3 duration-300">
-                        <span className="text-[9px] font-black tracking-widest text-zinc-400 uppercase">Beneficiary Bank Account</span>
-                        <div className="flex flex-col gap-1 text-[11px] text-zinc-650 font-semibold">
-                          <div className="flex justify-between">
-                            <span>Bank Name:</span>
-                            <span className="text-zinc-950 font-extrabold">Standard Chartered</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Account Title:</span>
-                            <span className="text-zinc-950 font-extrabold">PluggedIn Retail Ltd.</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Account Number:</span>
-                            <span className="text-zinc-950 font-mono font-black">01-2345678-99</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Branch Code:</span>
-                            <span className="text-zinc-950 font-extrabold">020 (Downtown)</span>
-                          </div>
-                        </div>
-                        <p className="text-[9px] text-zinc-400 font-bold leading-relaxed border-t border-zinc-200/60 pt-2 mt-1">
-                          *Please include your name or Order ID in the transaction reference notes.
-                        </p>
-                      </div>
+                      <BankDetailsCard settings={bankDetails} loading={bankDetailsLoading} />
                     )}
 
                     <button

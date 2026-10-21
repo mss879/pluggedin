@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { isAllowedOrigin } from "@/lib/rate-limit";
+import { requireVerifiedAdmin } from "@/lib/admin-auth";
 import {
   sendOrderShippedEmail,
   sendOrderDeliveredEmail
 } from "@/lib/email";
 
 const ALLOWED_STATUSES = ["pending", "fulfilled", "shipped", "delivered"];
-const ADMIN_EMAIL = "admin@pluggedin.com";
 
 export async function POST(request: Request) {
   try {
@@ -59,21 +59,10 @@ export async function POST(request: Request) {
       }
     });
 
-    // Validate Authorization token
-    let isAdmin = false;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.substring(7);
-      try {
-        const { data: { user }, error: authError } = await supabaseServer.auth.getUser(token);
-        if (!authError && user && user.email === ADMIN_EMAIL) {
-          isAdmin = true;
-        }
-      } catch (err) {
-        console.error("Token verification exception:", err);
-      }
-    }
+    // Validate Authorization token (admin email + completed email 2FA)
+    const admin = await requireVerifiedAdmin(request);
 
-    if (!isAdmin) {
+    if (!admin) {
       return NextResponse.json(
         { error: "Unauthorized access: Administrator session required" },
         { status: 401 }
@@ -92,6 +81,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Order not found" },
         { status: 404 }
+      );
+    }
+
+    if (order.status === "cancelled") {
+      return NextResponse.json(
+        { error: "This order has been cancelled and can no longer be updated" },
+        { status: 400 }
       );
     }
 

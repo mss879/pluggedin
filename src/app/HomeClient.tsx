@@ -915,14 +915,12 @@ export default function HomeClient({
 
         {/* Section 0.5: Trust Perks Bar */}
         <div className="w-full px-3 sm:px-6 lg:px-8 max-w-[1700px] mx-auto py-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 p-4 sm:p-5 bg-purple-50/40 border border-purple-100/60 rounded-2xl md:rounded-3xl shadow-sm">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 p-4 sm:p-5 bg-purple-50/40 border border-purple-100/60 rounded-2xl md:rounded-3xl shadow-sm">
             {[
               { image: "/perks/perk_delivery.png", title: "ISLANDWIDE DELIVERY", desc: "Express shipping Sri Lanka wide" },
-              { image: "/perks/perk_warranty.png", title: "1-YEAR WARRANTY", desc: "Official manufacturer warranty" },
               { image: "/perks/perk_cod.png", title: "CASH ON DELIVERY", desc: "Pay safely at your doorstep" },
-              { image: "/perks/perk_support.png", title: "CREATOR SUPPORT", desc: "24/7 dedicated assistance" },
             ].map((perk, idx) => (
-              <div key={idx} className="flex items-center gap-3.5 p-2 text-left group">
+              <div key={idx} className="flex items-center md:justify-center gap-3.5 p-2 text-left group">
                 <div className="w-12 h-12 sm:w-14 sm:h-14 relative shrink-0 p-1 bg-white rounded-2xl shadow-xs border border-purple-100/80 group-hover:border-purple-300 group-hover:scale-105 transition-all duration-300">
                   <Image 
                     src={perk.image} 

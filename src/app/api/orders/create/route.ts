@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 import { rateLimit, getClientIp, isAllowedOrigin } from "@/lib/rate-limit";
+import { normalizePaymentSettings, type PaymentSettings } from "@/lib/payment-settings";
 
 // Field length caps to prevent oversized payloads / DB bloat
 const MAX_NAME = 100;
@@ -180,6 +181,21 @@ export async function POST(request: Request) {
       console.log(`[Offline Mode] Created Mock Order Reference: ${orderId}`);
     }
 
+    // Bank transfer orders get the bank details in their confirmation email
+    let bankDetails: PaymentSettings | null = null;
+    if (cleanPayment === "bank_transfer" && supabase) {
+      const { data: settingsRow, error: settingsErr } = await supabase
+        .from("payment_settings")
+        .select("bank_name, account_name, account_number, branch, payment_note")
+        .eq("id", 1)
+        .maybeSingle();
+      if (settingsErr) {
+        console.error("Failed to load bank transfer details for confirmation email:", settingsErr);
+      } else {
+        bankDetails = normalizePaymentSettings(settingsRow);
+      }
+    }
+
     // Send order confirmation email via Resend (best-effort)
     try {
       await sendOrderConfirmationEmail({
@@ -191,6 +207,7 @@ export async function POST(request: Request) {
         items: authoritativeItems,
         totalAmount,
         paymentMethod: cleanPayment,
+        bankDetails,
       });
     } catch (emailErr) {
       console.error("Order created but failed to send confirmation email:", emailErr);

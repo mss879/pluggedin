@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS, getCategoryIcon, Product } from "../products";
 import RichTextEditor from "../../components/RichTextEditor";
+import {
+  BANK_RECEIPT_DEADLINE_NOTICE,
+  EMPTY_PAYMENT_SETTINGS,
+  normalizePaymentSettings,
+  type PaymentSettings,
+} from "@/lib/payment-settings";
 
 interface Collection {
   id: string;
@@ -42,7 +48,10 @@ interface Order {
   items: OrderItem[];
   total_amount: number;
   payment_method?: string;
-  status: "pending" | "fulfilled" | "shipped" | "delivered";
+  /** Bank transfer only. null/undefined = still awaiting the customer's bank slip. */
+  payment_status?: "receipt_received" | "receipt_not_received" | null;
+  payment_reviewed_at?: string | null;
+  status: "pending" | "fulfilled" | "shipped" | "delivered" | "cancelled";
   created_at: string;
   updated_at?: string;
 }
@@ -83,7 +92,7 @@ export default function AdminDashboardPage() {
   const router = useRouter();
 
   // Navigation Tabs state
-  // "dashboard", "catalog", "add-product", "collections", "analytics", "orders", "contact-inquiries", "offer-section"
+  // "dashboard", "catalog", "add-product", "collections", "analytics", "orders", "bank-transfer", "contact-inquiries", "offer-section"
   const [activeTab, setActiveTab] = useState("dashboard");
   const [productsOpen, setProductsOpen] = useState(true);
 
@@ -95,6 +104,10 @@ export default function AdminDashboardPage() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [visits, setVisits] = useState<VisitLog[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [orderView, setOrderView] = useState<"all" | "bank_transfer">("all");
+  const [reviewingReceiptId, setReviewingReceiptId] = useState<string | null>(null);
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>(EMPTY_PAYMENT_SETTINGS);
+  const [savingPaymentSettings, setSavingPaymentSettings] = useState(false);
   const [contactInquiries, setContactInquiries] = useState<ContactInquiry[]>([]);
   const [activeInquiry, setActiveInquiry] = useState<ContactInquiry | null>(null);
   const [marqueeOffers, setMarqueeOffers] = useState<MarqueeOffer[]>([]);
@@ -405,7 +418,20 @@ export default function AdminDashboardPage() {
             ]);
           }
 
-          // 7. Fetch Hero Banners
+          // 7. Fetch Bank Transfer Payment Settings
+          try {
+            const { data: settingsData, error: settingsErr } = await supabase
+              .from("payment_settings")
+              .select("bank_name, account_name, account_number, branch, payment_note")
+              .eq("id", 1)
+              .maybeSingle();
+            if (settingsErr) throw settingsErr;
+            setPaymentSettings(normalizePaymentSettings(settingsData));
+          } catch (e) {
+            console.error("Failed to load payment_settings:", e);
+          }
+
+          // 8. Fetch Hero Banners
           try {
             const { data: bannerData, error: bannerErr } = await supabase
               .from("hero_banners")
@@ -621,6 +647,75 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleReviewBankReceipt = async (order: Order, received: boolean) => {
+    const prompt = received
+      ? `Confirm the bank slip for ${order.id} was received?\n\n${order.customer_email} will be emailed that payment was received and the order is proceeding.`
+      : `Mark the bank transfer for ${order.id} as NOT received?\n\nThe order will be CANCELLED and ${order.customer_email} will be emailed.`;
+    if (!confirm(prompt)) return;
+
+    setReviewingReceiptId(order.id);
+    try {
+      let update: Partial<Order> = {
+        payment_status: received ? "receipt_received" : "receipt_not_received",
+        payment_reviewed_at: new Date().toISOString(),
+        ...(received ? {} : { status: "cancelled" as const }),
+      };
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        const response = await fetch("/api/orders/payment-receipt", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": token ? `Bearer ${token}` : "",
+          },
+          body: JSON.stringify({ orderId: order.id, received }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || "Failed to update the payment receipt on server");
+        }
+        update = data.order;
+        if (!data.emailSent) {
+          alert("Saved, but the customer email could not be sent. Please contact the customer directly.");
+        }
+      }
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, ...update } : o)));
+    } catch (err: any) {
+      alert(`Failed to update payment receipt: ${err.message}`);
+    } finally {
+      setReviewingReceiptId(null);
+    }
+  };
+
+  const handleSavePaymentSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingPaymentSettings(true);
+    try {
+      const payload = {
+        bank_name: paymentSettings.bank_name.trim(),
+        account_name: paymentSettings.account_name.trim(),
+        account_number: paymentSettings.account_number.trim(),
+        branch: paymentSettings.branch.trim(),
+        payment_note: paymentSettings.payment_note.trim(),
+      };
+      if (supabase) {
+        const { error } = await supabase
+          .from("payment_settings")
+          .upsert({ id: 1, ...payload, updated_at: new Date().toISOString() });
+        if (error) throw error;
+      }
+      setPaymentSettings(payload);
+      setSaveStatus("Bank transfer details saved.");
+      setTimeout(() => setSaveStatus(null), 3000);
+    } catch (err: any) {
+      alert(`Failed to save bank transfer details: ${err.message}`);
+    } finally {
+      setSavingPaymentSettings(false);
+    }
+  };
+
   const handleDeleteInquiry = async (inquiryId: string) => {
     if (!confirm("Are you sure you want to delete this contact inquiry?")) return;
 
@@ -689,8 +784,9 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem("pluggedin_admin_session");
+    await supabase?.auth.signOut();
     router.replace("/admin/login");
   };
 
@@ -1426,6 +1522,20 @@ export default function AdminDashboardPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
               Orders
+            </button>
+
+            <button
+              onClick={() => setActiveTab("bank-transfer")}
+              className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all cursor-pointer font-bold border-0 text-left ${
+                activeTab === "bank-transfer"
+                  ? "bg-purple-600 text-white shadow-md shadow-purple-600/15"
+                  : "bg-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M5 10v8m4-8v8m6-8v8m4-8v8M3 21h18M12 3l9 5H3l9-5z" />
+              </svg>
+              Bank Transfer
             </button>
 
             <button
@@ -2462,20 +2572,58 @@ export default function AdminDashboardPage() {
           )}
 
           {/* TAB 6: ORDERS WORKSPACE */}
-          {activeTab === "orders" && (
+          {activeTab === "orders" && (() => {
+            const bankOrders = orders.filter((o) => o.payment_method === "bank_transfer");
+            const awaitingReceipt = (o: Order) =>
+              o.payment_method === "bank_transfer" && !o.payment_status && o.status !== "cancelled";
+            const awaitingCount = orders.filter(awaitingReceipt).length;
+            const visibleOrders = orderView === "bank_transfer" ? bankOrders : orders;
+
+            return (
             <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+
+              {/* Order view sub-tabs */}
+              <div className="flex gap-2 border-b border-slate-200/80">
+                {([
+                  { id: "all", label: "All Orders", count: orders.length },
+                  { id: "bank_transfer", label: "Bank Transfer", count: awaitingCount },
+                ] as const).map((view) => (
+                  <button
+                    key={view.id}
+                    onClick={() => setOrderView(view.id)}
+                    className={`flex items-center gap-2 px-4 py-2.5 -mb-px border-0 border-b-2 bg-transparent text-xs font-black tracking-widest uppercase cursor-pointer transition-colors ${
+                      orderView === view.id
+                        ? "border-purple-600 text-purple-600"
+                        : "border-transparent text-slate-400 hover:text-slate-700"
+                    }`}
+                  >
+                    {view.label}
+                    {view.id === "bank_transfer" ? (
+                      view.count > 0 && (
+                        <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-700" title="Awaiting bank slip">
+                          {view.count} awaiting
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                        {view.count}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
               
               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <span className="text-xs font-bold text-slate-400 uppercase">
-                  Showing {orders.length} Customer Orders
+                  Showing {visibleOrders.length} {orderView === "bank_transfer" ? "Bank Transfer" : "Customer"} Orders
                 </span>
                 
                 {/* Status Quick Stats pills */}
                 <div className="flex flex-wrap gap-2">
-                  {["all", "pending", "fulfilled", "shipped", "delivered"].map((filterState) => {
+                  {["all", "pending", "fulfilled", "shipped", "delivered", "cancelled"].map((filterState) => {
                     const count = filterState === "all" 
-                      ? orders.length 
-                      : orders.filter((o) => o.status === filterState).length;
+                      ? visibleOrders.length 
+                      : visibleOrders.filter((o) => o.status === filterState).length;
                     return (
                       <span key={filterState} className="bg-white border border-slate-200 px-3.5 py-1.5 rounded-2xl text-[11px] font-bold text-slate-500 capitalize shadow-2xs">
                         {filterState}: <span className="text-slate-900 font-extrabold">{count}</span>
@@ -2487,13 +2635,17 @@ export default function AdminDashboardPage() {
 
               {/* Orders List Container */}
               <div className="flex flex-col gap-4">
-                {orders.length === 0 ? (
+                {visibleOrders.length === 0 ? (
                   <div className="bg-white border border-slate-200/80 rounded-[2rem] p-12 text-center text-slate-400 font-bold shadow-xs">
-                    No orders have been placed on the storefront yet.
+                    {orderView === "bank_transfer"
+                      ? "No bank transfer orders yet."
+                      : "No orders have been placed on the storefront yet."}
                   </div>
                 ) : (
-                  orders.map((order) => {
+                  visibleOrders.map((order) => {
                     const date = new Date(order.created_at);
+                    const isAwaitingReceipt = awaitingReceipt(order);
+                    const hoursSinceOrder = Math.floor((Date.now() - date.getTime()) / 3_600_000);
                     
                     // Colors for status pills
                     const statusColors = {
@@ -2501,6 +2653,7 @@ export default function AdminDashboardPage() {
                       fulfilled: "bg-blue-50 border-blue-200 text-blue-700",
                       shipped: "bg-indigo-50 border-indigo-200 text-indigo-700",
                       delivered: "bg-emerald-50 border-emerald-200 text-emerald-700",
+                      cancelled: "bg-red-50 border-red-200 text-red-700",
                     };
 
                     return (
@@ -2536,6 +2689,21 @@ export default function AdminDashboardPage() {
                               <span className="text-slate-850 font-extrabold uppercase text-[10px]">
                                 {order.payment_method === "bank_transfer" ? "Bank Transfer" : "Cash on Delivery"}
                               </span>
+                              {order.payment_method === "bank_transfer" && (
+                                <span className={`self-start mt-1 text-[9px] font-black tracking-widest px-2.5 py-0.5 rounded-full border uppercase ${
+                                  order.payment_status === "receipt_received"
+                                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                    : order.payment_status === "receipt_not_received"
+                                    ? "bg-red-50 border-red-200 text-red-700"
+                                    : "bg-amber-50 border-amber-200 text-amber-700"
+                                }`}>
+                                  {order.payment_status === "receipt_received"
+                                    ? "Slip received"
+                                    : order.payment_status === "receipt_not_received"
+                                    ? "Slip not received"
+                                    : "Awaiting slip"}
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -2574,7 +2742,51 @@ export default function AdminDashboardPage() {
 
                           {/* Action Buttons to Fulfill / Ship / Deliver */}
                           <div className="w-full flex flex-col gap-2 mt-4">
-                            {order.status === "pending" && (
+                            {/* Bank transfer: confirm the slip before the order can be fulfilled */}
+                            {isAwaitingReceipt && (
+                              <div className="w-full flex flex-col gap-2 bg-amber-50/60 border border-amber-200/80 rounded-2xl p-3">
+                                <span className="text-[9px] font-black tracking-widest text-amber-700 uppercase text-center">
+                                  Receipt received?
+                                </span>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <button
+                                    onClick={() => handleReviewBankReceipt(order, true)}
+                                    disabled={reviewingReceiptId === order.id}
+                                    title="Bank slip received — email customer and proceed"
+                                    aria-label="Bank slip received"
+                                    className="flex items-center justify-center py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white border-0 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={() => handleReviewBankReceipt(order, false)}
+                                    disabled={reviewingReceiptId === order.id}
+                                    title="Bank slip NOT received — cancel order and email customer"
+                                    aria-label="Bank slip not received"
+                                    className="flex items-center justify-center py-2.5 rounded-full bg-red-600 hover:bg-red-700 text-white border-0 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+                                <span className={`text-[10px] font-bold text-center ${hoursSinceOrder >= 24 ? "text-red-600" : "text-slate-500"}`}>
+                                  {hoursSinceOrder >= 24
+                                    ? `Placed ${hoursSinceOrder}h ago — over 24h`
+                                    : `Placed ${hoursSinceOrder}h ago`}
+                                </span>
+                              </div>
+                            )}
+
+                            {order.status === "cancelled" && (
+                              <div className="w-full flex items-center justify-center gap-1.5 py-3.5 text-red-600 text-xs font-black tracking-widest uppercase bg-red-50 border border-red-200/80 rounded-full select-none">
+                                CANCELLED
+                              </div>
+                            )}
+
+                            {order.status === "pending" && !isAwaitingReceipt && (
                               <button
                                 onClick={() => handleUpdateOrderStatus(order.id, "fulfilled")}
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-black tracking-widest py-3.5 rounded-full cursor-pointer transition-all border-0 shadow-md shadow-blue-500/10"
@@ -2618,6 +2830,108 @@ export default function AdminDashboardPage() {
                 )}
               </div>
 
+            </div>
+            );
+          })()}
+
+          {/* TAB: BANK TRANSFER DETAILS */}
+          {activeTab === "bank-transfer" && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in duration-300">
+
+              {/* Left: Edit form */}
+              <form
+                onSubmit={handleSavePaymentSettings}
+                className="lg:col-span-7 bg-white border border-slate-200/80 rounded-[2rem] p-6 flex flex-col gap-5 shadow-xs text-left"
+              >
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-xs font-black tracking-[0.2em] text-slate-500 uppercase">
+                    Bank Transfer Details
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-semibold">
+                    Shown to customers who choose Bank Transfer at checkout and in their order confirmation email.
+                  </p>
+                </div>
+
+                {saveStatus && (
+                  <div className="bg-purple-50 border border-purple-100 text-purple-600 text-xs font-semibold px-4 py-3 rounded-2xl text-center">
+                    {saveStatus.toUpperCase()}
+                  </div>
+                )}
+
+                {([
+                  { key: "bank_name", label: "Bank Name", placeholder: "e.g. Commercial Bank" },
+                  { key: "account_name", label: "Account Name", placeholder: "e.g. PluggedIn (Pvt) Ltd" },
+                  { key: "account_number", label: "Account Number", placeholder: "e.g. 1234567890" },
+                  { key: "branch", label: "Branch", placeholder: "e.g. Colombo 03" },
+                ] as const).map((field) => (
+                  <div key={field.key} className="flex flex-col gap-2">
+                    <label className="text-[9px] font-black tracking-widest text-slate-400 uppercase ml-1">
+                      {field.label}
+                    </label>
+                    <input
+                      type="text"
+                      value={paymentSettings[field.key]}
+                      onChange={(e) => setPaymentSettings({ ...paymentSettings, [field.key]: e.target.value })}
+                      placeholder={field.placeholder}
+                      maxLength={120}
+                      className="bg-slate-50 border border-slate-200 focus:bg-white focus:border-purple-500/80 rounded-2xl px-4 py-3.5 text-xs font-semibold text-slate-900 focus:outline-none transition-all"
+                    />
+                  </div>
+                ))}
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-[9px] font-black tracking-widest text-slate-400 uppercase ml-1">
+                    Note (shown below the bank details)
+                  </label>
+                  <textarea
+                    value={paymentSettings.payment_note}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, payment_note: e.target.value })}
+                    placeholder="e.g. Send a photo of your bank slip with your Order ID to WhatsApp 07X XXX XXXX"
+                    rows={3}
+                    maxLength={500}
+                    className="bg-slate-50 border border-slate-200 focus:bg-white focus:border-purple-500/80 rounded-2xl px-4 py-3.5 text-xs font-semibold text-slate-900 focus:outline-none transition-all resize-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingPaymentSettings}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-black tracking-widest py-4 rounded-full cursor-pointer transition-all border-0 shadow-md shadow-purple-600/15 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+                >
+                  {savingPaymentSettings ? "SAVING..." : "SAVE BANK DETAILS"}
+                </button>
+              </form>
+
+              {/* Right: Checkout preview */}
+              <div className="lg:col-span-5 flex flex-col gap-3 text-left">
+                <span className="text-[9px] font-black tracking-widest text-slate-400 uppercase ml-1">
+                  Checkout Preview
+                </span>
+                <div className="bg-white border border-slate-200 p-4 rounded-2xl flex flex-col gap-2 shadow-xs">
+                  <span className="text-[9px] font-black tracking-widest text-slate-400 uppercase">Beneficiary Bank Account</span>
+                  <div className="flex flex-col gap-1 text-[11px] text-slate-600 font-semibold">
+                    {([
+                      ["Bank Name", paymentSettings.bank_name],
+                      ["Account Name", paymentSettings.account_name],
+                      ["Account Number", paymentSettings.account_number],
+                      ["Branch", paymentSettings.branch],
+                    ] as const).filter(([, value]) => value).map(([label, value]) => (
+                      <div key={label} className="flex justify-between gap-3">
+                        <span>{label}:</span>
+                        <span className="text-slate-950 font-extrabold text-right">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {paymentSettings.payment_note && (
+                    <p className="text-[11px] text-slate-700 font-semibold leading-relaxed border-t border-slate-200/60 pt-2 mt-1 whitespace-pre-line">
+                      {paymentSettings.payment_note}
+                    </p>
+                  )}
+                  <p className="text-[9px] text-slate-400 font-medium leading-relaxed">
+                    {BANK_RECEIPT_DEADLINE_NOTICE}
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
