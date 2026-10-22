@@ -2,6 +2,14 @@ import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === "production";
 
+const supabaseHost = (() => {
+  try {
+    return process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname : "";
+  } catch {
+    return "";
+  }
+})();
+
 // Production CSP. Kept permissive enough for the app's inline styles, inline
 // JSON-LD scripts, Google Fonts, Supabase, and self-hosted media so it doesn't
 // break functionality. Tighten further (e.g. nonces, drop 'unsafe-inline') once
@@ -61,14 +69,17 @@ const nextConfig: NextConfig = {
     // Matched to the public/ Cache-Control below so a replaced source image is
     // picked up within the same window rather than being pinned for a month.
     minimumCacheTTL: 604800,
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "ffjakxowbqfrvuyvlpeh.supabase.co",
+    // Uploaded images (hero banners, products) live in Supabase storage. Also
+    // allow the configured project's host so a different/new Supabase project
+    // doesn't silently break every uploaded image.
+    remotePatterns: [...new Set(["ffjakxowbqfrvuyvlpeh.supabase.co", supabaseHost].filter(Boolean))].map(
+      (hostname) => ({
+        protocol: "https" as const,
+        hostname: hostname as string,
         port: "",
         pathname: "/**",
-      },
-    ],
+      })
+    ),
   },
   async headers() {
     return [

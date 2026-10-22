@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 import LazyVideo from "../components/LazyVideo";
 import { sanitizeHtml } from "@/lib/sanitize";
 import Footer from "../components/Footer";
@@ -340,6 +340,44 @@ const MOCK_PRODUCTS: Product[] = [
   }
 ];
 
+/**
+ * Hero background with art direction: phones get the mobile upload, tablets
+ * and desktops get the desktop upload. Using <picture> means each device only
+ * downloads the image it actually shows.
+ */
+function HeroPicture({
+  desktopSrc,
+  mobileSrc,
+  alt,
+  eager,
+  className,
+}: {
+  desktopSrc: string;
+  mobileSrc: string;
+  alt: string;
+  eager: boolean;
+  className: string;
+}) {
+  const common = {
+    alt,
+    fill: true,
+    sizes: "100vw",
+    loading: eager ? ("eager" as const) : ("lazy" as const),
+    fetchPriority: eager ? ("high" as const) : undefined,
+  };
+  const { props: { srcSet: desktopSrcSet } } = getImageProps({ ...common, src: desktopSrc });
+  const { props: { srcSet: mobileSrcSet, ...rest } } = getImageProps({ ...common, src: mobileSrc });
+
+  return (
+    <picture>
+      <source media="(min-width: 768px)" srcSet={desktopSrcSet} />
+      <source media="(max-width: 767px)" srcSet={mobileSrcSet} />
+      {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
+      <img {...rest} className={className} />
+    </picture>
+  );
+}
+
 const HERO_SLIDES_DEFAULT = [
   {
     id: "slide-1",
@@ -423,6 +461,7 @@ export default function HomeClient({
         videoSrc: b.image_url?.endsWith(".mp4") ? b.image_url : undefined,
         posterSrc: b.image_url?.endsWith(".mp4") ? "/posters/hero.webp" : undefined,
         imageSrc: !b.image_url?.endsWith(".mp4") ? b.image_url : undefined,
+        mobileImageSrc: !b.image_url?.endsWith(".mp4") && b.mobile_image_url ? b.mobile_image_url : undefined,
       }))
     : HERO_SLIDES_DEFAULT;
 
@@ -802,6 +841,14 @@ export default function HomeClient({
                     >
                       <source src={slide.videoSrc} type="video/mp4" />
                     </video>
+                  ) : "mobileImageSrc" in slide && slide.mobileImageSrc ? (
+                    <HeroPicture
+                      desktopSrc={slide.imageSrc!}
+                      mobileSrc={slide.mobileImageSrc}
+                      alt={slide.title}
+                      eager={idx === 0}
+                      className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                    />
                   ) : (
                     <Image
                       src={slide.imageSrc!}

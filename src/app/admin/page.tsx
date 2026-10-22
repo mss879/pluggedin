@@ -78,7 +78,10 @@ export interface HeroBanner {
   subtitle: string;
   badge: string;
   tag: string;
+  /** Desktop / tablet image (or .mp4) */
   image_url: string;
+  /** Optional image for phones (< 768px). Falls back to image_url when empty. */
+  mobile_image_url?: string;
   primary_cta_text: string;
   primary_cta_href: string;
   secondary_cta_text: string;
@@ -125,6 +128,7 @@ export default function AdminDashboardPage() {
     badge: "⚡ FAST ISLANDWIDE SHIPPING",
     tag: "FEATURED COLLECTION 2026",
     image_url: "",
+    mobile_image_url: "",
     primary_cta_text: "SHOP CREATOR GEAR",
     primary_cta_href: "/shop",
     secondary_cta_text: "EXPLORE COLLECTION",
@@ -132,7 +136,7 @@ export default function AdminDashboardPage() {
     sort_order: 1,
     is_active: true,
   });
-  const [uploadingBannerImage, setUploadingBannerImage] = useState(false);
+  const [uploadingBannerImage, setUploadingBannerImage] = useState<"image_url" | "mobile_image_url" | null>(null);
   const [savingBanner, setSavingBanner] = useState(false);
   const [collectionProducts, setCollectionProducts] = useState<{ collection_id: string; product_id: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1191,6 +1195,7 @@ export default function AdminDashboardPage() {
       badge: "⚡ FAST ISLANDWIDE SHIPPING",
       tag: "FEATURED COLLECTION 2026",
       image_url: "",
+      mobile_image_url: "",
       primary_cta_text: "SHOP CREATOR GEAR",
       primary_cta_href: "/shop",
       secondary_cta_text: "EXPLORE COLLECTION",
@@ -1207,15 +1212,15 @@ export default function AdminDashboardPage() {
     setIsBannerModalOpen(true);
   };
 
-  const handleUploadBannerFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadBannerFile = (field: "image_url" | "mobile_image_url") => async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploadingBannerImage(true);
+    setUploadingBannerImage(field);
     try {
       if (supabase) {
         const fileExt = file.name.split(".").pop();
-        const fileName = `hero_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+        const fileName = `hero_${field === "mobile_image_url" ? "mobile_" : ""}${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
         const filePath = `hero-banners/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
@@ -1226,12 +1231,12 @@ export default function AdminDashboardPage() {
 
         const { data } = supabase.storage.from("products").getPublicUrl(filePath);
         if (data?.publicUrl) {
-          setBannerForm((prev) => ({ ...prev, image_url: data.publicUrl }));
+          setBannerForm((prev) => ({ ...prev, [field]: data.publicUrl }));
         }
       } else {
         const reader = new FileReader();
         reader.onload = () => {
-          setBannerForm((prev) => ({ ...prev, image_url: reader.result as string }));
+          setBannerForm((prev) => ({ ...prev, [field]: reader.result as string }));
         };
         reader.readAsDataURL(file);
       }
@@ -1239,22 +1244,43 @@ export default function AdminDashboardPage() {
       console.error("Banner upload failed:", err);
       alert(`Image upload error: ${err.message || "Failed to upload image"}`);
     } finally {
-      setUploadingBannerImage(false);
+      setUploadingBannerImage(null);
+      e.target.value = "";
     }
   };
+
+  // The homepage is cached; ask the server to rebuild it so banner changes
+  // show up on the next visit instead of after the cache window.
+  const refreshHomepage = async () => {
+    if (!supabase) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch("/api/admin/revalidate", {
+        method: "POST",
+        headers: { Authorization: session?.access_token ? `Bearer ${session.access_token}` : "" },
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    } catch (err) {
+      console.error("Failed to refresh homepage cache:", err);
+    }
+  };
+
+  // RLS-blocked writes return no error, just zero rows — treat that as a failure
+  const NOT_SAVED_MSG = "The change was not saved. Your admin session may have expired — please log out and log in again.";
 
   const handleSaveBanner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bannerForm.title || !bannerForm.image_url) {
-      alert("Please enter a title and select/upload an image.");
+      alert("Please enter a title and upload a desktop banner image.");
       return;
     }
 
     setSavingBanner(true);
     try {
+      let savedId = `HB-${Date.now()}`;
       if (supabase) {
         if (editingBanner) {
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from("hero_banners")
             .update({
               title: bannerForm.title,
@@ -1262,6 +1288,7 @@ export default function AdminDashboardPage() {
               badge: bannerForm.badge || "",
               tag: bannerForm.tag || "",
               image_url: bannerForm.image_url,
+              mobile_image_url: bannerForm.mobile_image_url || "",
               primary_cta_text: bannerForm.primary_cta_text || "SHOP CREATOR GEAR",
               primary_cta_href: bannerForm.primary_cta_href || "/shop",
               secondary_cta_text: bannerForm.secondary_cta_text || "EXPLORE COLLECTION",
@@ -1270,16 +1297,19 @@ export default function AdminDashboardPage() {
               is_active: bannerForm.is_active ?? true,
               updated_at: new Date().toISOString()
             })
-            .eq("id", editingBanner.id);
+            .eq("id", editingBanner.id)
+            .select("id");
           if (error) throw error;
+          if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
         } else {
-          const { error } = await supabase.from("hero_banners").insert([
+          const { data, error } = await supabase.from("hero_banners").insert([
             {
               title: bannerForm.title,
               subtitle: bannerForm.subtitle || "",
               badge: bannerForm.badge || "",
               tag: bannerForm.tag || "",
               image_url: bannerForm.image_url,
+              mobile_image_url: bannerForm.mobile_image_url || "",
               primary_cta_text: bannerForm.primary_cta_text || "SHOP CREATOR GEAR",
               primary_cta_href: bannerForm.primary_cta_href || "/shop",
               secondary_cta_text: bannerForm.secondary_cta_text || "EXPLORE COLLECTION",
@@ -1287,9 +1317,11 @@ export default function AdminDashboardPage() {
               sort_order: bannerForm.sort_order || heroBanners.length + 1,
               is_active: bannerForm.is_active ?? true,
             }
-          ]);
+          ]).select("id").single();
           if (error) throw error;
+          savedId = data.id;
         }
+        await refreshHomepage();
       }
 
       if (editingBanner) {
@@ -1300,12 +1332,13 @@ export default function AdminDashboardPage() {
         );
       } else {
         const newBanner: HeroBanner = {
-          id: `HB-${Date.now()}`,
+          id: savedId,
           title: bannerForm.title!,
           subtitle: bannerForm.subtitle || "",
           badge: bannerForm.badge || "",
           tag: bannerForm.tag || "",
           image_url: bannerForm.image_url!,
+          mobile_image_url: bannerForm.mobile_image_url || "",
           primary_cta_text: bannerForm.primary_cta_text || "SHOP CREATOR GEAR",
           primary_cta_href: bannerForm.primary_cta_href || "/shop",
           secondary_cta_text: bannerForm.secondary_cta_text || "EXPLORE COLLECTION",
@@ -1331,13 +1364,17 @@ export default function AdminDashboardPage() {
     if (!confirm("Are you sure you want to delete this hero banner?")) return;
     try {
       if (supabase) {
-        await supabase.from("hero_banners").delete().eq("id", id);
+        const { data, error } = await supabase.from("hero_banners").delete().eq("id", id).select("id");
+        if (error) throw error;
+        if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
+        await refreshHomepage();
       }
       setHeroBanners(heroBanners.filter((b) => b.id !== id));
       setSaveStatus("Banner deleted");
       setTimeout(() => setSaveStatus(null), 2000);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to delete banner:", err);
+      alert(`Delete error: ${err.message || "Failed to delete banner"}`);
     }
   };
 
@@ -1345,13 +1382,21 @@ export default function AdminDashboardPage() {
     const updatedActive = !currentActive;
     try {
       if (supabase) {
-        await supabase.from("hero_banners").update({ is_active: updatedActive }).eq("id", id);
+        const { data, error } = await supabase
+          .from("hero_banners")
+          .update({ is_active: updatedActive, updated_at: new Date().toISOString() })
+          .eq("id", id)
+          .select("id");
+        if (error) throw error;
+        if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
+        await refreshHomepage();
       }
       setHeroBanners(
         heroBanners.map((b) => (b.id === id ? { ...b, is_active: updatedActive } : b))
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to toggle banner status:", err);
+      alert(`Update error: ${err.message || "Failed to update banner"}`);
     }
   };
 
@@ -3294,6 +3339,19 @@ export default function AdminDashboardPage() {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                      {/* Mobile image thumbnail */}
+                      <div className="absolute bottom-3 right-3 z-10 flex flex-col items-center gap-1">
+                        {banner.mobile_image_url ? (
+                          <img
+                            src={banner.mobile_image_url}
+                            alt={`${banner.title} (mobile)`}
+                            className="w-12 h-20 object-cover rounded-lg border-2 border-white/80 shadow-lg"
+                          />
+                        ) : null}
+                        <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-black/60 text-white uppercase tracking-wider">
+                          {banner.mobile_image_url ? "Mobile" : "No mobile img"}
+                        </span>
+                      </div>
                       
                       {/* Badge Pill Overlay */}
                       <div className="absolute top-3 left-3 right-3 flex justify-between items-center z-10">
@@ -3395,48 +3453,68 @@ export default function AdminDashboardPage() {
 
             <form onSubmit={handleSaveBanner} className="flex flex-col gap-5">
               
-              {/* Image Upload Area */}
-              <div className="flex flex-col gap-2">
-                <label className="text-[10px] font-extrabold tracking-widest text-slate-500 uppercase">
-                  Banner Image <span className="text-red-500">*</span>
-                </label>
-                
-                {bannerForm.image_url ? (
-                  <div className="relative h-44 w-full rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 group">
-                    <img src={bannerForm.image_url} alt="Preview" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <label className="bg-white text-slate-900 text-xs font-bold px-4 py-2 rounded-full cursor-pointer hover:bg-slate-100">
-                        Change Image
-                        <input type="file" accept="image/*" onChange={handleUploadBannerFile} className="hidden" />
-                      </label>
+              {/* Image Upload Areas: desktop (required) + mobile (optional) */}
+              {([
+                {
+                  field: "image_url",
+                  label: "Desktop Banner Image",
+                  required: true,
+                  hint: "Landscape, e.g. 1920 × 1080. Shown on tablets & desktops.",
+                  previewClass: "h-44 w-full",
+                },
+                {
+                  field: "mobile_image_url",
+                  label: "Mobile Banner Image",
+                  required: false,
+                  hint: "Portrait, e.g. 1080 × 1350. Shown on phones. Leave empty to use the desktop image.",
+                  previewClass: "h-56 w-40",
+                },
+              ] as const).map(({ field, label, required, hint, previewClass }) => (
+                <div key={field} className="flex flex-col gap-2">
+                  <label className="text-[10px] font-extrabold tracking-widest text-slate-500 uppercase">
+                    {label} {required ? <span className="text-red-500">*</span> : <span className="text-slate-400 normal-case tracking-normal font-semibold">(optional)</span>}
+                  </label>
+                  <span className="text-[10px] text-slate-400 -mt-1">{hint}</span>
+
+                  {bannerForm[field] ? (
+                    <div className={`relative ${previewClass} rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 group`}>
+                      <img src={bannerForm[field]} alt={`${label} preview`} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                        <label className="bg-white text-slate-900 text-xs font-bold px-4 py-2 rounded-full cursor-pointer hover:bg-slate-100">
+                          Change Image
+                          <input type="file" accept="image/*" onChange={handleUploadBannerFile(field)} className="hidden" />
+                        </label>
+                        {!required && (
+                          <button
+                            type="button"
+                            onClick={() => setBannerForm({ ...bannerForm, [field]: "" })}
+                            className="bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-full cursor-pointer hover:bg-red-600 border-0"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-slate-250 hover:border-purple-400 bg-slate-50 hover:bg-purple-50/20 rounded-2xl p-6 text-center flex flex-col items-center justify-center transition-all cursor-pointer relative min-h-[140px]">
-                    <input type="file" accept="image/*" onChange={handleUploadBannerFile} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
-                    <svg className="w-8 h-8 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span className="text-xs font-bold text-slate-700">Click to upload banner image</span>
-                    <span className="text-[10px] text-slate-400 mt-1">PNG, JPG, WEBP recommended</span>
-                  </div>
-                )}
+                  ) : (
+                    <div className="border-2 border-dashed border-slate-250 hover:border-purple-400 bg-slate-50 hover:bg-purple-50/20 rounded-2xl p-6 text-center flex flex-col items-center justify-center transition-all cursor-pointer relative min-h-[120px]">
+                      <input type="file" accept="image/*" onChange={handleUploadBannerFile(field)} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                      <svg className="w-8 h-8 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-xs font-bold text-slate-700">Click to upload {field === "mobile_image_url" ? "mobile" : "desktop"} image</span>
+                      <span className="text-[10px] text-slate-400 mt-1">PNG, JPG, WEBP recommended</span>
+                    </div>
+                  )}
 
-                {uploadingBannerImage && (
-                  <span className="text-xs font-bold text-purple-600 animate-pulse">Uploading image file...</span>
-                )}
-
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">OR Image URL:</span>
-                  <input
-                    type="text"
-                    value={bannerForm.image_url || ""}
-                    onChange={(e) => setBannerForm({ ...bannerForm, image_url: e.target.value })}
-                    placeholder="/banner_1.webp or https://..."
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800"
-                  />
+                  {uploadingBannerImage === field && (
+                    <span className="text-xs font-bold text-purple-600 animate-pulse">Uploading image file...</span>
+                  )}
                 </div>
-              </div>
+              ))}
+
+              <p className="text-[10px] font-semibold text-purple-600 bg-purple-50 border border-purple-100 rounded-xl px-3 py-2 -mt-1">
+                Uploaded images go live on the storefront once you press Save.
+              </p>
 
               {/* Title & Badge */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
