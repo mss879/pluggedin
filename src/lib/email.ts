@@ -39,6 +39,7 @@ interface OrderEmailPayload {
   paymentMethod: string;
   /** Included in totalAmount. */
   deliveryFee?: number;
+  /** Shown next to the delivery line, e.g. the order weight "2.3 kg". */
   deliveryZone?: string | null;
   /** Included in the confirmation email for bank transfer orders. */
   bankDetails?: PaymentSettings | null;

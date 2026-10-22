@@ -15,6 +15,8 @@ export interface Product {
   features?: string[];
   colors?: string[];
   metaTitle?: string;
+  /** Shipping weight in grams (drives the delivery charge). */
+  weightGrams?: number;
 }
 
 export const getCategoryIcon = (category: string, id?: string): React.ReactNode => {

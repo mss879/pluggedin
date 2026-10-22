@@ -11,7 +11,13 @@ import {
   normalizePaymentSettings,
   type PaymentSettings,
 } from "@/lib/payment-settings";
-import { formatDeliveryFee } from "@/lib/delivery";
+import {
+  DEFAULT_DELIVERY_RATES,
+  calculateDeliveryFee,
+  formatDeliveryFee,
+  formatWeight,
+  normalizeDeliveryRates,
+} from "@/lib/delivery";
 
 interface Collection {
   id: string;
@@ -57,15 +63,6 @@ interface Order {
   status: "pending" | "fulfilled" | "shipped" | "delivered" | "cancelled";
   created_at: string;
   updated_at?: string;
-}
-
-/** Editable row in Admin → Delivery. `isNew` rows are not in the DB yet. */
-interface DeliveryZoneRow {
-  id: string;
-  name: string;
-  price: string;
-  is_active: boolean;
-  isNew?: boolean;
 }
 
 interface ContactInquiry {
@@ -123,9 +120,13 @@ export default function AdminDashboardPage() {
   const [reviewingReceiptId, setReviewingReceiptId] = useState<string | null>(null);
   const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>(EMPTY_PAYMENT_SETTINGS);
   const [savingPaymentSettings, setSavingPaymentSettings] = useState(false);
-  const [deliveryZones, setDeliveryZones] = useState<DeliveryZoneRow[]>([]);
-  const [savedDeliveryZoneIds, setSavedDeliveryZoneIds] = useState<string[]>([]);
-  const [savingDeliveryZones, setSavingDeliveryZones] = useState(false);
+  // Delivery rates as editable strings (Admin → Delivery)
+  const [deliveryRatesForm, setDeliveryRatesForm] = useState({
+    base_fee: String(DEFAULT_DELIVERY_RATES.base_fee),
+    base_weight_grams: String(DEFAULT_DELIVERY_RATES.base_weight_grams),
+    extra_fee_per_kg: String(DEFAULT_DELIVERY_RATES.extra_fee_per_kg),
+  });
+  const [savingDeliveryRates, setSavingDeliveryRates] = useState(false);
   const [contactInquiries, setContactInquiries] = useState<ContactInquiry[]>([]);
   const [activeInquiry, setActiveInquiry] = useState<ContactInquiry | null>(null);
   const [marqueeOffers, setMarqueeOffers] = useState<MarqueeOffer[]>([]);
@@ -161,6 +162,7 @@ export default function AdminDashboardPage() {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [prodName, setProdName] = useState("");
   const [prodMetaTitle, setProdMetaTitle] = useState("");
+  const [prodWeight, setProdWeight] = useState("");
   const [prodCategory, setProdCategory] = useState("Home and kitchen");
   const [prodPrice, setProdPrice] = useState("");
   const [prodSlashedPrice, setProdSlashedPrice] = useState("");
@@ -217,6 +219,7 @@ export default function AdminDashboardPage() {
                 tags: item.tags || [],
                 features: item.features || [],
                 metaTitle: item.meta_title || "",
+                weightGrams: Number(item.weight_grams) || 0,
               }));
               setProducts(mappedProds);
             } else {
@@ -450,24 +453,22 @@ export default function AdminDashboardPage() {
             console.error("Failed to load payment_settings:", e);
           }
 
-          // 8. Fetch Delivery Zones (incl. disabled ones)
+          // 8. Fetch Delivery Rates
           try {
-            const { data: zoneData, error: zoneErr } = await supabase
-              .from("delivery_zones")
-              .select("id, name, price, is_active")
-              .order("sort_order", { ascending: true });
-            if (zoneErr) throw zoneErr;
-            setDeliveryZones(
-              (zoneData || []).map((z) => ({
-                id: z.id,
-                name: z.name,
-                price: String(Number(z.price) || 0),
-                is_active: z.is_active,
-              }))
-            );
-            setSavedDeliveryZoneIds((zoneData || []).map((z) => z.id));
+            const { data: ratesData, error: ratesErr } = await supabase
+              .from("delivery_settings")
+              .select("base_fee, base_weight_grams, extra_fee_per_kg")
+              .eq("id", 1)
+              .maybeSingle();
+            if (ratesErr) throw ratesErr;
+            const rates = normalizeDeliveryRates(ratesData);
+            setDeliveryRatesForm({
+              base_fee: String(rates.base_fee),
+              base_weight_grams: String(rates.base_weight_grams),
+              extra_fee_per_kg: String(rates.extra_fee_per_kg),
+            });
           } catch (e) {
-            console.error("Failed to load delivery_zones:", e);
+            console.error("Failed to load delivery_settings:", e);
           }
 
           // 9. Fetch Hero Banners
@@ -755,83 +756,38 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleAddDeliveryZone = () => {
-    setDeliveryZones((prev) => [
-      ...prev,
-      { id: `new-${Date.now()}`, name: "", price: "", is_active: true, isNew: true },
-    ]);
-  };
-
-  const handleUpdateDeliveryZone = (id: string, patch: Partial<DeliveryZoneRow>) => {
-    setDeliveryZones((prev) => prev.map((z) => (z.id === id ? { ...z, ...patch } : z)));
-  };
-
-  const handleRemoveDeliveryZone = (id: string) => {
-    setDeliveryZones((prev) => prev.filter((z) => z.id !== id));
-  };
-
-  const handleSaveDeliveryZones = async () => {
-    for (const z of deliveryZones) {
-      const price = Number(z.price);
-      if (!z.name.trim()) {
-        alert("Every delivery area needs a name.");
-        return;
-      }
-      if (z.price.trim() === "" || !Number.isFinite(price) || price < 0) {
-        alert(`Please enter a valid delivery charge for "${z.name.trim()}" (0 for free delivery).`);
-        return;
-      }
+  const handleSaveDeliveryRates = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const baseFee = Number(deliveryRatesForm.base_fee);
+    const baseWeight = Number(deliveryRatesForm.base_weight_grams);
+    const extraFee = Number(deliveryRatesForm.extra_fee_per_kg);
+    if (![baseFee, extraFee].every((n) => Number.isFinite(n) && n >= 0) || !Number.isFinite(baseWeight) || baseWeight <= 0) {
+      alert("Please enter valid delivery rates (charges can be 0, the included weight must be more than 0).");
+      return;
     }
 
-    setSavingDeliveryZones(true);
+    setSavingDeliveryRates(true);
     try {
       if (supabase) {
-        const keptIds = deliveryZones.filter((z) => !z.isNew).map((z) => z.id);
-        const removedIds = savedDeliveryZoneIds.filter((id) => !keptIds.includes(id));
-        if (removedIds.length > 0) {
-          const { error } = await supabase.from("delivery_zones").delete().in("id", removedIds);
-          if (error) throw error;
-        }
-
-        const now = new Date().toISOString();
-        const rows = deliveryZones.map((z, idx) => ({
-          ...(z.isNew ? {} : { id: z.id }),
-          name: z.name.trim(),
-          price: Math.round(Number(z.price) * 100) / 100,
-          is_active: z.is_active,
-          sort_order: idx + 1,
-          updated_at: now,
-        }));
-
-        const existing = rows.filter((r) => "id" in r);
-        if (existing.length > 0) {
-          const { data, error } = await supabase.from("delivery_zones").upsert(existing).select("id");
-          if (error) throw error;
-          if (!data || data.length !== existing.length) throw new Error(NOT_SAVED_MSG);
-        }
-
-        const created = rows.filter((r) => !("id" in r));
-        let createdIds: string[] = [];
-        if (created.length > 0) {
-          const { data, error } = await supabase.from("delivery_zones").insert(created).select("id");
-          if (error) throw error;
-          createdIds = (data || []).map((r) => r.id);
-        }
-
-        // Swap temporary ids for the real ones so a second save updates instead of duplicating
-        let createdIdx = 0;
-        const saved = deliveryZones.map((z) =>
-          z.isNew ? { ...z, id: createdIds[createdIdx++] ?? z.id, isNew: false } : z
-        );
-        setDeliveryZones(saved);
-        setSavedDeliveryZoneIds(saved.map((z) => z.id));
+        const { data, error } = await supabase
+          .from("delivery_settings")
+          .upsert({
+            id: 1,
+            base_fee: Math.round(baseFee * 100) / 100,
+            base_weight_grams: Math.round(baseWeight),
+            extra_fee_per_kg: Math.round(extraFee * 100) / 100,
+            updated_at: new Date().toISOString(),
+          })
+          .select("id");
+        if (error) throw error;
+        if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
       }
-      setSaveStatus("Delivery charges saved.");
+      setSaveStatus("Delivery rates saved.");
       setTimeout(() => setSaveStatus(null), 3000);
     } catch (err: any) {
-      alert(`Failed to save delivery charges: ${err.message}`);
+      alert(`Failed to save delivery rates: ${err.message}`);
     } finally {
-      setSavingDeliveryZones(false);
+      setSavingDeliveryRates(false);
     }
   };
 
@@ -924,6 +880,7 @@ export default function AdminDashboardPage() {
     const tagsArr = prodTags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean);
     const colorsArr = prodColors.split(",").map((c) => c.trim()).filter(Boolean);
     const featuresArr = prodFeatures.split(",").map((f) => f.trim()).filter(Boolean);
+    const weightGrams = Math.max(0, Math.round(Number(prodWeight) || 0));
 
     const productPayload = {
       id,
@@ -939,6 +896,7 @@ export default function AdminDashboardPage() {
       tags: tagsArr,
       features: featuresArr,
       meta_title: prodMetaTitle,
+      weight_grams: weightGrams,
       updated_at: new Date().toISOString(),
     };
 
@@ -977,6 +935,7 @@ export default function AdminDashboardPage() {
         tags: tagsArr,
         features: featuresArr,
         metaTitle: prodMetaTitle,
+        weightGrams,
       };
 
       if (editingProductId) {
@@ -1012,6 +971,7 @@ export default function AdminDashboardPage() {
     setProdFeatures("");
     setProdImages([]);
     setProdMetaTitle("");
+    setProdWeight("");
   };
 
   const handleEditProduct = (p: Product) => {
@@ -1026,6 +986,7 @@ export default function AdminDashboardPage() {
     setProdFeatures((p.features || []).join(", "));
     setProdImages(p.images || []);
     setProdMetaTitle(p.metaTitle || "");
+    setProdWeight(p.weightGrams ? String(p.weightGrams) : "");
     setActiveTab("add-product");
   };
 
@@ -2140,6 +2101,25 @@ export default function AdminDashboardPage() {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
+                    Weight (grams)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    inputMode="numeric"
+                    value={prodWeight}
+                    onChange={(e) => setProdWeight(e.target.value)}
+                    placeholder="e.g. 750"
+                    className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                  />
+                  <span className="text-[10px] text-slate-400 ml-1">
+                    Packed shipping weight. Used to calculate the delivery charge (1 kg = 1000 g).
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
                     Rich Text Description
                   </label>
                   <RichTextEditor
@@ -2990,15 +2970,21 @@ export default function AdminDashboardPage() {
           })()}
 
           {/* TAB: DELIVERY CHARGES */}
-          {activeTab === "delivery" && (
+          {activeTab === "delivery" && (() => {
+            const previewRates = normalizeDeliveryRates(deliveryRatesForm);
+            const productsWithoutWeight = products.filter((p) => !p.weightGrams);
+            return (
             <div className="max-w-3xl flex flex-col gap-6 animate-in fade-in duration-300">
-              <div className="bg-white border border-slate-200/80 rounded-[2rem] p-6 flex flex-col gap-5 shadow-xs text-left">
+              <form
+                onSubmit={handleSaveDeliveryRates}
+                className="bg-white border border-slate-200/80 rounded-[2rem] p-6 flex flex-col gap-5 shadow-xs text-left"
+              >
                 <div className="flex flex-col gap-1">
                   <h3 className="text-xs font-black tracking-[0.2em] text-slate-500 uppercase">
-                    Delivery Areas &amp; Charges
+                    Weight-Based Delivery Rates
                   </h3>
                   <p className="text-[11px] text-slate-400 font-semibold">
-                    Customers choose one of these areas at checkout and its charge is added to the order total. Use 0 for free delivery. If no areas are active, delivery is free.
+                    The delivery charge is calculated from the total weight of the order (each product&apos;s weight × quantity). Set each product&apos;s weight in grams when adding or editing it.
                   </p>
                 </div>
 
@@ -3008,85 +2994,78 @@ export default function AdminDashboardPage() {
                   </div>
                 )}
 
-                {deliveryZones.length === 0 ? (
-                  <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center text-xs font-bold text-slate-400">
-                    No delivery areas yet — delivery is currently free for everyone. Add one below.
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    <div className="hidden sm:grid grid-cols-12 gap-3 px-1 text-[9px] font-black tracking-widest text-slate-400 uppercase">
-                      <span className="col-span-6">Area name</span>
-                      <span className="col-span-3">Charge (Rs.)</span>
-                      <span className="col-span-3">Status</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {([
+                    { key: "base_fee", label: "Base charge (Rs.)", hint: "For orders up to the included weight" },
+                    { key: "base_weight_grams", label: "Included weight (grams)", hint: "1000 g = 1 kg" },
+                    { key: "extra_fee_per_kg", label: "Each extra kg (Rs.)", hint: "Per kg or part of a kg above" },
+                  ] as const).map((field) => (
+                    <div key={field.key} className="flex flex-col gap-2">
+                      <label className="text-[9px] font-black tracking-widest text-slate-400 uppercase ml-1">
+                        {field.label}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        inputMode="numeric"
+                        required
+                        value={deliveryRatesForm[field.key]}
+                        onChange={(e) => setDeliveryRatesForm({ ...deliveryRatesForm, [field.key]: e.target.value })}
+                        className="bg-slate-50 border border-slate-200 focus:bg-white focus:border-purple-500/80 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-900 focus:outline-none transition-all"
+                      />
+                      <span className="text-[10px] text-slate-400 ml-1">{field.hint}</span>
                     </div>
-                    {deliveryZones.map((zone) => (
-                      <div key={zone.id} className="grid grid-cols-12 gap-3 items-center bg-slate-50/60 border border-slate-200/80 rounded-2xl p-3">
-                        <input
-                          type="text"
-                          value={zone.name}
-                          onChange={(e) => handleUpdateDeliveryZone(zone.id, { name: e.target.value })}
-                          placeholder="e.g. Within Colombo"
-                          maxLength={80}
-                          className="col-span-12 sm:col-span-6 bg-white border border-slate-200 focus:border-purple-500/80 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-900 focus:outline-none"
-                        />
-                        <input
-                          type="number"
-                          min={0}
-                          step="1"
-                          inputMode="numeric"
-                          value={zone.price}
-                          onChange={(e) => handleUpdateDeliveryZone(zone.id, { price: e.target.value })}
-                          placeholder="e.g. 350"
-                          className="col-span-6 sm:col-span-3 bg-white border border-slate-200 focus:border-purple-500/80 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-900 focus:outline-none"
-                        />
-                        <div className="col-span-6 sm:col-span-3 flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateDeliveryZone(zone.id, { is_active: !zone.is_active })}
-                            className={`text-[9px] font-extrabold px-3 py-1.5 rounded-full border cursor-pointer transition-all ${
-                              zone.is_active
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : "bg-slate-100 text-slate-500 border-slate-200"
-                            }`}
-                          >
-                            {zone.is_active ? "ACTIVE" : "HIDDEN"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveDeliveryZone(zone.id)}
-                            aria-label={`Remove ${zone.name || "delivery area"}`}
-                            className="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-200 cursor-pointer transition-all"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
+                  ))}
+                </div>
+
+                {/* Worked examples with the current (unsaved) values */}
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col gap-2">
+                  <span className="text-[9px] font-black tracking-widest text-slate-400 uppercase">Examples</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {[800, 1000, 1500, 2000, 3200].map((g) => (
+                      <div key={g} className="bg-white border border-slate-200/80 rounded-xl px-3 py-2 flex flex-col">
+                        <span className="text-[10px] font-bold text-slate-400">{formatWeight(g)}</span>
+                        <span className="text-xs font-black text-slate-900">{formatDeliveryFee(calculateDeliveryFee(g, previewRates))}</span>
                       </div>
                     ))}
                   </div>
-                )}
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    type="button"
-                    onClick={handleAddDeliveryZone}
-                    className="flex-1 bg-white hover:bg-purple-50 text-purple-600 border border-purple-200 text-xs font-black tracking-widest py-3.5 rounded-full cursor-pointer transition-all"
-                  >
-                    + ADD DELIVERY AREA
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveDeliveryZones}
-                    disabled={savingDeliveryZones}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black tracking-widest py-3.5 rounded-full cursor-pointer transition-all border-0 shadow-md shadow-purple-600/15 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
-                  >
-                    {savingDeliveryZones ? "SAVING..." : "SAVE DELIVERY CHARGES"}
-                  </button>
                 </div>
-              </div>
+
+                <button
+                  type="submit"
+                  disabled={savingDeliveryRates}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-black tracking-widest py-3.5 rounded-full cursor-pointer transition-all border-0 shadow-md shadow-purple-600/15 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+                >
+                  {savingDeliveryRates ? "SAVING..." : "SAVE DELIVERY RATES"}
+                </button>
+              </form>
+
+              {productsWithoutWeight.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-[2rem] p-6 flex flex-col gap-3 text-left">
+                  <h3 className="text-xs font-black tracking-[0.2em] text-amber-700 uppercase">
+                    {productsWithoutWeight.length} product{productsWithoutWeight.length === 1 ? "" : "s"} without a weight
+                  </h3>
+                  <p className="text-[11px] text-amber-700/80 font-semibold">
+                    These count as 0 g, so orders containing only these products are charged the base rate. Click one to add its weight.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {productsWithoutWeight.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleEditProduct(p)}
+                        className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-white border border-amber-200 text-amber-800 hover:border-amber-400 cursor-pointer"
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+            );
+          })()}
 
           {/* TAB: BANK TRANSFER DETAILS */}
           {activeTab === "bank-transfer" && (

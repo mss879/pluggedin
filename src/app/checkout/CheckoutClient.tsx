@@ -11,7 +11,13 @@ import {
   normalizePaymentSettings,
   type PaymentSettings,
 } from "@/lib/payment-settings";
-import { formatDeliveryFee, normalizeDeliveryZones, type DeliveryZone } from "@/lib/delivery";
+import {
+  DEFAULT_DELIVERY_RATES,
+  calculateDeliveryFee,
+  formatWeight,
+  normalizeDeliveryRates,
+  type DeliveryRates,
+} from "@/lib/delivery";
 
 interface CartItem {
   product: Product;
@@ -85,8 +91,10 @@ export default function CheckoutClient() {
   const [formError, setFormError] = useState<string | null>(null);
   const [bankDetails, setBankDetails] = useState<PaymentSettings | null>(null);
   const [bankDetailsLoading, setBankDetailsLoading] = useState(true);
-  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
-  const [deliveryZoneId, setDeliveryZoneId] = useState<string>("");
+  const [deliveryRates, setDeliveryRates] = useState<DeliveryRates>(DEFAULT_DELIVERY_RATES);
+  // Product weights (grams) by id, loaded fresh so old carts saved before
+  // weights existed still get the right delivery charge.
+  const [productWeights, setProductWeights] = useState<Record<string, number>>({});
   const [placedTotal, setPlacedTotal] = useState(0);
 
   // Step states: "shipping" | "payment" | "placing"
@@ -115,7 +123,7 @@ export default function CheckoutClient() {
     }
   }, [router]);
 
-  // Bank transfer details (Admin → Bank Transfer) and delivery areas
+  // Bank transfer details (Admin → Bank Transfer) and delivery rates
   // (Admin → Delivery)
   useEffect(() => {
     let cancelled = false;
@@ -123,20 +131,20 @@ export default function CheckoutClient() {
       try {
         const client = await getSupabase();
         if (!client) return;
-        const [settingsRes, zonesRes] = await Promise.all([
+        const [settingsRes, ratesRes] = await Promise.all([
           client
             .from("payment_settings")
             .select("bank_name, account_name, account_number, branch, payment_note")
             .eq("id", 1)
             .maybeSingle(),
           client
-            .from("delivery_zones")
-            .select("id, name, price")
-            .eq("is_active", true)
-            .order("sort_order", { ascending: true }),
+            .from("delivery_settings")
+            .select("base_fee, base_weight_grams, extra_fee_per_kg")
+            .eq("id", 1)
+            .maybeSingle(),
         ]);
-        if (zonesRes.error) console.error("Failed to load delivery areas", zonesRes.error);
-        else if (!cancelled) setDeliveryZones(normalizeDeliveryZones(zonesRes.data));
+        if (ratesRes.error) console.error("Failed to load delivery rates", ratesRes.error);
+        else if (!cancelled) setDeliveryRates(normalizeDeliveryRates(ratesRes.data));
         if (settingsRes.error) throw settingsRes.error;
         if (!cancelled) setBankDetails(normalizePaymentSettings(settingsRes.data));
       } catch (e) {
@@ -149,6 +157,31 @@ export default function CheckoutClient() {
       cancelled = true;
     };
   }, []);
+
+  const cartProductIds = cart.map((item) => item.product.id).sort().join(",");
+  useEffect(() => {
+    if (!cartProductIds) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const client = await getSupabase();
+        if (!client) return;
+        const { data, error } = await client
+          .from("products")
+          .select("id, weight_grams")
+          .in("id", cartProductIds.split(","));
+        if (error) throw error;
+        if (!cancelled) {
+          setProductWeights(Object.fromEntries((data || []).map((p) => [p.id, Number(p.weight_grams) || 0])));
+        }
+      } catch (e) {
+        console.error("Failed to load product weights", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cartProductIds]);
 
   // Sync Cart with event listener
   useEffect(() => {
@@ -199,8 +232,12 @@ export default function CheckoutClient() {
     (sum, item) => sum + parsePrice(item.product.price) * item.quantity,
     0
   );
-  const selectedZone = deliveryZones.find((z) => z.id === deliveryZoneId) || null;
-  const deliveryFee = selectedZone?.price || 0;
+  const totalWeightGrams = cart.reduce(
+    (sum, item) => sum + (productWeights[item.product.id] || 0) * item.quantity,
+    0
+  );
+  // Same formula the server uses when the order is placed
+  const deliveryFee = calculateDeliveryFee(totalWeightGrams, deliveryRates);
   const orderTotal = cartSubtotal + deliveryFee;
 
   const handlePlaceOrder = async () => {
@@ -224,7 +261,6 @@ export default function CheckoutClient() {
             quantity: item.quantity,
           })),
           payment_method: paymentMethod,
-          delivery_zone_id: deliveryZoneId || undefined,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -400,11 +436,6 @@ export default function CheckoutClient() {
                         return;
                       }
 
-                      if (deliveryZones.length > 0 && !selectedZone) {
-                        setFormError("Please select your delivery area.");
-                        return;
-                      }
-
                       setFormError(null);
                       setCheckoutStep("payment");
                     }} 
@@ -481,48 +512,6 @@ export default function CheckoutClient() {
                         }`}
                       />
                     </div>
-
-                    {deliveryZones.length > 0 && (
-                      <div className="flex flex-col gap-2 text-left">
-                        <label className="text-[9px] font-black tracking-widest text-zinc-400 uppercase ml-1">
-                          Delivery Area
-                        </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {deliveryZones.map((zone) => {
-                            const isSelected = deliveryZoneId === zone.id;
-                            return (
-                              <button
-                                key={zone.id}
-                                type="button"
-                                onClick={() => {
-                                  setDeliveryZoneId(zone.id);
-                                  if (formError?.toLowerCase().includes("delivery area")) setFormError(null);
-                                }}
-                                className={`border p-3.5 rounded-xl cursor-pointer transition-all flex items-center justify-between gap-3 text-left ${
-                                  isSelected
-                                    ? "border-purple-500 bg-purple-50/30 shadow-sm"
-                                    : formError?.toLowerCase().includes("delivery area")
-                                    ? "border-red-400 bg-white"
-                                    : "border-zinc-200 bg-white hover:bg-zinc-50"
-                                }`}
-                              >
-                                <span className="flex items-center gap-2.5">
-                                  <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                                    isSelected ? "border-purple-600" : "border-zinc-300"
-                                  }`}>
-                                    {isSelected && <span className="w-2 h-2 rounded-full bg-purple-600" />}
-                                  </span>
-                                  <span className="text-xs font-bold text-zinc-950">{zone.name}</span>
-                                </span>
-                                <span className={`text-xs font-extrabold ${zone.price > 0 ? "text-zinc-900" : "text-emerald-600"}`}>
-                                  {formatDeliveryFee(zone.price)}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
 
                     <button
                        type="submit"
@@ -666,10 +655,8 @@ export default function CheckoutClient() {
                     <span className="text-zinc-950 font-extrabold">Rs. {cartSubtotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs text-zinc-500 font-semibold">
-                    <span>Delivery{selectedZone ? ` (${selectedZone.name})` : ""}</span>
-                    {deliveryZones.length > 0 && !selectedZone ? (
-                      <span className="text-zinc-400 font-bold text-[10px] tracking-wide">SELECT AREA</span>
-                    ) : deliveryFee > 0 ? (
+                    <span>Delivery{totalWeightGrams > 0 ? ` (${formatWeight(totalWeightGrams)})` : ""}</span>
+                    {deliveryFee > 0 ? (
                       <span className="text-zinc-850 font-bold">Rs. {deliveryFee.toLocaleString()}</span>
                     ) : (
                       <span className="text-emerald-600 font-extrabold text-[10px] tracking-wide">FREE</span>
