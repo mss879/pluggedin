@@ -81,6 +81,14 @@ const nextConfig: NextConfig = {
       })
     ),
   },
+  // Blog is hidden for now (pages kept so it can be re-enabled by deleting
+  // these). Temporary redirect so search engines don't treat it as gone.
+  async redirects() {
+    return [
+      { source: "/blog", destination: "/", permanent: false },
+      { source: "/blog/:path*", destination: "/", permanent: false },
+    ];
+  },
   async headers() {
     return [
       {

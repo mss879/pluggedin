@@ -15,10 +15,6 @@ const faqItems = [
   {
     question: "What is your return policy for personal electronics and workspace accessories?",
     answer: "We support all eligible products with a 30-Day Workspace Trial. If you are not fully satisfied, you can return items in their original packaging. Please refer to our dedicated Refund Policy page linked in the footer for complete eligibility criteria."
-  },
-  {
-    question: "Can I visit your design studio to preview setup components in person?",
-    answer: "Yes! Our design showroom in Dehiwala is open for reservation bookings. To ensure we can dedicate personal time to your setup walkthrough, please coordinate a visit time in advance by sending us a message."
   }
 ];
 
@@ -230,12 +226,9 @@ export default function ContactClient() {
                 </svg>
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-bold tracking-wider text-zinc-450 uppercase">Design Studio</span>
+                <span className="text-[11px] font-bold tracking-wider text-zinc-450 uppercase">Address</span>
                 <span className="text-base font-bold text-zinc-900 leading-normal">
                   10, Athapaththu road, Dehiwala
-                </span>
-                <span className="text-xs sm:text-sm text-zinc-500 font-medium leading-relaxed">
-                  Visiting our design showroom requires booking a reservation in advance.
                 </span>
               </div>
             </div>

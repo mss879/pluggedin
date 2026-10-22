@@ -80,7 +80,7 @@ export default function RefundPolicyPage() {
               3. Refund Processing Timelines
             </h2>
             <p>
-              Once your return package arrives at our design studio, our QA engineers inspect the components. This evaluation takes 2 to 3 business days. Following approval, refunds are issued immediately.
+              Once your return package arrives at our address, our QA engineers inspect the components. This evaluation takes 2 to 3 business days. Following approval, refunds are issued immediately.
             </p>
             <p>
               For orders paid via <strong className="text-zinc-850">Direct Bank Transfer</strong>, we will request your account coordinates to return the funds. For cash payments, refunds are handled through verified bank wires or store credits. Please allow 5 to 10 business days for the transaction to reflect in your account.

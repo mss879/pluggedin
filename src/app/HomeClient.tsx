@@ -1153,56 +1153,6 @@ export default function HomeClient({
                   </div>
                 </div>
 
-                {/* Card 3: Trending (span-1) - COMING SOON */}
-                <div 
-                  className="md:col-span-1 group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-50 cursor-not-allowed flex flex-col justify-between p-6 select-none"
-                >
-                  {/* Background Image */}
-                  <div className="absolute inset-0 z-0">
-                    <Image 
-                      src="/categories/trending.webp" 
-                      alt="Trending" 
-                      fill
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                      style={{ objectFit: "cover" }}
-                      className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] filter grayscale-[15%]"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-zinc-950/30 opacity-90" />
-                  </div>
-
-                  {/* Content Overlay */}
-                  <div className="relative z-10 flex flex-col justify-between h-full w-full">
-                    <div className="flex justify-between items-center w-full">
-                      <div className="flex items-center gap-1.5 bg-zinc-950/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-amber-500/30">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                        <span className="text-[8px] font-bold text-amber-300 tracking-wider uppercase">LOCKED</span>
-                      </div>
-                      <span className="text-[9px] font-black tracking-widest text-amber-300 bg-amber-950/90 border border-amber-500/50 backdrop-blur-md px-3 py-1 rounded-full uppercase shadow-md shadow-amber-950/50">
-                        COMING SOON
-                      </span>
-                    </div>
-                    
-                    <div className="text-left">
-                      <h3 className="text-xl font-extrabold text-white/90 font-outfit">
-                        Trending Featured Collection
-                      </h3>
-                      <div className="flex flex-wrap gap-2 mt-3 pointer-events-none">
-                        <span 
-                          className="text-[9px] font-bold tracking-widest text-amber-300/70 bg-amber-955/30 backdrop-blur-md px-3 py-1 rounded-full border border-amber-500/20 uppercase"
-                        >
-                          #mic
-                        </span>
-                        <span 
-                          className="text-[9px] font-bold tracking-widest text-amber-300/70 bg-amber-955/30 backdrop-blur-md px-3 py-1 rounded-full border border-amber-500/20 uppercase"
-                        >
-                          #webcam
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Card 4: Mobile & Auto (span-1) */}
                 <div 
                   onClick={() => router.push("/shop?category=Mobile & Auto")}
@@ -1258,10 +1208,10 @@ export default function HomeClient({
                   </div>
                 </div>
 
-                {/* Card 5: Best sellers (span-1) */}
+                {/* Card 5: Best sellers (span-2) */}
                 <div 
                   onClick={() => router.push("/shop?category=Best sellers")}
-                  className="md:col-span-1 group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6"
+                  className="md:col-span-2 group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6"
                 >
                   {/* Background Image */}
                   <div className="absolute inset-0 z-0">
@@ -1650,8 +1600,8 @@ export default function HomeClient({
                 <div className="w-12 h-[3px] bg-purple-500 mt-3 rounded-full" />
               </div>
 
-              {/* 3 Promise Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full px-6 lg:px-8">
+              {/* Promise Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full px-6 lg:px-8">
                 {/* Promise Card 1 */}
                 <div className="group bg-gradient-to-br from-zinc-50 to-white border border-zinc-150 rounded-3xl p-8 shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 text-left flex flex-col gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300 shadow-sm">
@@ -1687,24 +1637,6 @@ export default function HomeClient({
                     </p>
                   </div>
                 </div>
-
-                {/* Promise Card 3 */}
-                <div className="group bg-gradient-to-br from-zinc-50 to-white border border-zinc-150 rounded-3xl p-8 shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 text-left flex flex-col gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300 shadow-sm">
-                    {/* 30-Day Workspace Trial Icon */}
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-extrabold text-zinc-950 font-outfit mb-2 group-hover:text-purple-700 transition-colors duration-200 uppercase">
-                      30-Day Workspace Trial
-                    </h3>
-                    <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
-                      Integrate our products into your workflow. If it doesn't elevate your productivity, return it risk-free within 30 days.
-                    </p>
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -1730,10 +1662,6 @@ export default function HomeClient({
                   {
                     q: "How long does shipping take?",
                     a: "Delivery typically takes 3 to 5 business days depending on your region. All smart setup packages and orders benefit from tracked delivery and automatic 24-hour priority dispatch."
-                  },
-                  {
-                    q: "Can I return items under the trial?",
-                    a: "Absolutely. We stand behind our workspace designs. We offer a 30-day workspace trial during which you can test the gear in your own setup. If it doesn't elevate your productivity, return it in original packaging for a full refund."
                   },
                   {
                     q: "Do you ship internationally?",
