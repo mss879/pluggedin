@@ -1385,11 +1385,6 @@ export default function AdminDashboardPage() {
 
   const handleSaveBanner = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bannerForm.title || !bannerForm.image_url) {
-      alert("Please enter a title and upload a desktop banner image.");
-      return;
-    }
-
     setSavingBanner(true);
     try {
       let savedId = `HB-${Date.now()}`;
@@ -1398,16 +1393,16 @@ export default function AdminDashboardPage() {
           const { data, error } = await supabase
             .from("hero_banners")
             .update({
-              title: bannerForm.title,
+              title: bannerForm.title || "",
               subtitle: bannerForm.subtitle || "",
               badge: bannerForm.badge || "",
               tag: bannerForm.tag || "",
-              image_url: bannerForm.image_url,
+              image_url: bannerForm.image_url || "",
               mobile_image_url: bannerForm.mobile_image_url || "",
-              primary_cta_text: bannerForm.primary_cta_text || "SHOP CREATOR GEAR",
-              primary_cta_href: bannerForm.primary_cta_href || "/shop",
-              secondary_cta_text: bannerForm.secondary_cta_text || "EXPLORE COLLECTION",
-              secondary_cta_href: bannerForm.secondary_cta_href || "/shop?collection=trending",
+              primary_cta_text: bannerForm.primary_cta_text || "",
+              primary_cta_href: bannerForm.primary_cta_href || "",
+              secondary_cta_text: bannerForm.secondary_cta_text || "",
+              secondary_cta_href: bannerForm.secondary_cta_href || "",
               sort_order: bannerForm.sort_order || 1,
               is_active: bannerForm.is_active ?? true,
               updated_at: new Date().toISOString()
@@ -1419,16 +1414,16 @@ export default function AdminDashboardPage() {
         } else {
           const { data, error } = await supabase.from("hero_banners").insert([
             {
-              title: bannerForm.title,
+              title: bannerForm.title || "",
               subtitle: bannerForm.subtitle || "",
               badge: bannerForm.badge || "",
               tag: bannerForm.tag || "",
-              image_url: bannerForm.image_url,
+              image_url: bannerForm.image_url || "",
               mobile_image_url: bannerForm.mobile_image_url || "",
-              primary_cta_text: bannerForm.primary_cta_text || "SHOP CREATOR GEAR",
-              primary_cta_href: bannerForm.primary_cta_href || "/shop",
-              secondary_cta_text: bannerForm.secondary_cta_text || "EXPLORE COLLECTION",
-              secondary_cta_href: bannerForm.secondary_cta_href || "/shop?collection=trending",
+              primary_cta_text: bannerForm.primary_cta_text || "",
+              primary_cta_href: bannerForm.primary_cta_href || "",
+              secondary_cta_text: bannerForm.secondary_cta_text || "",
+              secondary_cta_href: bannerForm.secondary_cta_href || "",
               sort_order: bannerForm.sort_order || heroBanners.length + 1,
               is_active: bannerForm.is_active ?? true,
             }
@@ -1448,16 +1443,16 @@ export default function AdminDashboardPage() {
       } else {
         const newBanner: HeroBanner = {
           id: savedId,
-          title: bannerForm.title!,
+          title: bannerForm.title || "",
           subtitle: bannerForm.subtitle || "",
           badge: bannerForm.badge || "",
           tag: bannerForm.tag || "",
-          image_url: bannerForm.image_url!,
+          image_url: bannerForm.image_url || "",
           mobile_image_url: bannerForm.mobile_image_url || "",
-          primary_cta_text: bannerForm.primary_cta_text || "SHOP CREATOR GEAR",
-          primary_cta_href: bannerForm.primary_cta_href || "/shop",
-          secondary_cta_text: bannerForm.secondary_cta_text || "EXPLORE COLLECTION",
-          secondary_cta_href: bannerForm.secondary_cta_href || "/shop?collection=trending",
+          primary_cta_text: bannerForm.primary_cta_text || "",
+          primary_cta_href: bannerForm.primary_cta_href || "",
+          secondary_cta_text: bannerForm.secondary_cta_text || "",
+          secondary_cta_href: bannerForm.secondary_cta_href || "",
           sort_order: bannerForm.sort_order || heroBanners.length + 1,
           is_active: bannerForm.is_active ?? true,
         };
@@ -3566,11 +3561,17 @@ export default function AdminDashboardPage() {
                   >
                     {/* Image Preview & Overlay */}
                     <div className="relative h-48 w-full bg-slate-900 overflow-hidden">
-                      <img 
-                        src={banner.image_url} 
-                        alt={banner.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
+                      {(banner.image_url || banner.mobile_image_url) ? (
+                        <img 
+                          src={banner.image_url || banner.mobile_image_url} 
+                          alt={banner.title || "Hero banner"}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                          No image
+                        </div>
+                      )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
                       {/* Mobile image thumbnail */}
                       <div className="absolute bottom-3 right-3 z-10 flex flex-col items-center gap-1">
@@ -3608,7 +3609,7 @@ export default function AdminDashboardPage() {
                           {banner.badge}
                         </span>
                         <h4 className="text-sm font-extrabold text-white uppercase font-syne line-clamp-1">
-                          {banner.title}
+                          {banner.title || <span className="text-white/50 normal-case font-semibold">No title</span>}
                         </h4>
                       </div>
                     </div>
@@ -3622,11 +3623,11 @@ export default function AdminDashboardPage() {
                       <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-100 text-[10px] font-semibold text-slate-500">
                         <div className="flex justify-between items-center">
                           <span>Primary CTA:</span>
-                          <span className="font-bold text-slate-800 truncate max-w-[180px]">{banner.primary_cta_text} ({banner.primary_cta_href})</span>
+                          <span className="font-bold text-slate-800 truncate max-w-[180px]">{banner.primary_cta_text ? `${banner.primary_cta_text} (${banner.primary_cta_href || "/"})` : "Hidden"}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span>Secondary CTA:</span>
-                          <span className="font-bold text-slate-800 truncate max-w-[180px]">{banner.secondary_cta_text} ({banner.secondary_cta_href})</span>
+                          <span className="font-bold text-slate-800 truncate max-w-[180px]">{banner.secondary_cta_text ? `${banner.secondary_cta_text} (${banner.secondary_cta_href || "/"})` : "Hidden"}</span>
                         </div>
                       </div>
 
@@ -3686,13 +3687,13 @@ export default function AdminDashboardPage() {
 
             <form onSubmit={handleSaveBanner} className="flex flex-col gap-5">
               
-              {/* Image Upload Areas: desktop (required) + mobile (optional) */}
+              {/* Image Upload Areas: desktop + mobile (both optional) */}
               {([
                 {
                   field: "image_url",
                   label: "Desktop Banner Image",
-                  required: true,
-                  hint: "Landscape, e.g. 1920 × 1080. Shown on tablets & desktops.",
+                  required: false,
+                  hint: "Landscape, e.g. 1920 × 1080. Shown on tablets & desktops (and phones if no mobile image).",
                   previewClass: "h-44 w-full",
                 },
                 {
@@ -3753,11 +3754,10 @@ export default function AdminDashboardPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-extrabold tracking-widest text-slate-500 uppercase">
-                    Banner Title <span className="text-red-500">*</span>
+                    Banner Title
                   </label>
                   <input
                     type="text"
-                    required
                     value={bannerForm.title || ""}
                     onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })}
                     placeholder="e.g. ELEVATE YOUR SETUP"

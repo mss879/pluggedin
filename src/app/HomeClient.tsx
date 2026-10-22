@@ -450,18 +450,21 @@ export default function HomeClient({
 
   const HERO_SLIDES = (initialHeroBanners && initialHeroBanners.length > 0)
     ? initialHeroBanners.map((b: any, i: number) => ({
+        // Every banner field is optional in the admin: empty text/buttons are
+        // hidden, and a banner with no image shows the dark background.
         id: b.id || `slide-${i + 1}`,
-        tag: b.tag || "FEATURED COLLECTION 2026",
-        title: b.title,
+        tag: b.tag || "",
+        title: b.title || "",
         subtitle: b.subtitle || "",
-        badge: b.badge || "⚡ FAST ISLANDWIDE SHIPPING",
-        primaryCta: { text: b.primary_cta_text || "SHOP CREATOR GEAR", href: b.primary_cta_href || "/shop" },
-        secondaryCta: { text: b.secondary_cta_text || "EXPLORE COLLECTION", href: b.secondary_cta_href || "/shop?collection=trending" },
+        badge: b.badge || "",
+        primaryCta: { text: b.primary_cta_text || "", href: b.primary_cta_href || "/shop" },
+        secondaryCta: { text: b.secondary_cta_text || "", href: b.secondary_cta_href || "/shop" },
         mediaType: b.image_url?.endsWith(".mp4") ? "video" : "image",
         videoSrc: b.image_url?.endsWith(".mp4") ? b.image_url : undefined,
         posterSrc: b.image_url?.endsWith(".mp4") ? "/posters/hero.webp" : undefined,
-        imageSrc: !b.image_url?.endsWith(".mp4") ? b.image_url : undefined,
-        mobileImageSrc: !b.image_url?.endsWith(".mp4") && b.mobile_image_url ? b.mobile_image_url : undefined,
+        // Only one image uploaded? Use it on every screen size.
+        imageSrc: b.image_url?.endsWith(".mp4") ? undefined : (b.image_url || b.mobile_image_url || undefined),
+        mobileImageSrc: !b.image_url?.endsWith(".mp4") && b.image_url && b.mobile_image_url ? b.mobile_image_url : undefined,
       }))
     : HERO_SLIDES_DEFAULT;
 
@@ -845,19 +848,19 @@ export default function HomeClient({
                     <HeroPicture
                       desktopSrc={slide.imageSrc!}
                       mobileSrc={slide.mobileImageSrc}
-                      alt={slide.title}
+                      alt={slide.title || "PluggedIn"}
                       eager={idx === 0}
                       className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                     />
-                  ) : (
+                  ) : slide.imageSrc ? (
                     <Image
-                      src={slide.imageSrc!}
-                      alt={slide.title}
+                      src={slide.imageSrc}
+                      alt={slide.title || "PluggedIn"}
                       fill
                       priority={idx === 0}
                       className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                     />
-                  )}
+                  ) : null}
 
                   {/* Premium Gradient Overlays for High Contrast Text Readability */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/20" />
@@ -866,32 +869,39 @@ export default function HomeClient({
                   {/* Content Container */}
                   <div className="absolute inset-0 z-20 flex flex-col justify-end p-6 sm:p-10 md:p-14 lg:p-16 max-w-4xl text-left">
                     {/* Badges (Only on subsequent slides) */}
-                    {idx !== 0 && (
+                    {idx !== 0 && (slide.badge || slide.tag) && (
                       <div className="flex items-center gap-3 mb-3 sm:mb-4 flex-wrap">
-                        <span className="text-[10px] sm:text-xs font-bold tracking-[0.25em] text-purple-300 bg-purple-950/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-purple-500/30 uppercase shadow-md">
-                          {slide.badge}
-                        </span>
-                        <span className="text-[10px] sm:text-xs font-extrabold tracking-[0.2em] text-zinc-300 uppercase">
-                          // {slide.tag}
-                        </span>
+                        {slide.badge && (
+                          <span className="text-[10px] sm:text-xs font-bold tracking-[0.25em] text-purple-300 bg-purple-950/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-purple-500/30 uppercase shadow-md">
+                            {slide.badge}
+                          </span>
+                        )}
+                        {slide.tag && (
+                          <span className="text-[10px] sm:text-xs font-extrabold tracking-[0.2em] text-zinc-300 uppercase">
+                            {"// "}{slide.tag}
+                          </span>
+                        )}
                       </div>
                     )}
 
                     {/* Title */}
-                    <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white font-syne tracking-tight leading-[1.08] uppercase mb-3 sm:mb-4 drop-shadow-md">
-                      {slide.title}
-                    </h1>
+                    {slide.title && (
+                      <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white font-syne tracking-tight leading-[1.08] uppercase mb-3 sm:mb-4 drop-shadow-md">
+                        {slide.title}
+                      </h1>
+                    )}
 
                     {/* Subtitle (Only on subsequent slides) */}
-                    {idx !== 0 && (
+                    {idx !== 0 && slide.subtitle && (
                       <p className="text-xs sm:text-sm md:text-base text-zinc-300 font-medium leading-relaxed max-w-2xl mb-6 sm:mb-8 drop-shadow-sm">
                         {slide.subtitle}
                       </p>
                     )}
 
                     {/* Action CTAs (Only on subsequent slides) */}
-                    {idx !== 0 && (
+                    {idx !== 0 && (slide.primaryCta.text || slide.secondaryCta.text) && (
                       <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                        {slide.primaryCta.text && (
                         <Link
                           href={slide.primaryCta.href}
                           className="bg-gradient-to-r from-purple-600 to-indigo-650 hover:from-purple-500 hover:to-indigo-600 text-white text-xs sm:text-sm font-extrabold tracking-widest px-7 py-3.5 rounded-full shadow-lg shadow-purple-600/30 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center gap-2"
@@ -901,13 +911,16 @@ export default function HomeClient({
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                           </svg>
                         </Link>
+                        )}
 
+                        {slide.secondaryCta.text && (
                         <Link
                           href={slide.secondaryCta.href}
                           className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 text-xs sm:text-sm font-extrabold tracking-widest px-7 py-3.5 rounded-full hover:scale-105 active:scale-95 transition-all duration-300"
                         >
                           {slide.secondaryCta.text}
                         </Link>
+                        )}
                       </div>
                     )}
                   </div>
