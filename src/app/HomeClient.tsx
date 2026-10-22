@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image, { getImageProps } from "next/image";
 import LazyVideo from "../components/LazyVideo";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { resolveBannerLink } from "@/lib/banner-link";
 import Footer from "../components/Footer";
 
 interface Product {
@@ -465,6 +466,8 @@ export default function HomeClient({
         // Only one image uploaded? Use it on every screen size.
         imageSrc: b.image_url?.endsWith(".mp4") ? undefined : (b.image_url || b.mobile_image_url || undefined),
         mobileImageSrc: !b.image_url?.endsWith(".mp4") && b.image_url && b.mobile_image_url ? b.mobile_image_url : undefined,
+        // Whole-banner click-through (e.g. a product page)
+        link: resolveBannerLink(b.link_url),
       }))
     : HERO_SLIDES_DEFAULT;
 
@@ -862,8 +865,31 @@ export default function HomeClient({
                     />
                   ) : null}
 
+                  {/* Whole-banner link: sits above the image, below the text. The
+                      text layer lets clicks through so the banner stays
+                      clickable everywhere except on its own buttons. */}
+                  {"link" in slide && slide.link && (
+                    slide.link.external ? (
+                      <a
+                        href={slide.link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={slide.title || "Open banner link"}
+                        tabIndex={isActive ? 0 : -1}
+                        className="absolute inset-0 z-[15] cursor-pointer"
+                      />
+                    ) : (
+                      <Link
+                        href={slide.link.href}
+                        aria-label={slide.title || "Open banner link"}
+                        tabIndex={isActive ? 0 : -1}
+                        className="absolute inset-0 z-[15] cursor-pointer"
+                      />
+                    )
+                  )}
+
                   {/* Content Container */}
-                  <div className="absolute inset-0 z-20 flex flex-col justify-end p-6 sm:p-10 md:p-14 lg:p-16 max-w-4xl text-left">
+                  <div className="absolute inset-0 z-20 flex flex-col justify-end p-6 sm:p-10 md:p-14 lg:p-16 max-w-4xl text-left pointer-events-none">
                     {/* Badges (Only on subsequent slides) */}
                     {idx !== 0 && (slide.badge || slide.tag) && (
                       <div className="flex items-center gap-3 mb-3 sm:mb-4 flex-wrap">
@@ -900,7 +926,7 @@ export default function HomeClient({
                         {slide.primaryCta.text && (
                         <Link
                           href={slide.primaryCta.href}
-                          className="bg-gradient-to-r from-purple-600 to-indigo-650 hover:from-purple-500 hover:to-indigo-600 text-white text-xs sm:text-sm font-extrabold tracking-widest px-7 py-3.5 rounded-full shadow-lg shadow-purple-600/30 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center gap-2"
+                          className={`${isActive ? "pointer-events-auto" : ""} bg-gradient-to-r from-purple-600 to-indigo-650 hover:from-purple-500 hover:to-indigo-600 text-white text-xs sm:text-sm font-extrabold tracking-widest px-7 py-3.5 rounded-full shadow-lg shadow-purple-600/30 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center gap-2`}
                         >
                           <span>{slide.primaryCta.text}</span>
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -912,7 +938,7 @@ export default function HomeClient({
                         {slide.secondaryCta.text && (
                         <Link
                           href={slide.secondaryCta.href}
-                          className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 text-xs sm:text-sm font-extrabold tracking-widest px-7 py-3.5 rounded-full hover:scale-105 active:scale-95 transition-all duration-300"
+                          className={`${isActive ? "pointer-events-auto" : ""} bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 text-xs sm:text-sm font-extrabold tracking-widest px-7 py-3.5 rounded-full hover:scale-105 active:scale-95 transition-all duration-300`}
                         >
                           {slide.secondaryCta.text}
                         </Link>

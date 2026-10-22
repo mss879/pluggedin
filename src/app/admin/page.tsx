@@ -18,6 +18,7 @@ import {
   formatWeight,
   normalizeDeliveryRates,
 } from "@/lib/delivery";
+import { resolveBannerLink } from "@/lib/banner-link";
 
 interface Collection {
   id: string;
@@ -91,6 +92,8 @@ export interface HeroBanner {
   image_url: string;
   /** Optional image for phones (< 768px). Falls back to image_url when empty. */
   mobile_image_url?: string;
+  /** Optional: clicking anywhere on the banner opens this URL */
+  link_url?: string;
   primary_cta_text: string;
   primary_cta_href: string;
   secondary_cta_text: string;
@@ -145,6 +148,7 @@ export default function AdminDashboardPage() {
     tag: "FEATURED COLLECTION 2026",
     image_url: "",
     mobile_image_url: "",
+    link_url: "",
     primary_cta_text: "SHOP CREATOR GEAR",
     primary_cta_href: "/shop",
     secondary_cta_text: "EXPLORE COLLECTION",
@@ -1272,6 +1276,7 @@ export default function AdminDashboardPage() {
       tag: "FEATURED COLLECTION 2026",
       image_url: "",
       mobile_image_url: "",
+      link_url: "",
       primary_cta_text: "SHOP CREATOR GEAR",
       primary_cta_href: "/shop",
       secondary_cta_text: "EXPLORE COLLECTION",
@@ -1330,6 +1335,11 @@ export default function AdminDashboardPage() {
 
   const handleSaveBanner = async (e: React.FormEvent) => {
     e.preventDefault();
+    const linkUrl = (bannerForm.link_url || "").trim();
+    if (linkUrl && !resolveBannerLink(linkUrl)) {
+      alert("The banner link doesn't look like a valid web address. Paste the full URL, e.g. https://www.pluggedin.lk/product/your-product");
+      return;
+    }
     setSavingBanner(true);
     try {
       let savedId = `HB-${Date.now()}`;
@@ -1344,6 +1354,7 @@ export default function AdminDashboardPage() {
               tag: bannerForm.tag || "",
               image_url: bannerForm.image_url || "",
               mobile_image_url: bannerForm.mobile_image_url || "",
+              link_url: linkUrl,
               primary_cta_text: bannerForm.primary_cta_text || "",
               primary_cta_href: bannerForm.primary_cta_href || "",
               secondary_cta_text: bannerForm.secondary_cta_text || "",
@@ -1365,6 +1376,7 @@ export default function AdminDashboardPage() {
               tag: bannerForm.tag || "",
               image_url: bannerForm.image_url || "",
               mobile_image_url: bannerForm.mobile_image_url || "",
+              link_url: linkUrl,
               primary_cta_text: bannerForm.primary_cta_text || "",
               primary_cta_href: bannerForm.primary_cta_href || "",
               secondary_cta_text: bannerForm.secondary_cta_text || "",
@@ -1381,7 +1393,7 @@ export default function AdminDashboardPage() {
       if (editingBanner) {
         setHeroBanners(
           heroBanners.map((b) =>
-            b.id === editingBanner.id ? ({ ...b, ...bannerForm } as HeroBanner) : b
+            b.id === editingBanner.id ? ({ ...b, ...bannerForm, link_url: linkUrl } as HeroBanner) : b
           )
         );
       } else {
@@ -1393,6 +1405,7 @@ export default function AdminDashboardPage() {
           tag: bannerForm.tag || "",
           image_url: bannerForm.image_url || "",
           mobile_image_url: bannerForm.mobile_image_url || "",
+          link_url: linkUrl,
           primary_cta_text: bannerForm.primary_cta_text || "",
           primary_cta_href: bannerForm.primary_cta_href || "",
           secondary_cta_text: bannerForm.secondary_cta_text || "",
@@ -3582,6 +3595,10 @@ export default function AdminDashboardPage() {
 
                       <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-100 text-[10px] font-semibold text-slate-500">
                         <div className="flex justify-between items-center">
+                          <span>Banner link:</span>
+                          <span className="font-bold text-slate-800 truncate max-w-[180px]">{banner.link_url || "None"}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
                           <span>Primary CTA:</span>
                           <span className="font-bold text-slate-800 truncate max-w-[180px]">{banner.primary_cta_text ? `${banner.primary_cta_text} (${banner.primary_cta_href || "/"})` : "Hidden"}</span>
                         </div>
@@ -3709,6 +3726,27 @@ export default function AdminDashboardPage() {
               <p className="text-[10px] font-semibold text-purple-600 bg-purple-50 border border-purple-100 rounded-xl px-3 py-2 -mt-1">
                 Uploaded images go live on the storefront once you press Save.
               </p>
+
+              {/* Whole-banner click-through link */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-extrabold tracking-widest text-slate-500 uppercase">
+                  Banner Link <span className="text-slate-400 normal-case tracking-normal font-semibold">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="url"
+                  value={bannerForm.link_url || ""}
+                  onChange={(e) => setBannerForm({ ...bannerForm, link_url: e.target.value })}
+                  placeholder="e.g. https://www.pluggedin.lk/product/your-product"
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-900"
+                />
+                <span className="text-[10px] text-slate-400">
+                  Paste the full URL of the page to open when someone clicks the banner (e.g. copy it from the product page&apos;s address bar). Leave empty for no link.
+                </span>
+                {bannerForm.link_url?.trim() && !resolveBannerLink(bannerForm.link_url) && (
+                  <span className="text-[10px] font-bold text-red-500">This doesn&apos;t look like a valid web address.</span>
+                )}
+              </div>
 
               {/* Title & Badge */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
