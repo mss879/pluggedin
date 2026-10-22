@@ -862,10 +862,6 @@ export default function HomeClient({
                     />
                   ) : null}
 
-                  {/* Premium Gradient Overlays for High Contrast Text Readability */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/20" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/35 to-transparent" />
-
                   {/* Content Container */}
                   <div className="absolute inset-0 z-20 flex flex-col justify-end p-6 sm:p-10 md:p-14 lg:p-16 max-w-4xl text-left">
                     {/* Badges (Only on subsequent slides) */}
@@ -986,6 +982,8 @@ export default function HomeClient({
                     src={perk.image} 
                     alt={perk.title} 
                     fill 
+                    sizes="56px"
+                    loading="eager"
                     className="object-contain p-1 rounded-xl"
                   />
                 </div>
@@ -1043,7 +1041,7 @@ export default function HomeClient({
             </div>
 
             {/* Section 2: Bento Grid Categories */}
-            <div className="hidden md:flex w-full py-16 px-2 sm:px-4 flex-col gap-8 content-visibility-lazy">
+            <div className="hidden md:flex w-full py-16 px-2 sm:px-4 flex-col gap-8">
               <div className="flex flex-col items-center text-center max-w-xl mx-auto mb-4">
                 <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
                   Curated Collections
@@ -1070,7 +1068,7 @@ export default function HomeClient({
                       sizes="(max-width: 768px) 100vw, 66vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                      loading="lazy"
+                      loading="eager"
                       />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1125,7 +1123,7 @@ export default function HomeClient({
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                      loading="lazy"
+                      loading="eager"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1180,7 +1178,7 @@ export default function HomeClient({
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                      loading="lazy"
+                      loading="eager"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1232,10 +1230,10 @@ export default function HomeClient({
                       src="/categories/best_sellers.webp" 
                       alt="Best sellers" 
                       fill
-                      sizes="(max-width: 768px) 100vw, 33vw"
+                      sizes="(max-width: 768px) 100vw, 66vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                      loading="lazy"
+                      loading="eager"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
                   </div>
@@ -1279,7 +1277,7 @@ export default function HomeClient({
             </div>
 
             {/* Section 3: Full-Width Cinematic Video Banner */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 aspect-video max-h-[380px] md:max-h-[600px] mt-16 overflow-hidden border-t border-purple-100/30 group cursor-pointer content-visibility-lazy">
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 aspect-video max-h-[380px] md:max-h-[600px] mt-16 overflow-hidden border-t border-purple-100/30 group cursor-pointer">
               {/* Commercial video banner */}
               <LazyVideo 
                 className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-102"
@@ -1306,7 +1304,7 @@ export default function HomeClient({
             </div>
 
             {/* Section 4: Trending Products (Full Width) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 pt-16 pb-8 px-6 lg:px-8 flex flex-col gap-8 content-visibility-lazy">
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 pt-16 pb-8 px-6 lg:px-8 flex flex-col gap-8">
               <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
                 <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
                   Featured collection
@@ -1334,7 +1332,7 @@ export default function HomeClient({
                         sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                         style={{ objectFit: "contain" }}
                         className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-2"
-                        loading="lazy"
+                        loading="eager"
                       />
                       
                       {/* Floating Discount Badge */}
@@ -1429,7 +1427,7 @@ export default function HomeClient({
             </div>
 
             {/* Section 4.5: Dual Video Banner (Full Width, No Gaps) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden content-visibility-lazy">
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-0 w-full">
                 <div className="relative aspect-video w-full overflow-hidden">
                   <LazyVideo 
@@ -1459,7 +1457,7 @@ export default function HomeClient({
             </div>
 
             {/* Section 5: New In Products (Full Width) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8 content-visibility-lazy">
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8">
               <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
                 <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
                   Latest Arrivals
@@ -1487,7 +1485,7 @@ export default function HomeClient({
                         sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                         style={{ objectFit: "contain" }}
                         className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-2"
-                        loading="lazy"
+                        loading="eager"
                       />
                       
                       {/* Floating Discount Badge */}
@@ -1582,7 +1580,7 @@ export default function HomeClient({
             </div>
 
             {/* Section 5.5: Lifestyle Image Gallery Banner (Full Width, No Gaps) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden content-visibility-lazy">
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-0 w-full">
                 {[1, 2, 3].map((num) => (
                   <div key={num} className="relative aspect-[4/3] w-full overflow-hidden group/banner">
@@ -1593,7 +1591,7 @@ export default function HomeClient({
                       sizes="(max-width: 768px) 100vw, 33vw"
                       style={{ objectFit: "cover" }}
                       className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/banner:scale-105"
-                      loading="lazy"
+                      loading="eager"
                     />
                     <div className="absolute inset-0 bg-purple-950/5 opacity-0 group-hover/banner:opacity-100 transition-opacity duration-500 pointer-events-none" />
                   </div>
@@ -1602,7 +1600,7 @@ export default function HomeClient({
             </div>
 
             {/* Section 5.3: Why Choose Us (Full Width) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8 content-visibility-lazy">
+            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8">
               <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
                 <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
                   06 // OUR PROMISE
@@ -1654,7 +1652,7 @@ export default function HomeClient({
             </div>
 
             {/* Section 5.7: FAQ Accordion List (Full Width) */}
-            <div id="faq" className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white py-16 px-6 lg:px-8 flex flex-col gap-8 border-t border-b border-purple-100/30 content-visibility-lazy">
+            <div id="faq" className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white py-16 px-6 lg:px-8 flex flex-col gap-8 border-t border-b border-purple-100/30">
               <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
                 <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
                   07 // FAQ

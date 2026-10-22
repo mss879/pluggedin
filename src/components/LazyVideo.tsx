@@ -58,8 +58,9 @@ export default function LazyVideo({
           }
         }
       },
-      // Start fetching one viewport ahead so it is ready by the time it lands.
-      { rootMargin: "300px 0px" }
+      // Start fetching well ahead (a few screens) so the video is already
+      // playing by the time the visitor scrolls to it.
+      { rootMargin: "1500px 0px" }
     );
 
     observer.observe(el);
