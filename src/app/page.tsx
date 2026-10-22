@@ -3,12 +3,12 @@ import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS } from "./products";
 import HomeClient from "./HomeClient";
 
-// Previously `dynamic = "force-dynamic"` + `revalidate = 0`, which meant every
-// single visitor waited on a live Supabase round trip before one byte of HTML
-// was sent. The catalogue changes rarely, so serve a cached render and
-// regenerate it in the background at most once a minute (ISR). Publishing a
-// product change can push it out immediately with revalidatePath("/").
-export const revalidate = 60;
+// Rendered on every request. This page shows content the admin edits
+// (hero banners, products, collections). It used ISR (revalidate = 60), but on
+// Netlify the runtime ISR regeneration fails: the build-time copy kept being
+// served (so admin changes never appeared) and, once that cached copy was
+// purged, visitors got a plain-text 500 "Internal Server Error".
+export const dynamic = "force-dynamic";
 
 // Collections drive the "Trending" and "New In" sections. They used to be
 // fetched from the browser on mount, which forced the whole Supabase SDK into

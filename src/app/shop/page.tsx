@@ -4,9 +4,12 @@ import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS } from "../products";
 import ShopClient from "./ShopClient";
 
-// See the note in src/app/page.tsx — ISR instead of force-dynamic so the shop
-// is served from cache and regenerated at most once a minute.
-export const revalidate = 60;
+// Rendered on every request. This page shows content the admin edits
+// (products, collections). It used ISR (revalidate = 60), but on
+// Netlify the runtime ISR regeneration fails: the build-time copy kept being
+// served (so admin changes never appeared) and, once that cached copy was
+// purged, visitors got a plain-text 500 "Internal Server Error".
+export const dynamic = "force-dynamic";
 
 async function getProducts() {
   try {

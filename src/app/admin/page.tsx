@@ -1364,22 +1364,6 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // The homepage is cached; ask the server to rebuild it so banner changes
-  // show up on the next visit instead of after the cache window.
-  const refreshHomepage = async () => {
-    if (!supabase) return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch("/api/admin/revalidate", {
-        method: "POST",
-        headers: { Authorization: session?.access_token ? `Bearer ${session.access_token}` : "" },
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    } catch (err) {
-      console.error("Failed to refresh homepage cache:", err);
-    }
-  };
-
   // RLS-blocked writes return no error, just zero rows — treat that as a failure
   const NOT_SAVED_MSG = "The change was not saved. Your admin session may have expired — please log out and log in again.";
 
@@ -1431,7 +1415,6 @@ export default function AdminDashboardPage() {
           if (error) throw error;
           savedId = data.id;
         }
-        await refreshHomepage();
       }
 
       if (editingBanner) {
@@ -1477,7 +1460,6 @@ export default function AdminDashboardPage() {
         const { data, error } = await supabase.from("hero_banners").delete().eq("id", id).select("id");
         if (error) throw error;
         if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
-        await refreshHomepage();
       }
       setHeroBanners(heroBanners.filter((b) => b.id !== id));
       setSaveStatus("Banner deleted");
@@ -1499,7 +1481,6 @@ export default function AdminDashboardPage() {
           .select("id");
         if (error) throw error;
         if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
-        await refreshHomepage();
       }
       setHeroBanners(
         heroBanners.map((b) => (b.id === id ? { ...b, is_active: updatedActive } : b))
