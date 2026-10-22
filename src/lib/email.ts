@@ -37,6 +37,9 @@ interface OrderEmailPayload {
   items: EmailItem[];
   totalAmount: number;
   paymentMethod: string;
+  /** Included in totalAmount. */
+  deliveryFee?: number;
+  deliveryZone?: string | null;
   /** Included in the confirmation email for bank transfer orders. */
   bankDetails?: PaymentSettings | null;
 }
@@ -76,6 +79,8 @@ function generateOrderEmailHtml({
   items,
   totalAmount,
   paymentMethod,
+  deliveryFee = 0,
+  deliveryZone,
   bannerTitle,
   bannerSubtitle,
   bodyIntro,
@@ -221,11 +226,13 @@ function generateOrderEmailHtml({
             <table style="width: 100%; margin-top: 16px; border-top: 2px solid #e2e8f0; padding-top: 16px;">
               <tr>
                 <td style="padding: 6px 0; font-size: 14px; color: #64748b; font-weight: 500;">Subtotal</td>
-                <td style="padding: 6px 0; text-align: right; font-size: 14px; color: #334155; font-weight: 600;">${formatPrice(totalAmount)}</td>
+                <td style="padding: 6px 0; text-align: right; font-size: 14px; color: #334155; font-weight: 600;">${formatPrice(totalAmount - deliveryFee)}</td>
               </tr>
               <tr>
-                <td style="padding: 6px 0; font-size: 14px; color: #64748b; font-weight: 500;">Shipping</td>
-                <td style="padding: 6px 0; text-align: right; font-size: 14px; color: #10b981; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">FREE</td>
+                <td style="padding: 6px 0; font-size: 14px; color: #64748b; font-weight: 500;">Delivery${deliveryZone ? ` (${escapeHtml(deliveryZone)})` : ""}</td>
+                ${deliveryFee > 0
+                  ? `<td style="padding: 6px 0; text-align: right; font-size: 14px; color: #334155; font-weight: 600;">${formatPrice(deliveryFee)}</td>`
+                  : `<td style="padding: 6px 0; text-align: right; font-size: 14px; color: #10b981; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">FREE</td>`}
               </tr>
               <tr>
                 <td style="padding: 16px 0 0 0; font-size: 16px; color: #0f172a; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em;">Total Amount</td>

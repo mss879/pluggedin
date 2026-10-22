@@ -1243,14 +1243,14 @@ function ShopContent({
                   </div>
                   <div className="flex justify-between items-center text-xs text-zinc-500 font-semibold">
                     <span>Shipping</span>
-                    <span className="text-emerald-600 font-extrabold text-[10px] tracking-wide">FREE</span>
+                    <span className="text-zinc-400 font-bold text-[10px] tracking-wide">CALCULATED AT CHECKOUT</span>
                   </div>
                   <div className="flex justify-between items-center text-xs text-zinc-500 font-semibold border-b border-zinc-200/50 pb-2">
                     <span>Estimated Taxes</span>
                     <span className="text-zinc-800 font-bold">Rs. 0</span>
                   </div>
                   <div className="flex justify-between items-center pt-2 text-sm font-extrabold text-zinc-955 font-outfit uppercase tracking-widest">
-                    <span>Total Amount</span>
+                    <span>Total (excl. delivery)</span>
                     <span className="text-purple-950 text-base font-black font-outfit">Rs. {cartSubtotal.toLocaleString()}</span>
                   </div>
                 </div>

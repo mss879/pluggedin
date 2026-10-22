@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 import { rateLimit, getClientIp, isAllowedOrigin } from "@/lib/rate-limit";
 import { normalizePaymentSettings, type PaymentSettings } from "@/lib/payment-settings";
+import { normalizeDeliveryZones } from "@/lib/delivery";
 
 // Field length caps to prevent oversized payloads / DB bloat
 const MAX_NAME = 100;
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { customer_name, customer_email, phone_number, shipping_address, items, payment_method } = body;
+    const { customer_name, customer_email, phone_number, shipping_address, items, payment_method, delivery_zone_id } = body;
     const cleanPayment = ALLOWED_PAYMENTS.includes(payment_method) ? payment_method : "cash_on_delivery";
     const cleanName = (customer_name || "").trim().slice(0, MAX_NAME);
     const cleanEmail = (customer_email || "").trim().slice(0, MAX_EMAIL);
@@ -112,6 +113,8 @@ export async function POST(request: Request) {
       price: formatRs(0),
     }));
     let totalAmount = 0;
+    let deliveryFee = 0;
+    let deliveryZoneName: string | null = null;
 
     if (supabase) {
       const ids = requested.map((r) => r.id);
@@ -157,6 +160,33 @@ export async function POST(request: Request) {
         0
       );
 
+      // Delivery charge comes from the admin-managed zones, never the client.
+      // When no zones are configured delivery stays free.
+      const { data: zoneRows, error: zoneErr } = await supabase
+        .from("delivery_zones")
+        .select("id, name, price")
+        .eq("is_active", true);
+      if (zoneErr) {
+        console.error("Supabase delivery zone lookup error:", zoneErr);
+        return NextResponse.json(
+          { error: "Unable to calculate delivery. Please try again." },
+          { status: 500 }
+        );
+      }
+      const zones = normalizeDeliveryZones(zoneRows);
+      if (zones.length > 0) {
+        const zone = zones.find((z) => z.id === delivery_zone_id);
+        if (!zone) {
+          return NextResponse.json(
+            { error: "Please select your delivery area" },
+            { status: 400 }
+          );
+        }
+        deliveryFee = zone.price;
+        deliveryZoneName = zone.name;
+        totalAmount += deliveryFee;
+      }
+
       const { error } = await supabase.from("orders").insert({
         id: orderId,
         customer_name: cleanName,
@@ -165,6 +195,8 @@ export async function POST(request: Request) {
         shipping_address: cleanAddress,
         items: authoritativeItems,
         total_amount: totalAmount,
+        delivery_zone: deliveryZoneName,
+        delivery_fee: deliveryFee,
         payment_method: cleanPayment,
         status: "pending",
       });
@@ -207,6 +239,8 @@ export async function POST(request: Request) {
         items: authoritativeItems,
         totalAmount,
         paymentMethod: cleanPayment,
+        deliveryFee,
+        deliveryZone: deliveryZoneName,
         bankDetails,
       });
     } catch (emailErr) {

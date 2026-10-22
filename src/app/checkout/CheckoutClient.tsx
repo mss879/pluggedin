@@ -11,6 +11,7 @@ import {
   normalizePaymentSettings,
   type PaymentSettings,
 } from "@/lib/payment-settings";
+import { formatDeliveryFee, normalizeDeliveryZones, type DeliveryZone } from "@/lib/delivery";
 
 interface CartItem {
   product: Product;
@@ -22,10 +23,12 @@ function BankDetailsCard({
   settings,
   loading,
   orderId,
+  amount,
 }: {
   settings: PaymentSettings | null;
   loading: boolean;
   orderId?: string;
+  amount?: number;
 }) {
   return (
     <div className="bg-slate-50 border border-zinc-200 p-4 rounded-2xl flex flex-col gap-2 text-left animate-in slide-in-from-top-3 duration-300">
@@ -40,10 +43,11 @@ function BankDetailsCard({
             ["Account Number", settings.account_number],
             ["Branch", settings.branch],
             ["Reference", orderId || ""],
+            ["Amount to Transfer", amount ? `Rs. ${Math.round(amount).toLocaleString()}` : ""],
           ] as const).filter(([, value]) => value).map(([label, value]) => (
             <div key={label} className="flex justify-between gap-3">
               <span>{label}:</span>
-              <span className={`text-zinc-950 text-right ${label === "Account Number" || label === "Reference" ? "font-mono font-black" : "font-extrabold"}`}>
+              <span className={`text-zinc-950 text-right ${label === "Account Number" || label === "Reference" || label === "Amount to Transfer" ? "font-mono font-black" : "font-extrabold"}`}>
                 {value}
               </span>
             </div>
@@ -81,6 +85,9 @@ export default function CheckoutClient() {
   const [formError, setFormError] = useState<string | null>(null);
   const [bankDetails, setBankDetails] = useState<PaymentSettings | null>(null);
   const [bankDetailsLoading, setBankDetailsLoading] = useState(true);
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
+  const [deliveryZoneId, setDeliveryZoneId] = useState<string>("");
+  const [placedTotal, setPlacedTotal] = useState(0);
 
   // Step states: "shipping" | "payment" | "placing"
   const [checkoutStep, setCheckoutStep] = useState<"shipping" | "payment" | "placing">("shipping");
@@ -108,20 +115,30 @@ export default function CheckoutClient() {
     }
   }, [router]);
 
-  // Bank transfer details are managed from Admin → Bank Transfer
+  // Bank transfer details (Admin → Bank Transfer) and delivery areas
+  // (Admin → Delivery)
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const client = await getSupabase();
         if (!client) return;
-        const { data, error } = await client
-          .from("payment_settings")
-          .select("bank_name, account_name, account_number, branch, payment_note")
-          .eq("id", 1)
-          .maybeSingle();
-        if (error) throw error;
-        if (!cancelled) setBankDetails(normalizePaymentSettings(data));
+        const [settingsRes, zonesRes] = await Promise.all([
+          client
+            .from("payment_settings")
+            .select("bank_name, account_name, account_number, branch, payment_note")
+            .eq("id", 1)
+            .maybeSingle(),
+          client
+            .from("delivery_zones")
+            .select("id, name, price")
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true }),
+        ]);
+        if (zonesRes.error) console.error("Failed to load delivery areas", zonesRes.error);
+        else if (!cancelled) setDeliveryZones(normalizeDeliveryZones(zonesRes.data));
+        if (settingsRes.error) throw settingsRes.error;
+        if (!cancelled) setBankDetails(normalizePaymentSettings(settingsRes.data));
       } catch (e) {
         console.error("Failed to load bank transfer details", e);
       } finally {
@@ -182,6 +199,9 @@ export default function CheckoutClient() {
     (sum, item) => sum + parsePrice(item.product.price) * item.quantity,
     0
   );
+  const selectedZone = deliveryZones.find((z) => z.id === deliveryZoneId) || null;
+  const deliveryFee = selectedZone?.price || 0;
+  const orderTotal = cartSubtotal + deliveryFee;
 
   const handlePlaceOrder = async () => {
     setCheckoutStep("placing");
@@ -204,6 +224,7 @@ export default function CheckoutClient() {
             quantity: item.quantity,
           })),
           payment_method: paymentMethod,
+          delivery_zone_id: deliveryZoneId || undefined,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -224,6 +245,7 @@ export default function CheckoutClient() {
     }
 
     // Order genuinely placed: only now show success and clear the cart.
+    setPlacedTotal(orderTotal);
     setPlacingStatus("success");
     saveCart([]); // Clear cart contents
 
@@ -269,7 +291,7 @@ export default function CheckoutClient() {
                   Thank you for shopping with PluggedIn! Please complete your bank transfer using the details below and send us your payment receipt. We have also emailed these details to <span className="font-extrabold text-zinc-900">{custEmail || "your email address"}</span>.
                 </p>
                 <div className="w-full">
-                  <BankDetailsCard settings={bankDetails} loading={bankDetailsLoading} orderId={orderSuccess} />
+                  <BankDetailsCard settings={bankDetails} loading={bankDetailsLoading} orderId={orderSuccess} amount={placedTotal} />
                 </div>
               </>
             ) : (
@@ -378,6 +400,11 @@ export default function CheckoutClient() {
                         return;
                       }
 
+                      if (deliveryZones.length > 0 && !selectedZone) {
+                        setFormError("Please select your delivery area.");
+                        return;
+                      }
+
                       setFormError(null);
                       setCheckoutStep("payment");
                     }} 
@@ -454,6 +481,48 @@ export default function CheckoutClient() {
                         }`}
                       />
                     </div>
+
+                    {deliveryZones.length > 0 && (
+                      <div className="flex flex-col gap-2 text-left">
+                        <label className="text-[9px] font-black tracking-widest text-zinc-400 uppercase ml-1">
+                          Delivery Area
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {deliveryZones.map((zone) => {
+                            const isSelected = deliveryZoneId === zone.id;
+                            return (
+                              <button
+                                key={zone.id}
+                                type="button"
+                                onClick={() => {
+                                  setDeliveryZoneId(zone.id);
+                                  if (formError?.toLowerCase().includes("delivery area")) setFormError(null);
+                                }}
+                                className={`border p-3.5 rounded-xl cursor-pointer transition-all flex items-center justify-between gap-3 text-left ${
+                                  isSelected
+                                    ? "border-purple-500 bg-purple-50/30 shadow-sm"
+                                    : formError?.toLowerCase().includes("delivery area")
+                                    ? "border-red-400 bg-white"
+                                    : "border-zinc-200 bg-white hover:bg-zinc-50"
+                                }`}
+                              >
+                                <span className="flex items-center gap-2.5">
+                                  <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                    isSelected ? "border-purple-600" : "border-zinc-300"
+                                  }`}>
+                                    {isSelected && <span className="w-2 h-2 rounded-full bg-purple-600" />}
+                                  </span>
+                                  <span className="text-xs font-bold text-zinc-950">{zone.name}</span>
+                                </span>
+                                <span className={`text-xs font-extrabold ${zone.price > 0 ? "text-zinc-900" : "text-emerald-600"}`}>
+                                  {formatDeliveryFee(zone.price)}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     <button
                        type="submit"
@@ -597,8 +666,14 @@ export default function CheckoutClient() {
                     <span className="text-zinc-950 font-extrabold">Rs. {cartSubtotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs text-zinc-500 font-semibold">
-                    <span>Shipping</span>
-                    <span className="text-emerald-600 font-extrabold text-[10px] tracking-wide">FREE</span>
+                    <span>Delivery{selectedZone ? ` (${selectedZone.name})` : ""}</span>
+                    {deliveryZones.length > 0 && !selectedZone ? (
+                      <span className="text-zinc-400 font-bold text-[10px] tracking-wide">SELECT AREA</span>
+                    ) : deliveryFee > 0 ? (
+                      <span className="text-zinc-850 font-bold">Rs. {deliveryFee.toLocaleString()}</span>
+                    ) : (
+                      <span className="text-emerald-600 font-extrabold text-[10px] tracking-wide">FREE</span>
+                    )}
                   </div>
                   <div className="flex justify-between items-center text-xs text-zinc-500 font-semibold border-b border-zinc-200/50 pb-3">
                     <span>Estimated Taxes</span>
@@ -606,7 +681,7 @@ export default function CheckoutClient() {
                   </div>
                   <div className="flex justify-between items-center pt-2 text-sm font-extrabold text-zinc-950 font-outfit uppercase tracking-widest">
                     <span>Total Amount</span>
-                    <span className="text-purple-950 text-lg font-black font-outfit">Rs. {cartSubtotal.toLocaleString()}</span>
+                    <span className="text-purple-950 text-lg font-black font-outfit">Rs. {orderTotal.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
