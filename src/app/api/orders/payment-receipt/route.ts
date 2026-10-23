@@ -85,6 +85,8 @@ export async function POST(request: Request) {
         totalAmount: order.total_amount,
         deliveryFee: Number(order.delivery_fee) || 0,
         deliveryZone: order.delivery_zone,
+        discountAmount: Number(order.discount_amount) || 0,
+        discountCode: order.discount_code,
         paymentMethod: order.payment_method,
       };
       const result = received

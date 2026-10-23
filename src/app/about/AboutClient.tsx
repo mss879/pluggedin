@@ -64,63 +64,6 @@ function Reveal({
 }
 
 /* ---------------------------------------------------------------- */
-/* Count-up number (animates when scrolled into view)               */
-/* ---------------------------------------------------------------- */
-function Counter({
-  to,
-  suffix = "",
-  duration = 1800,
-}: {
-  to: number;
-  suffix?: string;
-  duration?: number;
-}) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [value, setValue] = useState(0);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      setValue(to);
-      return;
-    }
-
-    let raf = 0;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          observer.unobserve(el);
-          const start = performance.now();
-          const tick = (now: number) => {
-            const p = Math.min((now - start) / duration, 1);
-            const eased = 1 - Math.pow(1 - p, 3);
-            setValue(Math.round(eased * to));
-            if (p < 1) raf = requestAnimationFrame(tick);
-          };
-          raf = requestAnimationFrame(tick);
-        }
-      },
-      { threshold: 0.4 }
-    );
-    observer.observe(el);
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(raf);
-    };
-  }, [to, duration]);
-
-  return (
-    <span ref={ref}>
-      {value}
-      {suffix}
-    </span>
-  );
-}
-
-/* ---------------------------------------------------------------- */
 /* Constellation particle field (canvas, no deps) — tuned for light  */
 /* ---------------------------------------------------------------- */
 function ParticleField() {
@@ -215,34 +158,27 @@ function ParticleField() {
 /* ---------------------------------------------------------------- */
 /* Data                                                              */
 /* ---------------------------------------------------------------- */
-const STATS = [
-  { to: 10, suffix: "+", label: "Curated Products" },
-  { to: 6, suffix: "+", label: "Categories" },
-  { to: 100, suffix: "%", label: "Secure Checkout" },
-  { to: 24, suffix: "/7", label: "Always Open" },
-];
-
 const BENEFITS = [
   {
     n: "01",
-    title: "Handpicked For You",
-    desc: "We pick the good stuff so you don't have to scroll endlessly. Every product earns its place in the store.",
+    title: "Handpicked Quality",
+    desc: "Every product is chosen for quality and real everyday value.",
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" d="M12 3l2.2 5.2L20 9l-4.2 3.6L17 18l-5-3-5 3 1.2-5.4L4 9l5.8-.8L12 3z" />
     ),
   },
   {
     n: "02",
-    title: "Fair Prices & Deals",
-    desc: "Quality products at honest prices, with regular discounts and offers running across the store.",
+    title: "Island-wide Delivery",
+    desc: "Fast, reliable delivery to your door anywhere in Sri Lanka.",
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" d="M7 7h.01M3 11l8-8 10 10-8 8L3 11zm4-1a1 1 0 11-2 0 1 1 0 012 0z" />
     ),
   },
   {
     n: "03",
-    title: "Fast & Easy",
-    desc: "Simple checkout, secure payment, and quick delivery across Sri Lanka — with cash on delivery available.",
+    title: "Easy Payment",
+    desc: "Pay with cash on delivery or bank transfer — whichever suits you.",
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" d="M13 3L4 14h6l-1 7 9-11h-6l1-7z" />
     ),
@@ -250,22 +186,10 @@ const BENEFITS = [
 ];
 
 const CATEGORIES = [
-  {
-    tag: "ELECTRONICS",
-    desc: "Headphones, speakers, chargers, webcams and smart accessories to power up your day.",
-  },
-  {
-    tag: "WORKSPACE & GEAR",
-    desc: "Keyboards, mice, laptop stands and desk essentials for work, gaming and everything in between.",
-  },
-  {
-    tag: "LIFESTYLE & TRAVEL",
-    desc: "Bags, organizers and everyday carry that mixes clean style with real-world function.",
-  },
-  {
-    tag: "LIGHTING & AMBIENCE",
-    desc: "Smart lighting and accessories to set the mood and finish off any space.",
-  },
+  { tag: "ELECTRONICS & TECH GEAR", desc: "The latest gadgets and accessories for work and play." },
+  { tag: "SMART DEVICES", desc: "Smart tech that makes everyday tasks simpler." },
+  { tag: "HOUSEHOLD GADGETS", desc: "Unique, useful gadgets for the home and kitchen." },
+  { tag: "VEHICLE & MOBILE ACCESSORIES", desc: "Essentials for your car and your phone." },
 ];
 
 /* ---------------------------------------------------------------- */
@@ -374,21 +298,21 @@ export default function AboutClient() {
           <div className="inline-flex items-center gap-2 mb-7 rounded-full border border-zinc-200 bg-white/80 backdrop-blur-md px-4 py-1.5 shadow-sm">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-glow" />
             <span className="text-[10px] font-bold tracking-[0.22em] uppercase text-zinc-600">
-              Curated online store · Sri Lanka
+              Dehiwala, Colombo · Sri Lanka
             </span>
           </div>
 
           <h1 className="font-inter text-5xl md:text-7xl font-extrabold tracking-tight leading-[1.1] mb-7 text-zinc-950">
-            Your store for{" "}
+            Technology for{" "}
             <br className="hidden md:block" />
             <span className="animate-gradient-text bg-gradient-to-r from-zinc-950 via-zinc-800 to-zinc-650 bg-clip-text text-transparent">
-              Electronics &amp; Lifestyle
+              Everyday Life
             </span>
           </h1>
 
           <p className="text-zinc-500 text-lg md:text-xl font-medium tracking-wide max-w-2xl leading-relaxed">
-            A handpicked online store bringing you the best in tech and lifestyle —
-            fairly priced and delivered to your door across Sri Lanka.
+            Electronics, smart devices and household gadgets — handpicked and
+            delivered island-wide.
           </p>
 
           <div className="mt-10 flex flex-wrap items-center gap-4">
@@ -416,24 +340,6 @@ export default function AboutClient() {
         </div>
       </section>
 
-      {/* ===================== STATS ===================== */}
-      <section className="relative border-y border-zinc-150 bg-zinc-50/60">
-        <div className="max-w-6xl mx-auto px-6 md:px-8 grid grid-cols-2 md:grid-cols-4 divide-x divide-zinc-200">
-          {STATS.map((s, i) => (
-            <Reveal key={s.label} variant="up" delay={i * 120}>
-              <div className="px-4 py-10 text-center">
-                <div className="font-inter text-4xl md:text-5xl font-extrabold bg-gradient-to-br from-zinc-950 to-zinc-600 bg-clip-text text-transparent">
-                  <Counter to={s.to} suffix={s.suffix} />
-                </div>
-                <div className="mt-3 text-[10px] md:text-[11px] font-bold tracking-[0.18em] uppercase text-zinc-500">
-                  {s.label}
-                </div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
       {/* ===================== OUR STORY ===================== */}
       <section className="relative max-w-5xl mx-auto px-6 md:px-8 py-24 md:py-32">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-14">
@@ -450,16 +356,17 @@ export default function AboutClient() {
           <div className="md:col-span-8 flex flex-col gap-6 text-zinc-600 leading-relaxed font-medium text-base md:text-lg">
             <Reveal variant="up" delay={80}>
               <p>
-                PluggedIn started with a simple idea: make it easy to find quality electronics and lifestyle
-                products in Sri Lanka. Instead of hopping between random sites and sellers, you get one clean,
-                trustworthy store with everything in one place.
+                At PluggedIn, we believe the right technology makes everyday life smoother, smarter, and more
+                enjoyable. Based in Dehiwala, Colombo, we are a dedicated online storefront specializing in the
+                latest electronics, smart devices, and unique household gadgets in Sri Lanka.
               </p>
             </Reveal>
             <Reveal variant="up" delay={180}>
               <p>
-                Think of us as your shortcut to the good stuff. We search for products that look great, work
-                well, and are worth the money — then bring them straight to your door with fast, friendly
-                delivery and easy payment.
+                Our curation process is strictly focused on quality and innovation. From essential vehicle and
+                mobile accessories to cutting-edge tech gear, every item in our store is handpicked to ensure it
+                adds real value to your lifestyle. We handle the sourcing, so you can enjoy a hassle-free shopping
+                experience with fast, reliable island-wide delivery.
               </p>
             </Reveal>
           </div>
@@ -543,12 +450,10 @@ export default function AboutClient() {
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(9,9,11,0.03),transparent_55%)] pointer-events-none" />
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(24,24,27,0.02),transparent_55%)] pointer-events-none" />
               <h2 className="relative z-10 font-inter text-3xl md:text-4xl font-extrabold tracking-tight mb-5 leading-tight text-zinc-950">
-                Ready to Upgrade
-                <br className="hidden md:block" /> Your Everyday?
+                Find Something You&apos;ll Love
               </h2>
               <p className="relative z-10 text-zinc-500 text-sm md:text-base max-w-xl mx-auto mb-9 font-medium leading-relaxed">
-                Browse our handpicked collection of electronics and lifestyle gear — with island-wide delivery
-                and cash on delivery available.
+                Browse the full collection, delivered anywhere in Sri Lanka.
               </p>
               <div className="relative z-10">
                 <Link

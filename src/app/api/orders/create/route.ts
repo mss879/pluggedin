@@ -3,7 +3,9 @@ import { supabase } from "@/lib/supabase";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 import { rateLimit, getClientIp, isAllowedOrigin } from "@/lib/rate-limit";
 import { normalizePaymentSettings, type PaymentSettings } from "@/lib/payment-settings";
-import { calculateDeliveryFee, formatWeight, normalizeDeliveryRates } from "@/lib/delivery";
+import { DELIVERY_SETTINGS_COLUMNS, formatWeight, normalizeDeliveryRates } from "@/lib/delivery";
+import { computeOrderPricing, normalizeCode, toDiscountRule, type DiscountCodeRow } from "@/lib/pricing";
+import { claimDiscountUse, lookupDiscountCode, releaseDiscountUse } from "@/lib/discounts-server";
 
 // Field length caps to prevent oversized payloads / DB bloat
 const MAX_NAME = 100;
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { customer_name, customer_email, phone_number, shipping_address, items, payment_method } = body;
+    const { customer_name, customer_email, phone_number, shipping_address, items, payment_method, discount_code } = body;
     const cleanPayment = ALLOWED_PAYMENTS.includes(payment_method) ? payment_method : "cash_on_delivery";
     const cleanName = (customer_name || "").trim().slice(0, MAX_NAME);
     const cleanEmail = (customer_email || "").trim().slice(0, MAX_EMAIL);
@@ -116,6 +118,8 @@ export async function POST(request: Request) {
     let deliveryFee = 0;
     let deliveryLabel: string | null = null;
     let totalWeightGrams: number | null = null;
+    let discountAmount = 0;
+    let appliedCode: string | null = null;
 
     if (supabase) {
       const ids = requested.map((r) => r.id);
@@ -159,16 +163,10 @@ export async function POST(request: Request) {
           price: formatRs(p.price),
         };
       });
-      totalAmount = requested.reduce(
-        (sum, r) => sum + priceMap.get(r.id)!.price * r.quantity,
-        0
-      );
-
-      // Delivery charge is based on the order's total weight (product weights
-      // from the database, never the client) and the admin-managed rates.
+      // Delivery rates (weight-based + free-delivery offer) from the admin
       const { data: ratesRow, error: ratesErr } = await supabase
         .from("delivery_settings")
-        .select("base_fee, base_weight_grams, extra_fee_per_kg")
+        .select(DELIVERY_SETTINGS_COLUMNS)
         .eq("id", 1)
         .maybeSingle();
       if (ratesErr) {
@@ -178,13 +176,44 @@ export async function POST(request: Request) {
           { status: 500 }
         );
       }
-      totalWeightGrams = requested.reduce(
-        (sum, r) => sum + priceMap.get(r.id)!.weightGrams * r.quantity,
-        0
+
+      // Discount code (optional) — looked up and re-validated server-side
+      let discountRow: DiscountCodeRow | null = null;
+      if (normalizeCode(discount_code)) {
+        const lookup = await lookupDiscountCode(discount_code);
+        if (!lookup.row) {
+          return NextResponse.json({ error: lookup.error, field: "discount_code" }, { status: lookup.status === 500 ? 500 : 400 });
+        }
+        discountRow = lookup.row;
+      }
+
+      // Same pricing the checkout previews, but with database prices/weights
+      const pricing = computeOrderPricing(
+        requested.map((r) => {
+          const p = priceMap.get(r.id)!;
+          return { id: r.id, unitPrice: p.price, quantity: r.quantity, weightGrams: p.weightGrams };
+        }),
+        normalizeDeliveryRates(ratesRow),
+        discountRow ? toDiscountRule(discountRow) : null
       );
-      deliveryFee = calculateDeliveryFee(totalWeightGrams, normalizeDeliveryRates(ratesRow));
-      deliveryLabel = formatWeight(totalWeightGrams);
-      totalAmount += deliveryFee;
+      if (pricing.discountError) {
+        return NextResponse.json({ error: pricing.discountError, field: "discount_code" }, { status: 400 });
+      }
+
+      // Use up one redemption (respects the code's usage limit atomically)
+      if (discountRow && !(await claimDiscountUse(discountRow.id))) {
+        return NextResponse.json(
+          { error: "This discount code has just been fully used.", field: "discount_code" },
+          { status: 400 }
+        );
+      }
+
+      totalWeightGrams = pricing.weightGrams;
+      deliveryFee = pricing.deliveryFee;
+      deliveryLabel = formatWeight(pricing.weightGrams) + (pricing.freeDeliveryReason ? " · free delivery" : "");
+      discountAmount = pricing.discountAmount;
+      appliedCode = discountRow?.code ?? null;
+      totalAmount = pricing.total;
 
       const { error } = await supabase.from("orders").insert({
         id: orderId,
@@ -197,12 +226,16 @@ export async function POST(request: Request) {
         delivery_zone: deliveryLabel,
         delivery_fee: deliveryFee,
         total_weight_grams: totalWeightGrams,
+        discount_code: appliedCode,
+        discount_amount: discountAmount,
         payment_method: cleanPayment,
         status: "pending",
       });
 
       if (error) {
         console.error("Supabase insert order error:", error);
+        // Give the code's use back since no order was created
+        if (discountRow) await releaseDiscountUse(discountRow.id);
         return NextResponse.json(
           { error: "We couldn't place your order right now. Please try again." },
           { status: 500 }
@@ -241,13 +274,15 @@ export async function POST(request: Request) {
         paymentMethod: cleanPayment,
         deliveryFee,
         deliveryZone: deliveryLabel,
+        discountAmount,
+        discountCode: appliedCode,
         bankDetails,
       });
     } catch (emailErr) {
       console.error("Order created but failed to send confirmation email:", emailErr);
     }
 
-    return NextResponse.json({ success: true, orderId });
+    return NextResponse.json({ success: true, orderId, total: totalAmount });
   } catch (error) {
     console.error("Error in create order API route:", error);
     return NextResponse.json(

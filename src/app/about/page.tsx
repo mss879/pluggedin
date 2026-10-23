@@ -3,11 +3,11 @@ import AboutClient from "./AboutClient";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.pluggedin.lk"),
-  title: "About Us | Curated Electronics & Lifestyle Store | PluggedIn",
-  description: "PluggedIn is a curated online store for electronics and lifestyle products in Sri Lanka — handpicked tech, workspace gear and accessories, fairly priced and delivered to your door.",
+  title: "About Us | Electronics, Smart Devices & Gadgets | PluggedIn",
+  description: "PluggedIn is an online store in Dehiwala, Colombo for the latest electronics, smart devices and household gadgets in Sri Lanka — handpicked for quality, with fast island-wide delivery.",
   openGraph: {
-    title: "About Us | Curated Electronics & Lifestyle Store | PluggedIn",
-    description: "A curated online store for electronics and lifestyle products in Sri Lanka — handpicked, fairly priced, and delivered to your door.",
+    title: "About Us | Electronics, Smart Devices & Gadgets | PluggedIn",
+    description: "The latest electronics, smart devices and household gadgets in Sri Lanka — handpicked for quality, with fast island-wide delivery.",
     url: "https://www.pluggedin.lk/about",
     images: ["/banner_1.webp"],
   },

@@ -12,12 +12,18 @@ export interface DeliveryRates {
   base_weight_grams: number;
   /** Added for every extra kg, or part of a kg, above the base weight. */
   extra_fee_per_kg: number;
+  /** Free-delivery offer switch (Admin → Delivery). */
+  free_delivery_enabled: boolean;
+  /** Basket amount (after discounts) that unlocks free delivery while the offer is on. */
+  free_delivery_min_subtotal: number;
 }
 
 export const DEFAULT_DELIVERY_RATES: DeliveryRates = {
   base_fee: 450,
   base_weight_grams: 1000,
   extra_fee_per_kg: 100,
+  free_delivery_enabled: false,
+  free_delivery_min_subtotal: 5000,
 };
 
 export function normalizeDeliveryRates(row: Partial<Record<keyof DeliveryRates, unknown>> | null | undefined): DeliveryRates {
@@ -29,6 +35,8 @@ export function normalizeDeliveryRates(row: Partial<Record<keyof DeliveryRates, 
     base_fee: num(row?.base_fee, DEFAULT_DELIVERY_RATES.base_fee),
     base_weight_grams: num(row?.base_weight_grams, DEFAULT_DELIVERY_RATES.base_weight_grams) || DEFAULT_DELIVERY_RATES.base_weight_grams,
     extra_fee_per_kg: num(row?.extra_fee_per_kg, DEFAULT_DELIVERY_RATES.extra_fee_per_kg),
+    free_delivery_enabled: row?.free_delivery_enabled === true,
+    free_delivery_min_subtotal: num(row?.free_delivery_min_subtotal, DEFAULT_DELIVERY_RATES.free_delivery_min_subtotal),
   };
 }
 
@@ -42,10 +50,14 @@ export function calculateDeliveryFee(totalWeightGrams: number, rates: DeliveryRa
   return rates.base_fee + extraKg * rates.extra_fee_per_kg;
 }
 
-/** "750 g" / "2.35 kg" */
+/** Columns to select from `delivery_settings`. */
+export const DELIVERY_SETTINGS_COLUMNS =
+  "base_fee, base_weight_grams, extra_fee_per_kg, free_delivery_enabled, free_delivery_min_subtotal";
+
+/** "750 g" / "2.35 kg" / "1.001 kg" */
 export function formatWeight(grams: number): string {
   const g = Math.max(0, Math.round(grams || 0));
-  return g < 1000 ? `${g} g` : `${parseFloat((g / 1000).toFixed(2))} kg`;
+  return g < 1000 ? `${g} g` : `${parseFloat((g / 1000).toFixed(3))} kg`;
 }
 
 /** "Rs. 450" or "FREE" */

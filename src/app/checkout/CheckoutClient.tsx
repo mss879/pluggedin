@@ -13,11 +13,12 @@ import {
 } from "@/lib/payment-settings";
 import {
   DEFAULT_DELIVERY_RATES,
-  calculateDeliveryFee,
+  DELIVERY_SETTINGS_COLUMNS,
   formatWeight,
   normalizeDeliveryRates,
   type DeliveryRates,
 } from "@/lib/delivery";
+import { computeOrderPricing, type DiscountRule } from "@/lib/pricing";
 
 interface CartItem {
   product: Product;
@@ -95,6 +96,11 @@ export default function CheckoutClient() {
   // Product weights (grams) by id, loaded fresh so old carts saved before
   // weights existed still get the right delivery charge.
   const [productWeights, setProductWeights] = useState<Record<string, number>>({});
+  // Discount code
+  const [codeInput, setCodeInput] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState<{ rule: DiscountRule; label: string } | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [applyingCode, setApplyingCode] = useState(false);
   const [placedTotal, setPlacedTotal] = useState(0);
 
   // Step states: "shipping" | "payment" | "placing"
@@ -139,7 +145,7 @@ export default function CheckoutClient() {
             .maybeSingle(),
           client
             .from("delivery_settings")
-            .select("base_fee, base_weight_grams, extra_fee_per_kg")
+            .select(DELIVERY_SETTINGS_COLUMNS)
             .eq("id", 1)
             .maybeSingle(),
         ]);
@@ -232,13 +238,46 @@ export default function CheckoutClient() {
     (sum, item) => sum + parsePrice(item.product.price) * item.quantity,
     0
   );
-  const totalWeightGrams = cart.reduce(
-    (sum, item) => sum + (productWeights[item.product.id] || 0) * item.quantity,
-    0
+  // Same pricing the server applies when the order is placed
+  const pricing = computeOrderPricing(
+    cart.map((item) => ({
+      id: item.product.id,
+      unitPrice: parsePrice(item.product.price),
+      quantity: item.quantity,
+      weightGrams: productWeights[item.product.id] || 0,
+    })),
+    deliveryRates,
+    appliedDiscount?.rule ?? null
   );
-  // Same formula the server uses when the order is placed
-  const deliveryFee = calculateDeliveryFee(totalWeightGrams, deliveryRates);
-  const orderTotal = cartSubtotal + deliveryFee;
+  const totalWeightGrams = pricing.weightGrams;
+  const deliveryFee = pricing.deliveryFee;
+  const orderTotal = pricing.total;
+
+  const handleApplyCode = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const code = codeInput.trim();
+    if (!code) return;
+    setApplyingCode(true);
+    setCodeError(null);
+    try {
+      const response = await fetch("/api/discounts/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "That code couldn't be applied.");
+      }
+      setAppliedDiscount({ rule: data.rule, label: data.label });
+      setCodeInput("");
+    } catch (err: any) {
+      setAppliedDiscount(null);
+      setCodeError(err.message);
+    } finally {
+      setApplyingCode(false);
+    }
+  };
 
   const handlePlaceOrder = async () => {
     setCheckoutStep("placing");
@@ -261,12 +300,22 @@ export default function CheckoutClient() {
             quantity: item.quantity,
           })),
           payment_method: paymentMethod,
+          discount_code: appliedDiscount && !pricing.discountError ? appliedDiscount.rule.code : undefined,
         }),
       });
       const data = await response.json().catch(() => ({}));
       if (response.ok && data.success && data.orderId) {
         orderIdRef = data.orderId;
+        setPlacedTotal(typeof data.total === "number" ? data.total : orderTotal);
       } else {
+        // A code problem (expired / used up meanwhile) — tell the customer exactly
+        if (data.field === "discount_code") {
+          setAppliedDiscount(null);
+          setCodeError(data.error);
+          setPlacingError(`${data.error} We've removed it — please review your total and try again.`);
+          setPlacingStatus("error");
+          return;
+        }
         throw new Error(data.error || "Order could not be placed");
       }
     } catch (err: any) {
@@ -281,7 +330,6 @@ export default function CheckoutClient() {
     }
 
     // Order genuinely placed: only now show success and clear the cart.
-    setPlacedTotal(orderTotal);
     setPlacingStatus("success");
     saveCart([]); // Clear cart contents
 
@@ -650,10 +698,58 @@ export default function CheckoutClient() {
 
                 {/* Pricing Totals */}
                 <div className="flex flex-col gap-2 border-t border-zinc-100 pt-3">
+                  {/* Discount code */}
+                  {appliedDiscount ? (
+                    <div className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 border ${pricing.discountError ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"}`}>
+                      <div className="flex flex-col min-w-0">
+                        <span className={`text-[10px] font-black tracking-widest uppercase ${pricing.discountError ? "text-amber-700" : "text-emerald-700"}`}>
+                          {appliedDiscount.rule.code}
+                        </span>
+                        <span className={`text-[10px] font-semibold ${pricing.discountError ? "text-amber-700" : "text-emerald-700/80"}`}>
+                          {pricing.discountError || appliedDiscount.label}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setAppliedDiscount(null); setCodeError(null); }}
+                        className="text-[10px] font-bold text-zinc-500 hover:text-red-600 bg-transparent border-0 cursor-pointer uppercase tracking-widest shrink-0"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleApplyCode} className="flex flex-col gap-1.5">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={codeInput}
+                          onChange={(e) => { setCodeInput(e.target.value.toUpperCase()); setCodeError(null); }}
+                          placeholder="Discount code"
+                          maxLength={40}
+                          className="flex-1 min-w-0 bg-slate-50 border border-zinc-200 focus:border-purple-500 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 placeholder-zinc-400 uppercase tracking-wider focus:outline-none"
+                        />
+                        <button
+                          type="submit"
+                          disabled={applyingCode || !codeInput.trim()}
+                          className="bg-zinc-950 hover:bg-zinc-800 text-white text-[10px] font-black tracking-widest px-4 rounded-xl cursor-pointer border-0 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:cursor-not-allowed"
+                        >
+                          {applyingCode ? "..." : "APPLY"}
+                        </button>
+                      </div>
+                      {codeError && <span className="text-[10px] font-semibold text-red-600">{codeError}</span>}
+                    </form>
+                  )}
+
                   <div className="flex justify-between items-center text-xs font-bold text-zinc-550 uppercase tracking-wider">
                     <span>Subtotal</span>
                     <span className="text-zinc-950 font-extrabold">Rs. {cartSubtotal.toLocaleString()}</span>
                   </div>
+                  {pricing.discountAmount > 0 && (
+                    <div className="flex justify-between items-center text-xs text-emerald-700 font-semibold">
+                      <span>Discount ({appliedDiscount?.rule.code})</span>
+                      <span className="font-extrabold">− Rs. {pricing.discountAmount.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center text-xs text-zinc-500 font-semibold">
                     <span>Delivery{totalWeightGrams > 0 ? ` (${formatWeight(totalWeightGrams)})` : ""}</span>
                     {deliveryFee > 0 ? (
@@ -662,6 +758,16 @@ export default function CheckoutClient() {
                       <span className="text-emerald-600 font-extrabold text-[10px] tracking-wide">FREE</span>
                     )}
                   </div>
+                  {pricing.amountToFreeDelivery > 0 && (
+                    <div className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-100 rounded-lg px-2.5 py-1.5">
+                      Add Rs. {pricing.amountToFreeDelivery.toLocaleString()} more to get FREE delivery
+                    </div>
+                  )}
+                  {pricing.freeDeliveryReason === "offer" && (
+                    <div className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1.5">
+                      You&apos;ve unlocked FREE delivery!
+                    </div>
+                  )}
                   <div className="flex justify-between items-center text-xs text-zinc-500 font-semibold border-b border-zinc-200/50 pb-3">
                     <span>Estimated Taxes</span>
                     <span className="text-zinc-850 font-bold">Rs. 0</span>

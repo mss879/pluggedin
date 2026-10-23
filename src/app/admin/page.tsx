@@ -13,12 +13,66 @@ import {
 } from "@/lib/payment-settings";
 import {
   DEFAULT_DELIVERY_RATES,
+  DELIVERY_SETTINGS_COLUMNS,
   calculateDeliveryFee,
   formatDeliveryFee,
   formatWeight,
   normalizeDeliveryRates,
 } from "@/lib/delivery";
 import { resolveBannerLink } from "@/lib/banner-link";
+import {
+  DISCOUNT_TYPE_LABELS,
+  codeAvailabilityError,
+  describeDiscount,
+  normalizeCode,
+  type DiscountCodeRow,
+  type DiscountType,
+} from "@/lib/pricing";
+
+/** Discount form values as edited in Admin → Discounts. */
+interface DiscountForm {
+  code: string;
+  description: string;
+  discount_type: DiscountType;
+  value: string;
+  product_ids: string[];
+  buy_qty: string;
+  get_qty: string;
+  min_subtotal: string;
+  max_uses: string;
+  starts_at: string;
+  expires_at: string;
+  is_active: boolean;
+}
+
+const EMPTY_DISCOUNT_FORM: DiscountForm = {
+  code: "",
+  description: "",
+  discount_type: "percent_order",
+  value: "",
+  product_ids: [],
+  buy_qty: "1",
+  get_qty: "1",
+  min_subtotal: "",
+  max_uses: "",
+  starts_at: "",
+  expires_at: "",
+  is_active: true,
+};
+
+/** ISO timestamp -> value for <input type="datetime-local"> (local time) */
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function generateDiscountCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I confusion
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return "PLUG-" + Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+}
 
 interface Collection {
   id: string;
@@ -61,6 +115,8 @@ interface Order {
   payment_reviewed_at?: string | null;
   delivery_zone?: string | null;
   delivery_fee?: number | null;
+  discount_code?: string | null;
+  discount_amount?: number | null;
   status: "pending" | "fulfilled" | "shipped" | "delivered" | "cancelled";
   created_at: string;
   updated_at?: string;
@@ -107,7 +163,7 @@ export default function AdminDashboardPage() {
   const router = useRouter();
 
   // Navigation Tabs state
-  // "dashboard", "catalog", "add-product", "collections", "analytics", "orders", "bank-transfer", "delivery", "contact-inquiries", "offer-section"
+  // "dashboard", "catalog", "add-product", "collections", "analytics", "orders", "bank-transfer", "delivery", "discounts", "contact-inquiries", "offer-section"
   const [activeTab, setActiveTab] = useState("dashboard");
   const [productsOpen, setProductsOpen] = useState(true);
 
@@ -128,8 +184,15 @@ export default function AdminDashboardPage() {
     base_fee: String(DEFAULT_DELIVERY_RATES.base_fee),
     base_weight_grams: String(DEFAULT_DELIVERY_RATES.base_weight_grams),
     extra_fee_per_kg: String(DEFAULT_DELIVERY_RATES.extra_fee_per_kg),
+    free_delivery_enabled: DEFAULT_DELIVERY_RATES.free_delivery_enabled,
+    free_delivery_min_subtotal: String(DEFAULT_DELIVERY_RATES.free_delivery_min_subtotal),
   });
   const [savingDeliveryRates, setSavingDeliveryRates] = useState(false);
+  // Discount codes (Admin → Discounts)
+  const [discountCodes, setDiscountCodes] = useState<DiscountCodeRow[]>([]);
+  const [discountForm, setDiscountForm] = useState<DiscountForm>(EMPTY_DISCOUNT_FORM);
+  const [editingDiscountId, setEditingDiscountId] = useState<string | null>(null);
+  const [savingDiscount, setSavingDiscount] = useState(false);
   const [contactInquiries, setContactInquiries] = useState<ContactInquiry[]>([]);
   const [activeInquiry, setActiveInquiry] = useState<ContactInquiry | null>(null);
   const [marqueeOffers, setMarqueeOffers] = useState<MarqueeOffer[]>([]);
@@ -461,7 +524,7 @@ export default function AdminDashboardPage() {
           try {
             const { data: ratesData, error: ratesErr } = await supabase
               .from("delivery_settings")
-              .select("base_fee, base_weight_grams, extra_fee_per_kg")
+              .select(DELIVERY_SETTINGS_COLUMNS)
               .eq("id", 1)
               .maybeSingle();
             if (ratesErr) throw ratesErr;
@@ -470,9 +533,23 @@ export default function AdminDashboardPage() {
               base_fee: String(rates.base_fee),
               base_weight_grams: String(rates.base_weight_grams),
               extra_fee_per_kg: String(rates.extra_fee_per_kg),
+              free_delivery_enabled: rates.free_delivery_enabled,
+              free_delivery_min_subtotal: String(rates.free_delivery_min_subtotal),
             });
           } catch (e) {
             console.error("Failed to load delivery_settings:", e);
+          }
+
+          // 8b. Fetch Discount Codes
+          try {
+            const { data: codeData, error: codeErr } = await supabase
+              .from("discount_codes")
+              .select("*")
+              .order("created_at", { ascending: false });
+            if (codeErr) throw codeErr;
+            setDiscountCodes((codeData || []) as DiscountCodeRow[]);
+          } catch (e) {
+            console.error("Failed to load discount_codes:", e);
           }
 
           // 9. Fetch Hero Banners
@@ -760,12 +837,144 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const resetDiscountForm = () => {
+    setEditingDiscountId(null);
+    setDiscountForm(EMPTY_DISCOUNT_FORM);
+  };
+
+  const handleEditDiscount = (row: DiscountCodeRow) => {
+    setEditingDiscountId(row.id);
+    setDiscountForm({
+      code: row.code,
+      description: row.description || "",
+      discount_type: row.discount_type,
+      value: String(Number(row.value) || ""),
+      product_ids: row.product_ids || [],
+      buy_qty: String(row.buy_qty || 1),
+      get_qty: String(row.get_qty || 1),
+      min_subtotal: Number(row.min_subtotal) ? String(Number(row.min_subtotal)) : "",
+      max_uses: row.max_uses ? String(row.max_uses) : "",
+      starts_at: toLocalInput(row.starts_at),
+      expires_at: toLocalInput(row.expires_at),
+      is_active: row.is_active,
+    });
+  };
+
+  const handleSaveDiscount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const f = discountForm;
+    const code = normalizeCode(f.code);
+    const type = f.discount_type;
+    const value = Number(f.value);
+    const needsValue = type !== "buy_x_get_y" && type !== "free_delivery";
+    const needsProducts = type === "percent_product" || type === "fixed_product";
+    const isPercent = type === "percent_order" || type === "percent_product";
+
+    if (!/^[A-Z0-9_-]{3,40}$/.test(code)) {
+      alert("Codes must be 3–40 characters: letters, numbers, - or _.");
+      return;
+    }
+    if (needsValue && (!Number.isFinite(value) || value <= 0 || (isPercent && value > 100))) {
+      alert(isPercent ? "Enter a percentage between 1 and 100." : "Enter a discount amount in Rs. greater than 0.");
+      return;
+    }
+    if (needsProducts && f.product_ids.length === 0) {
+      alert("Choose at least one product for this discount.");
+      return;
+    }
+    const buyQty = Math.max(1, Math.round(Number(f.buy_qty) || 1));
+    const getQty = Math.max(1, Math.round(Number(f.get_qty) || 1));
+    const maxUses = f.max_uses.trim() ? Math.round(Number(f.max_uses)) : null;
+    if (maxUses !== null && (!Number.isFinite(maxUses) || maxUses < 1)) {
+      alert("Usage limit must be 1 or more (leave empty for unlimited).");
+      return;
+    }
+    const startsAt = f.starts_at ? new Date(f.starts_at).toISOString() : null;
+    const expiresAt = f.expires_at ? new Date(f.expires_at).toISOString() : null;
+    if (startsAt && expiresAt && expiresAt <= startsAt) {
+      alert("The end date must be after the start date.");
+      return;
+    }
+
+    const payload = {
+      code,
+      description: f.description.trim(),
+      discount_type: type,
+      value: needsValue ? Math.round(value * 100) / 100 : 0,
+      product_ids: type === "buy_x_get_y" || needsProducts ? f.product_ids : [],
+      buy_qty: type === "buy_x_get_y" ? buyQty : 1,
+      get_qty: type === "buy_x_get_y" ? getQty : 1,
+      min_subtotal: Math.max(0, Number(f.min_subtotal) || 0),
+      max_uses: maxUses,
+      starts_at: startsAt,
+      expires_at: expiresAt,
+      is_active: f.is_active,
+      updated_at: new Date().toISOString(),
+    };
+
+    setSavingDiscount(true);
+    try {
+      if (!supabase) throw new Error("Database is not configured.");
+      const query = editingDiscountId
+        ? supabase.from("discount_codes").update(payload).eq("id", editingDiscountId).select("*")
+        : supabase.from("discount_codes").insert(payload).select("*");
+      const { data, error } = await query;
+      if (error) {
+        if (error.code === "23505") throw new Error(`The code "${code}" already exists. Choose a different code.`);
+        throw error;
+      }
+      if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
+      const saved = data[0] as DiscountCodeRow;
+      setDiscountCodes((prev) =>
+        editingDiscountId ? prev.map((d) => (d.id === saved.id ? saved : d)) : [saved, ...prev]
+      );
+      resetDiscountForm();
+      setSaveStatus(`Discount code ${saved.code} saved.`);
+      setTimeout(() => setSaveStatus(null), 3000);
+    } catch (err: any) {
+      alert(`Failed to save discount code: ${err.message}`);
+    } finally {
+      setSavingDiscount(false);
+    }
+  };
+
+  const handleToggleDiscount = async (row: DiscountCodeRow) => {
+    try {
+      if (!supabase) return;
+      const { data, error } = await supabase
+        .from("discount_codes")
+        .update({ is_active: !row.is_active, updated_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .select("*");
+      if (error) throw error;
+      if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
+      setDiscountCodes((prev) => prev.map((d) => (d.id === row.id ? (data[0] as DiscountCodeRow) : d)));
+    } catch (err: any) {
+      alert(`Failed to update discount code: ${err.message}`);
+    }
+  };
+
+  const handleDeleteDiscount = async (row: DiscountCodeRow) => {
+    if (!confirm(`Delete discount code ${row.code}? Customers will no longer be able to use it.`)) return;
+    try {
+      if (!supabase) return;
+      const { data, error } = await supabase.from("discount_codes").delete().eq("id", row.id).select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
+      setDiscountCodes((prev) => prev.filter((d) => d.id !== row.id));
+      if (editingDiscountId === row.id) resetDiscountForm();
+    } catch (err: any) {
+      alert(`Failed to delete discount code: ${err.message}`);
+    }
+  };
+
   const handleSaveDeliveryRates = async (e: React.FormEvent) => {
     e.preventDefault();
     const baseFee = Number(deliveryRatesForm.base_fee);
     const baseWeight = Number(deliveryRatesForm.base_weight_grams);
     const extraFee = Number(deliveryRatesForm.extra_fee_per_kg);
-    if (![baseFee, extraFee].every((n) => Number.isFinite(n) && n >= 0) || !Number.isFinite(baseWeight) || baseWeight <= 0) {
+    const freeMin = Number(deliveryRatesForm.free_delivery_min_subtotal);
+    if (![baseFee, extraFee, freeMin].every((n) => Number.isFinite(n) && n >= 0) || !Number.isFinite(baseWeight) || baseWeight <= 0) {
       alert("Please enter valid delivery rates (charges can be 0, the included weight must be more than 0).");
       return;
     }
@@ -780,6 +989,8 @@ export default function AdminDashboardPage() {
             base_fee: Math.round(baseFee * 100) / 100,
             base_weight_grams: Math.round(baseWeight),
             extra_fee_per_kg: Math.round(extraFee * 100) / 100,
+            free_delivery_enabled: deliveryRatesForm.free_delivery_enabled,
+            free_delivery_min_subtotal: Math.round(freeMin * 100) / 100,
             updated_at: new Date().toISOString(),
           })
           .select("id");
@@ -1660,6 +1871,29 @@ export default function AdminDashboardPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zm10 0a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
               </svg>
               Delivery
+            </button>
+
+            <button
+              onClick={() => setActiveTab("discounts")}
+              className={`flex items-center justify-between gap-3 px-4 py-3 rounded-2xl transition-all cursor-pointer font-bold border-0 text-left ${
+                activeTab === "discounts"
+                  ? "bg-purple-600 text-white shadow-md shadow-purple-600/15"
+                  : "bg-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                Discounts
+              </div>
+              {discountCodes.length > 0 && (
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+                  activeTab === "discounts" ? "bg-white text-purple-600" : "bg-purple-50 text-purple-655"
+                }`}>
+                  {discountCodes.length}
+                </span>
+              )}
             </button>
 
             <button
@@ -2886,6 +3120,11 @@ export default function AdminDashboardPage() {
                                 incl. delivery {formatDeliveryFee(Number(order.delivery_fee) || 0)} · {order.delivery_zone}
                               </span>
                             )}
+                            {order.discount_code && Number(order.discount_amount) > 0 && (
+                              <span className="text-[10px] font-bold text-emerald-600">
+                                code {order.discount_code} · − Rs. {Math.round(Number(order.discount_amount)).toLocaleString()}
+                              </span>
+                            )}
                           </div>
 
                           {/* Action Buttons to Fulfill / Ship / Deliver */}
@@ -2982,6 +3221,238 @@ export default function AdminDashboardPage() {
             );
           })()}
 
+          {/* TAB: DISCOUNT CODES */}
+          {activeTab === "discounts" && (() => {
+            const t = discountForm.discount_type;
+            const isPercent = t === "percent_order" || t === "percent_product";
+            const showValue = t !== "buy_x_get_y" && t !== "free_delivery";
+            const showProducts = t === "percent_product" || t === "fixed_product" || t === "buy_x_get_y";
+            const inputCls = "bg-slate-50 border border-slate-200 focus:bg-white focus:border-purple-500/80 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-900 focus:outline-none transition-all w-full";
+            const labelCls = "text-[9px] font-black tracking-widest text-slate-400 uppercase ml-1";
+            const statusOf = (row: DiscountCodeRow) => {
+              const problem = codeAvailabilityError(row);
+              if (!problem) return { label: "Active", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+              if (!row.is_active) return { label: "Paused", cls: "bg-slate-100 text-slate-500 border-slate-200" };
+              if (problem.includes("not active yet")) return { label: "Scheduled", cls: "bg-blue-50 text-blue-700 border-blue-200" };
+              if (problem.includes("expired")) return { label: "Expired", cls: "bg-red-50 text-red-600 border-red-200" };
+              return { label: "Used up", cls: "bg-amber-50 text-amber-700 border-amber-200" };
+            };
+            return (
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start animate-in fade-in duration-300">
+
+              {/* Left: create / edit */}
+              <form onSubmit={handleSaveDiscount} className="xl:col-span-5 bg-white border border-slate-200/80 rounded-[2rem] p-6 flex flex-col gap-4 shadow-xs text-left">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-black tracking-[0.2em] text-slate-500 uppercase">
+                    {editingDiscountId ? "Edit Discount Code" : "Create Discount Code"}
+                  </h3>
+                  {editingDiscountId && (
+                    <button type="button" onClick={resetDiscountForm} className="text-[10px] font-bold text-slate-400 hover:text-slate-800 bg-transparent border-0 cursor-pointer uppercase tracking-widest">
+                      Cancel edit
+                    </button>
+                  )}
+                </div>
+
+                {saveStatus && (
+                  <div className="bg-purple-50 border border-purple-100 text-purple-600 text-xs font-semibold px-4 py-3 rounded-2xl text-center">
+                    {saveStatus.toUpperCase()}
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Code</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      value={discountForm.code}
+                      onChange={(e) => setDiscountForm({ ...discountForm, code: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, "") })}
+                      placeholder="e.g. SAVE30"
+                      maxLength={40}
+                      className={`${inputCls} font-black tracking-widest uppercase`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setDiscountForm({ ...discountForm, code: generateDiscountCode() })}
+                      className="shrink-0 bg-white hover:bg-purple-50 text-purple-600 border border-purple-200 text-[10px] font-black tracking-widest px-4 rounded-2xl cursor-pointer"
+                    >
+                      GENERATE
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Discount type</label>
+                  <select
+                    value={t}
+                    onChange={(e) => setDiscountForm({ ...discountForm, discount_type: e.target.value as DiscountType })}
+                    className={inputCls}
+                  >
+                    {(Object.keys(DISCOUNT_TYPE_LABELS) as DiscountType[]).map((key) => (
+                      <option key={key} value={key}>{DISCOUNT_TYPE_LABELS[key]}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {showValue && (
+                  <div className="flex flex-col gap-2">
+                    <label className={labelCls}>{isPercent ? "Percentage off (%)" : t === "fixed_product" ? "Rs. off each unit" : "Rs. off the order"}</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={isPercent ? 100 : undefined}
+                      step="any"
+                      required
+                      value={discountForm.value}
+                      onChange={(e) => setDiscountForm({ ...discountForm, value: e.target.value })}
+                      placeholder={isPercent ? "e.g. 30" : "e.g. 500"}
+                      className={inputCls}
+                    />
+                  </div>
+                )}
+
+                {t === "buy_x_get_y" && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-2">
+                      <label className={labelCls}>Customer buys</label>
+                      <input type="number" min={1} step={1} value={discountForm.buy_qty} onChange={(e) => setDiscountForm({ ...discountForm, buy_qty: e.target.value })} className={inputCls} />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className={labelCls}>Gets free</label>
+                      <input type="number" min={1} step={1} value={discountForm.get_qty} onChange={(e) => setDiscountForm({ ...discountForm, get_qty: e.target.value })} className={inputCls} />
+                    </div>
+                    <span className="col-span-2 text-[10px] text-slate-400 ml-1">
+                      Counted per product: with Buy 1 Get 1, every 2 of the same product = 1 free.
+                    </span>
+                  </div>
+                )}
+
+                {showProducts && (
+                  <div className="flex flex-col gap-2">
+                    <label className={labelCls}>
+                      {t === "buy_x_get_y" ? "Products (leave empty = all products)" : "Products this applies to"}
+                    </label>
+                    <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-2xl p-2 flex flex-col gap-1 bg-slate-50">
+                      {products.length === 0 && <span className="text-[11px] text-slate-400 p-2">No products yet.</span>}
+                      {products.map((p) => {
+                        const checked = discountForm.product_ids.includes(p.id);
+                        return (
+                          <label key={p.id} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl cursor-pointer text-xs font-semibold ${checked ? "bg-purple-50 text-purple-700" : "text-slate-600 hover:bg-white"}`}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => setDiscountForm({
+                                ...discountForm,
+                                product_ids: checked ? discountForm.product_ids.filter((id) => id !== p.id) : [...discountForm.product_ids, p.id],
+                              })}
+                            />
+                            <span className="truncate">{p.name}</span>
+                            <span className="ml-auto text-[10px] text-slate-400 shrink-0">{p.price}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-2">
+                    <label className={labelCls}>Minimum order (Rs.)</label>
+                    <input type="number" min={0} step="any" value={discountForm.min_subtotal} onChange={(e) => setDiscountForm({ ...discountForm, min_subtotal: e.target.value })} placeholder="None" className={inputCls} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className={labelCls}>Usage limit</label>
+                    <input type="number" min={1} step={1} value={discountForm.max_uses} onChange={(e) => setDiscountForm({ ...discountForm, max_uses: e.target.value })} placeholder="Unlimited" className={inputCls} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className={labelCls}>Starts (optional)</label>
+                    <input type="datetime-local" value={discountForm.starts_at} onChange={(e) => setDiscountForm({ ...discountForm, starts_at: e.target.value })} className={inputCls} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className={labelCls}>Ends (optional)</label>
+                    <input type="datetime-local" value={discountForm.expires_at} onChange={(e) => setDiscountForm({ ...discountForm, expires_at: e.target.value })} className={inputCls} />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Description shown to customers (optional)</label>
+                  <input
+                    type="text"
+                    value={discountForm.description}
+                    onChange={(e) => setDiscountForm({ ...discountForm, description: e.target.value })}
+                    placeholder={describeDiscount({ discount_type: t, value: Number(discountForm.value) || 0, buy_qty: Number(discountForm.buy_qty) || 1, get_qty: Number(discountForm.get_qty) || 1 })}
+                    maxLength={120}
+                    className={inputCls}
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer ml-1">
+                  <input type="checkbox" checked={discountForm.is_active} onChange={(e) => setDiscountForm({ ...discountForm, is_active: e.target.checked })} />
+                  Active (customers can use it)
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={savingDiscount}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-black tracking-widest py-3.5 rounded-full cursor-pointer transition-all border-0 shadow-md shadow-purple-600/15 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+                >
+                  {savingDiscount ? "SAVING..." : editingDiscountId ? "SAVE CHANGES" : "CREATE CODE"}
+                </button>
+              </form>
+
+              {/* Right: existing codes */}
+              <div className="xl:col-span-7 flex flex-col gap-3 text-left">
+                <span className="text-xs font-bold text-slate-400 uppercase">{discountCodes.length} Discount Codes</span>
+                {discountCodes.length === 0 ? (
+                  <div className="bg-white border border-slate-200/80 rounded-[2rem] p-12 text-center text-slate-400 font-bold shadow-xs">
+                    No discount codes yet. Create one on the left.
+                  </div>
+                ) : (
+                  discountCodes.map((row) => {
+                    const status = statusOf(row);
+                    const productNames = (row.product_ids || []).map((id) => products.find((p) => p.id === id)?.name || id);
+                    return (
+                      <div key={row.id} className={`bg-white border rounded-[1.5rem] p-5 flex flex-col gap-3 shadow-xs ${editingDiscountId === row.id ? "border-purple-400" : "border-slate-200/80"}`}>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-black text-slate-900 tracking-widest text-sm font-mono">{row.code}</span>
+                          <span className={`text-[9px] font-black tracking-widest px-2.5 py-0.5 rounded-full border uppercase ${status.cls}`}>{status.label}</span>
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard?.writeText(row.code)}
+                            className="text-[10px] font-bold text-slate-400 hover:text-purple-600 bg-transparent border-0 cursor-pointer"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <div className="text-xs font-bold text-slate-700">
+                          {row.description || describeDiscount({ ...row, value: Number(row.value) })}
+                          {productNames.length > 0 && (
+                            <span className="font-semibold text-slate-400"> · {productNames.join(", ")}</span>
+                          )}
+                          {row.discount_type === "buy_x_get_y" && productNames.length === 0 && (
+                            <span className="font-semibold text-slate-400"> · all products</span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-semibold text-slate-400">
+                          <span>Used {row.used_count}{row.max_uses ? ` / ${row.max_uses}` : ""}</span>
+                          {Number(row.min_subtotal) > 0 && <span>Min. order Rs. {Math.round(Number(row.min_subtotal)).toLocaleString()}</span>}
+                          {row.starts_at && <span>From {new Date(row.starts_at).toLocaleString()}</span>}
+                          {row.expires_at && <span>Until {new Date(row.expires_at).toLocaleString()}</span>}
+                        </div>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => handleEditDiscount(row)} className="text-[10px] font-black tracking-widest px-3.5 py-2 rounded-full bg-slate-50 hover:bg-purple-50 text-slate-600 hover:text-purple-700 border border-slate-200 cursor-pointer">EDIT</button>
+                          <button type="button" onClick={() => handleToggleDiscount(row)} className="text-[10px] font-black tracking-widest px-3.5 py-2 rounded-full bg-slate-50 hover:bg-amber-50 text-slate-600 hover:text-amber-700 border border-slate-200 cursor-pointer">{row.is_active ? "PAUSE" : "ACTIVATE"}</button>
+                          <button type="button" onClick={() => handleDeleteDiscount(row)} className="text-[10px] font-black tracking-widest px-3.5 py-2 rounded-full bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600 border border-slate-200 cursor-pointer">DELETE</button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+            );
+          })()}
+
           {/* TAB: DELIVERY CHARGES */}
           {activeTab === "delivery" && (() => {
             const previewRates = normalizeDeliveryRates(deliveryRatesForm);
@@ -3030,6 +3501,48 @@ export default function AdminDashboardPage() {
                       <span className="text-[10px] text-slate-400 ml-1">{field.hint}</span>
                     </div>
                   ))}
+                </div>
+
+                {/* Free delivery offer */}
+                <div className={`rounded-2xl p-4 flex flex-col gap-3 border ${deliveryRatesForm.free_delivery_enabled ? "bg-emerald-50/60 border-emerald-200" : "bg-slate-50 border-slate-200/80"}`}>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs font-black tracking-widest text-slate-700 uppercase">Free delivery offer</span>
+                      <span className="text-[11px] text-slate-500 font-semibold">
+                        When on, orders that reach the minimum basket amount (after discount codes) get free delivery. Turn it off when the offer ends.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={deliveryRatesForm.free_delivery_enabled}
+                      onClick={() => setDeliveryRatesForm({ ...deliveryRatesForm, free_delivery_enabled: !deliveryRatesForm.free_delivery_enabled })}
+                      className={`relative shrink-0 w-12 h-7 rounded-full border-0 cursor-pointer transition-colors ${deliveryRatesForm.free_delivery_enabled ? "bg-emerald-500" : "bg-slate-300"}`}
+                    >
+                      <span className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${deliveryRatesForm.free_delivery_enabled ? "left-6" : "left-1"}`} />
+                      <span className="sr-only">Toggle free delivery offer</span>
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-2 max-w-xs">
+                    <label className="text-[9px] font-black tracking-widest text-slate-400 uppercase ml-1">
+                      Minimum basket for free delivery (Rs.)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      inputMode="numeric"
+                      required
+                      value={deliveryRatesForm.free_delivery_min_subtotal}
+                      onChange={(e) => setDeliveryRatesForm({ ...deliveryRatesForm, free_delivery_min_subtotal: e.target.value })}
+                      className="bg-white border border-slate-200 focus:border-purple-500/80 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-900 focus:outline-none transition-all"
+                    />
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${deliveryRatesForm.free_delivery_enabled ? "text-emerald-700" : "text-slate-400"}`}>
+                    {deliveryRatesForm.free_delivery_enabled
+                      ? `ON — orders of Rs. ${Number(deliveryRatesForm.free_delivery_min_subtotal || 0).toLocaleString()}+ ship free (press Save)`
+                      : "OFF — normal delivery charges apply"}
+                  </span>
                 </div>
 
                 {/* Worked examples with the current (unsaved) values */}
