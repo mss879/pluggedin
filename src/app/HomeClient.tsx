@@ -1139,19 +1139,14 @@ export default function HomeClient({
 
                   {/* Content Container */}
                   <div className="absolute inset-0 z-20 flex flex-col justify-end p-6 sm:p-10 md:p-14 lg:p-16 max-w-4xl text-left pointer-events-none">
-                    {/* Badges */}
-                    {(slide.badge || slide.tag) && (
+                    {/* Badge. The "// tag" line (e.g. "FEATURED COLLECTION 2026") is
+                        kept in the data but hidden: it has no field in the admin
+                        banner form, so it couldn't be edited from there. */}
+                    {slide.badge && (
                       <div className="flex items-center gap-3 mb-3 sm:mb-4 flex-wrap">
-                        {slide.badge && (
-                          <span className="text-[10px] sm:text-xs font-bold tracking-[0.25em] text-purple-300 bg-purple-950/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-purple-500/30 uppercase shadow-md">
-                            {slide.badge}
-                          </span>
-                        )}
-                        {slide.tag && (
-                          <span className="text-[10px] sm:text-xs font-extrabold tracking-[0.2em] text-zinc-300 uppercase">
-                            {"// "}{slide.tag}
-                          </span>
-                        )}
+                        <span className="text-[10px] sm:text-xs font-bold tracking-[0.25em] text-purple-300 bg-purple-950/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-purple-500/30 uppercase shadow-md">
+                          {slide.badge}
+                        </span>
                       </div>
                     )}
 
