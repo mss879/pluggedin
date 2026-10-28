@@ -180,9 +180,11 @@ export default function CartClient() {
                     <h3 className="text-sm font-extrabold text-zinc-950 font-outfit truncate mt-0.5">
                       {item.product.name}
                     </h3>
+                    {item.color && (
                     <p className="text-[10px] text-zinc-500 font-bold mt-0.5">
                       Variant: <span className="text-zinc-700 font-extrabold">{item.color}</span>
                     </p>
+                    )}
                     
                     {/* Quantity Selector */}
                     <div className="flex items-center gap-2 mt-3">

@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS } from "../products";
+import { normalizeStock, normalizeVariants } from "@/lib/variants";
 import ShopClient from "./ShopClient";
 
 // Rendered on every request. This page shows content the admin edits
@@ -33,7 +34,9 @@ async function getProducts() {
           images: item.images || [],
           tags: item.tags || [],
           features: item.features || [],
-          metaTitle: item.meta_title || ""
+          metaTitle: item.meta_title || "",
+          stock: normalizeStock(item.stock),
+          variants: normalizeVariants(item.variants, item.colors),
         }));
       }
     }

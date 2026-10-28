@@ -1,4 +1,5 @@
 import React from "react";
+import { normalizeVariants, type VariantGroup } from "@/lib/variants";
 
 export interface Product {
   id: string;
@@ -17,6 +18,10 @@ export interface Product {
   metaTitle?: string;
   /** Shipping weight in grams (drives the delivery charge). */
   weightGrams?: number;
+  /** Units in stock for the whole product. null/undefined = not tracked. */
+  stock?: number | null;
+  /** Variant groups (Color, Size…) with per-option image and stock. */
+  variants?: VariantGroup[];
 }
 
 export const getCategoryIcon = (category: string, id?: string): React.ReactNode => {
@@ -119,6 +124,10 @@ export const getProductColors = (product: Product): string[] => {
   }
   return [];
 };
+
+/** Variant groups; older/mock products without a variants list fall back to their colors. */
+export const getVariantGroups = (product: Pick<Product, "variants" | "colors" | "color">): VariantGroup[] =>
+  product.variants ?? normalizeVariants([], getProductColors(product as Product));
 
 export const getColorHex = (colorName: string): string => {
   if (!colorName) return "#8b5cf6";

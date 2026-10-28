@@ -1,7 +1,8 @@
 import { Metadata } from "next";
 import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS } from "./products";
-import HomeClient from "./HomeClient";
+import { normalizeStock, normalizeVariants } from "@/lib/variants";
+import HomeClient, { type HomeTile } from "./HomeClient";
 
 // Rendered on every request. This page shows content the admin edits
 // (hero banners, products, collections). It used ISR (revalidate = 60), but on
@@ -54,7 +55,9 @@ async function getProducts() {
           images: item.images || [],
           tags: item.tags || [],
           features: item.features || [],
-          metaTitle: item.meta_title || ""
+          metaTitle: item.meta_title || "",
+          stock: normalizeStock(item.stock),
+          variants: normalizeVariants(item.variants, item.colors),
         }));
       }
     }
@@ -131,11 +134,56 @@ async function getHeroBanners() {
   return [];
 }
 
+// Scrolling offer text under the hero (Admin → Offer Section), row 1 and row 2.
+async function getMarqueeOffers(): Promise<{ text: string; row_number: number }[]> {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from("marquee_offers")
+        .select("text, row_number")
+        .order("created_at", { ascending: true });
+      if (!error && data) return data;
+    }
+  } catch (e) {
+    console.warn("Failed to fetch marquee offers on server:", e);
+  }
+  return [];
+}
+
+// "Shop by Category" bento tiles (Admin → Collections → Homepage Grid).
+// Empty → HomeClient shows its built-in default tiles.
+async function getHomeTiles(): Promise<HomeTile[]> {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from("home_collection_tiles")
+        .select("id, title, image_url, link_url, tags, size")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (!error && data) {
+        return data.map((t: any) => ({
+          id: t.id,
+          title: t.title || "",
+          image_url: t.image_url || "",
+          link_url: t.link_url || "/shop",
+          tags: Array.isArray(t.tags) ? t.tags : [],
+          size: t.size === "wide" ? "wide" : "narrow",
+        }));
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to fetch homepage tiles on server:", e);
+  }
+  return [];
+}
+
 export default async function Page() {
-  const [products, { collections, collectionProducts }, heroBanners] = await Promise.all([
+  const [products, { collections, collectionProducts }, heroBanners, homeTiles, marqueeOffers] = await Promise.all([
     getProducts(),
     getCollections(),
     getHeroBanners(),
+    getHomeTiles(),
+    getMarqueeOffers(),
   ]);
   return (
     <>
@@ -152,6 +200,8 @@ export default async function Page() {
         initialCollections={collections}
         initialCollectionProducts={collectionProducts}
         initialHeroBanners={heroBanners}
+        initialHomeTiles={homeTiles}
+        initialMarqueeOffers={marqueeOffers}
       />
     </>
   );

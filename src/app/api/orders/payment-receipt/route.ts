@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAllowedOrigin } from "@/lib/rate-limit";
 import { requireVerifiedAdmin } from "@/lib/admin-auth";
 import { sendBankReceiptReceivedEmail, sendBankReceiptNotReceivedEmail } from "@/lib/email";
+import { releaseStock, stockLinesFromOrderItems } from "@/lib/stock-server";
 
 /**
  * Admin decision on a bank transfer order's payment slip.
@@ -71,6 +72,11 @@ export async function POST(request: Request) {
     }
     if (!updatedRows || updatedRows.length === 0) {
       return NextResponse.json({ error: "The payment receipt for this order has already been reviewed" }, { status: 409 });
+    }
+
+    // Cancelled: put the stock it took back on the shelf
+    if (!received && order.stock_reserved) {
+      await releaseStock(stockLinesFromOrderItems(order.items));
     }
 
     let emailSent = false;

@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { MOCK_PRODUCTS, Product } from "../../products";
+import { isSoldOut, normalizeStock, normalizeVariants } from "@/lib/variants";
 import ProductDetailClient from "./ProductDetailClient";
 
 interface Props {
@@ -32,6 +33,8 @@ async function getProduct(id: string): Promise<Product | null> {
           tags: data.tags || [],
           features: data.features || [],
           metaTitle: data.meta_title || "",
+          stock: normalizeStock(data.stock),
+          variants: normalizeVariants(data.variants, data.colors),
         };
       }
     }
@@ -110,7 +113,9 @@ export default async function ProductDetailPage({ params }: Props) {
       "url": `https://www.pluggedin.lk/product/${product.id}`,
       "priceCurrency": "LKR",
       "price": numericPrice,
-      "availability": "https://schema.org/InStock",
+      "availability": isSoldOut(product.stock, product.variants || [])
+        ? "https://schema.org/OutOfStock"
+        : "https://schema.org/InStock",
       "priceValidUntil": "2027-12-31"
     }
   };

@@ -4,12 +4,15 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { MOCK_PRODUCTS, getColorHex, getCategoryIcon, getProductColors, Product } from "../products";
+import { MOCK_PRODUCTS, getColorHex, getCategoryIcon, getProductColors, getVariantGroups, Product } from "../products";
+import { defaultSelection, isSoldOut, needsChoice, selectionLabel, type VariantSelection } from "@/lib/variants";
 
 interface CartItem {
   product: Product;
   quantity: number;
+  /** Variant label, e.g. "Black / XL" */
   color: string;
+  options?: VariantSelection;
 }
 
 function ShopContent({
@@ -188,7 +191,7 @@ function ShopContent({
     }
   };
 
-  const addToCart = (product: Product, quantity: number, color: string) => {
+  const addToCart = (product: Product, quantity: number, color: string, options?: VariantSelection) => {
     const existingIndex = cart.findIndex(
       (item) => item.product.id === product.id && item.color === color
     );
@@ -196,7 +199,7 @@ function ShopContent({
     if (existingIndex > -1) {
       newCart[existingIndex].quantity += quantity;
     } else {
-      newCart.push({ product, quantity, color });
+      newCart.push({ product, quantity, color, options });
     }
     saveCart(newCart);
 
@@ -205,7 +208,7 @@ function ShopContent({
     setTimeout(() => setCartAnimate(false), 800);
 
     // Toast notice
-    showToast(`Added ${product.name} (${color}) to cart`);
+    showToast(`Added ${product.name}${color ? ` (${color})` : ""} to cart`);
   };
 
   const updateQuantity = (productId: string, color: string, delta: number) => {
@@ -346,9 +349,29 @@ function ShopContent({
 
 
 
-  const activeCollectionObj = selectedCollection 
-    ? collections.find(c => c.id.toLowerCase() === selectedCollection.toLowerCase())
+  const activeCollectionObj = selectedCollection
+    ? collections.find((c) =>
+        c.id.toLowerCase() === selectedCollection.toLowerCase() ||
+        (selectedCollection.toLowerCase() === "trending" && c.id.toLowerCase() === "trending-products")
+      )
     : null;
+
+  // Banner text for the selected collection. The name is shown once (as the
+  // heading); "new-in" style ids are prettified to "New In" when no collection
+  // record exists, and a description that just repeats the name is skipped.
+  const collectionName = activeCollectionObj?.name
+    || (selectedCollection
+      ? selectedCollection.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+      : "");
+  const collectionDescription = (() => {
+    const desc = (activeCollectionObj?.description || "").trim();
+    if (desc && desc.toLowerCase() !== collectionName.toLowerCase()) return desc;
+    return "Browse our selected products in this collection.";
+  })();
+  const bannerTitle = selectedCollection ? collectionName : "Elevate your space";
+  const bannerDescription = selectedCollection
+    ? collectionDescription
+    : "Browse our diverse selection of personal electronics, smart gadgets, and home essentials.";
 
   return (
     <div className="w-full h-screen overflow-y-auto scrollbar-thin bg-slate-50/50 flex flex-col font-outfit select-none relative pb-28 md:pb-16">
@@ -395,50 +418,32 @@ function ShopContent({
         <div className="hidden md:block relative rounded-[2rem] overflow-hidden bg-gradient-to-r from-purple-900 via-indigo-955 to-slate-900 px-8 py-10 md:py-14 text-left shadow-lg border border-purple-950/20">
           <div className="absolute top-0 right-0 w-[400px] h-full bg-purple-500/10 blur-[120px] rounded-full pointer-events-none" />
           <div className="relative z-10 max-w-2xl flex flex-col gap-2">
-            {(activeCollectionObj || selectedCollection) && (
+            {selectedCollection && (
               <span className="text-[10px] font-bold tracking-[0.25em] text-purple-300 uppercase">
-                {activeCollectionObj 
-                  ? `COLLECTION: ${activeCollectionObj.name}` 
-                  : `COLLECTION: ${selectedCollection}`}
+                Collection
               </span>
             )}
             <h1 className="text-3xl md:text-5xl font-extrabold text-white font-syne uppercase tracking-tight leading-tight">
-              {activeCollectionObj 
-                ? activeCollectionObj.name 
-                : selectedCollection 
-                  ? selectedCollection 
-                  : "Elevate your space"}
+              {bannerTitle}
             </h1>
             <p className="text-purple-200/80 text-xs sm:text-sm font-medium leading-relaxed mt-1">
-              {activeCollectionObj 
-                ? activeCollectionObj.description 
-                : selectedCollection 
-                  ? `Browse our selected products in the ${selectedCollection} collection.` 
-                  : "Browse our diverse selection of personal electronics, smart gadgets, and home essentials."}
+              {bannerDescription}
             </p>
           </div>
         </div>
 
         {/* Mobile Simple Banner */}
         <div className="block md:hidden text-left px-2 py-1 flex flex-col gap-1">
-          {(activeCollectionObj || selectedCollection) && (
+          {selectedCollection && (
             <span className="text-[9px] font-extrabold tracking-widest text-purple-650 uppercase">
               Collection
             </span>
           )}
           <h1 className="text-2xl font-black text-zinc-950 font-outfit uppercase tracking-tight leading-tight">
-            {activeCollectionObj 
-              ? activeCollectionObj.name 
-              : selectedCollection 
-                ? selectedCollection 
-                : "Elevate your space"}
+            {bannerTitle}
           </h1>
           <p className="text-zinc-500 text-xs leading-relaxed font-medium">
-            {activeCollectionObj 
-              ? activeCollectionObj.description 
-              : selectedCollection 
-                ? `Browse our selected products in the ${selectedCollection} collection.` 
-                : "Browse our diverse selection of personal electronics, smart gadgets, and home essentials."}
+            {bannerDescription}
           </p>
         </div>
 
@@ -598,7 +603,7 @@ function ShopContent({
 
                 {selectedCollection && (
                   <span className="bg-purple-50 border border-purple-200 text-purple-750 text-[10px] font-bold tracking-wide px-3 py-1 rounded-full flex items-center gap-1">
-                    Collection: {collections.find(c => c.id.toLowerCase() === selectedCollection.toLowerCase())?.name || selectedCollection}
+                    Collection: {collectionName}
                     <button onClick={() => setSelectedCollection(null)} className="text-purple-400 hover:text-purple-900 border-0 bg-transparent font-bold cursor-pointer">×</button>
                   </span>
                 )}
@@ -646,7 +651,9 @@ function ShopContent({
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {sortedProducts.map((product) => {
-                  const hasVariants = getProductColors(product).length > 1;
+                  const variantGroups = getVariantGroups(product);
+                  const hasVariants = needsChoice(variantGroups);
+                  const soldOut = isSoldOut(product.stock, variantGroups);
                   return (
                     <div 
                       key={product.id}
@@ -677,8 +684,13 @@ function ShopContent({
                           fill
                           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                           style={{ objectFit: "contain", padding: "2px" }}
-                          className="transform group-hover:scale-106 transition-transform duration-500 ease-out"
+                          className={`transform group-hover:scale-106 transition-transform duration-500 ease-out ${soldOut ? "opacity-50 grayscale" : ""}`}
                         />
+                        {soldOut && (
+                          <span className="absolute top-2 left-2 text-[8px] font-black tracking-widest text-white bg-zinc-900/85 px-2.5 py-1 rounded-full uppercase">
+                            Sold out
+                          </span>
+                        )}
                       </div>
 
                       {/* Product Content Details */}
@@ -726,17 +738,19 @@ function ShopContent({
 
                           {/* Quick Purchase Trigger */}
                           <button
+                            disabled={soldOut}
                             onClick={() => {
                               if (hasVariants) {
                                 router.push(`/product/${product.id}`);
                               } else {
-                                // Add directly
-                                addToCart(product, 1, getProductColors(product)[0]);
+                                // Add directly (only one choice per option group)
+                                const sel = defaultSelection(variantGroups);
+                                addToCart(product, 1, selectionLabel(variantGroups, sel), sel);
                               }
                             }}
-                            className="bg-purple-600 hover:bg-purple-700 hover:scale-105 active:scale-95 text-white font-bold text-[9px] tracking-widest px-4 py-2 rounded-full border-0 transition-all duration-200 flex items-center gap-1 cursor-pointer shadow-xs shadow-purple-600/10"
+                            className="bg-purple-600 hover:bg-purple-700 hover:scale-105 active:scale-95 text-white font-bold text-[9px] tracking-widest px-4 py-2 rounded-full border-0 transition-all duration-200 flex items-center gap-1 cursor-pointer shadow-xs shadow-purple-600/10 disabled:bg-zinc-300 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
                           >
-                            {hasVariants ? "CHOOSE OPTIONS" : "ADD TO CART"}
+                            {soldOut ? "SOLD OUT" : hasVariants ? "CHOOSE OPTIONS" : "ADD TO CART"}
                           </button>
                         </div>
                       </div>
@@ -1190,9 +1204,11 @@ function ShopContent({
                       <h4 className="text-xs font-extrabold text-zinc-950 font-outfit truncate mt-0.5">
                         {item.product.name}
                       </h4>
+                      {item.color && (
                       <p className="text-[9px] text-zinc-500 font-bold mt-0.5">
                         Variant: <span className="text-zinc-700 font-extrabold">{item.color}</span>
                       </p>
+                      )}
                       
                       <div className="flex items-center gap-2 mt-2">
                         <div className="flex items-center bg-zinc-50 border border-zinc-200/50 rounded-full px-1.5 py-0.5 shadow-inner">

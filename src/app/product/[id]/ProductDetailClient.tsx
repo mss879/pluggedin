@@ -6,24 +6,38 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { sanitizeHtml } from "@/lib/sanitize";
 import {
-  getProductColors,
   getColorHex,
-  PRODUCT_FEATURES,
+  getVariantGroups,
   Product,
 } from "../../products";
+import {
+  availableQuantity,
+  defaultSelection,
+  isColorGroup,
+  isOptionInStock,
+  isSoldOut,
+  selectionLabel,
+  type VariantSelection,
+} from "@/lib/variants";
 
 interface CartItem {
   product: Product;
   quantity: number;
+  /** Variant label, e.g. "Black / XL" (named color for older carts) */
   color: string;
+  options?: VariantSelection;
 }
 
 export default function ProductDetailClient({ product }: { product: Product }) {
   const router = useRouter();
 
+  const variantGroups = getVariantGroups(product);
+
   // States
-  const [activeColor, setActiveColor] = useState<string>("");
-  const [activeQuantity, setActiveQuantity] = useState<number>(1);
+  const [selection, setSelection] = useState<VariantSelection>(() => defaultSelection(variantGroups));
+  // Image of the selected option (if it has one) overrides the gallery image
+  const [variantImage, setVariantImage] = useState<string | null>(null);
+  const [chosenQuantity, setActiveQuantity] = useState<number>(1);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartAnimate, setCartAnimate] = useState(false);
   const [searchToast, setSearchToast] = useState<string | null>(null);
@@ -33,11 +47,12 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   // Sync state defaults when product loads
   useEffect(() => {
     if (product) {
-      const colors = getProductColors(product);
-      setActiveColor(colors[0] || product.color);
+      setSelection(defaultSelection(variantGroups));
+      setVariantImage(null);
       setActiveQuantity(1);
       setActiveImgIndex(0);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product]);
 
   // Load cart from localStorage on mount
@@ -76,12 +91,40 @@ export default function ProductDetailClient({ product }: { product: Product }) {
     }
   };
 
-  const colors = getProductColors(product);
-  const activeColorHex = getColorHex(activeColor || product.color);
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Stock for the current selection
+  const variantLabel = selectionLabel(variantGroups, selection);
+  const soldOut = isSoldOut(product.stock, variantGroups);
+  const stockLeft = availableQuantity(product.stock, variantGroups, selection);
+  // What's already in the cart counts against the stock left
+  const inCartForProduct = cart
+    .filter((item) => item.product.id === product.id)
+    .reduce((sum, item) => sum + item.quantity, 0);
+  const inCartForSelection = cart.find(
+    (item) => item.product.id === product.id && item.color === variantLabel
+  )?.quantity ?? 0;
+  const canStillAdd = stockLeft === null
+    ? 10
+    : Math.max(0, Math.min(
+        stockLeft - inCartForSelection,
+        product.stock != null ? product.stock - inCartForProduct : Infinity
+      ));
+  const maxQty = Math.min(10, canStillAdd);
+  const selectionAvailable = !soldOut && maxQty > 0;
+
+  // Never more than what's left for the current selection
+  const activeQuantity = Math.max(1, Math.min(chosenQuantity, maxQty || 1));
+
+  const selectOption = (group: string, option: string, image: string) => {
+    setSelection((prev) => ({ ...prev, [group]: option }));
+    if (image) setVariantImage(image);
+  };
 
   // Cart Handlers
   const addToCart = (qty: number, col: string) => {
+    if (!selectionAvailable) return;
+    qty = Math.min(qty, maxQty);
     const existingIndex = cart.findIndex(
       (item) => item.product.id === product.id && item.color === col
     );
@@ -89,7 +132,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
     if (existingIndex > -1) {
       newCart[existingIndex].quantity += qty;
     } else {
-      newCart.push({ product, quantity: qty, color: col });
+      newCart.push({ product, quantity: qty, color: col, options: selection });
     }
     saveCart(newCart);
 
@@ -97,7 +140,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
     setCartAnimate(true);
     setTimeout(() => setCartAnimate(false), 800);
 
-    setSearchToast(`Added ${qty}x ${product.name} (${col}) to cart!`);
+    setSearchToast(`Added ${qty}x ${product.name}${col ? ` (${col})` : ""} to cart!`);
     setTimeout(() => setSearchToast(null), 3000);
     setIsCartOpen(true);
   };
@@ -201,8 +244,8 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                   {/* Main Image Container */}
                   <div className="w-full aspect-square bg-white border border-zinc-200/80 rounded-[2.5rem] overflow-hidden shadow-lg flex items-center justify-center p-8 relative">
                     <Image
-                      src={productImages[activeImgIndex]}
-                      alt={product.name}
+                      src={variantImage || productImages[activeImgIndex]}
+                      alt={variantImage ? `${product.name} - ${variantLabel}` : product.name}
                       fill
                       sizes="(max-width: 1024px) 100vw, 50vw"
                       style={{ objectFit: "contain", padding: "32px" }}
@@ -216,9 +259,12 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                       {productImages.map((img, idx) => (
                         <button
                           key={idx}
-                          onClick={() => setActiveImgIndex(idx)}
+                          onClick={() => {
+                            setActiveImgIndex(idx);
+                            setVariantImage(null);
+                          }}
                           className={`w-16 h-16 rounded-2xl border-2 bg-white p-1 overflow-hidden transition-all duration-200 cursor-pointer flex items-center justify-center ${
-                            activeImgIndex === idx 
+                            activeImgIndex === idx && !variantImage
                               ? "border-purple-600 scale-105 shadow-sm" 
                               : "border-zinc-200 hover:border-zinc-350"
                           }`}
@@ -262,6 +308,31 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                   </span>
                 )}
               </div>
+
+              {/* Stock status */}
+              <div className="mt-3">
+                {soldOut ? (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-red-600 bg-red-50 border border-red-100 px-3 py-1 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                    Out of stock — not available
+                  </span>
+                ) : stockLeft !== null && stockLeft <= 0 ? (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-red-600 bg-red-50 border border-red-100 px-3 py-1 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                    {variantLabel || "This option"} is not available
+                  </span>
+                ) : stockLeft !== null && stockLeft <= 5 ? (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-amber-700 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    Only {stockLeft} left
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    In stock
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Description */}
@@ -272,41 +343,85 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               />
             </div>
 
-            {/* Color Variant Selector */}
-            {colors.length > 0 && (
-              <div className="border-t border-zinc-200/60 pt-5 flex flex-col gap-2">
-                <span className="text-[9px] font-black tracking-widest text-zinc-400 uppercase">
-                  Select Color: <span className="text-zinc-800 font-bold">{activeColor}</span>
-                </span>
-                <div className="flex gap-3 mt-1">
-                  {colors.map((col) => {
-                    const hex = getColorHex(col);
-                    const isWhite = hex === "#ffffff" || hex === "#f4f4f5" || hex === "#e4e4e7";
-                    return (
-                      <button
-                        key={col}
-                        onClick={() => setActiveColor(col)}
-                        className={`w-8 h-8 rounded-full border transition-all duration-300 flex items-center justify-center hover:scale-105 active:scale-95 cursor-pointer ${
-                          activeColor === col 
-                            ? "ring-4 ring-offset-2 scale-105" 
-                            : "border-zinc-200 opacity-80"
-                        }`}
-                        style={{ 
-                          backgroundColor: hex,
-                          borderColor: activeColor === col ? activeColorHex : "#e4e4e7",
-                          outlineColor: activeColorHex
-                        }}
-                        title={col}
-                      >
-                        {activeColor === col && (
-                          <span className={`w-1.5 h-1.5 rounded-full ${isWhite ? 'bg-zinc-800' : 'bg-white'}`} />
-                        )}
-                      </button>
-                    );
-                  })}
+            {/* Variant Selectors (Color, Size, Options…) */}
+            {variantGroups.map((group) => {
+              const chosen = selection[group.name];
+              const hasImages = group.options.some((o) => o.image);
+              const asSwatches = isColorGroup(group.name) && !hasImages;
+              return (
+                <div key={group.name} className="border-t border-zinc-200/60 pt-5 flex flex-col gap-2">
+                  <span className="text-[9px] font-black tracking-widest text-zinc-400 uppercase">
+                    Select {group.name}: <span className="text-zinc-800 font-bold">{chosen}</span>
+                  </span>
+                  <div className="flex flex-wrap gap-3 mt-1">
+                    {group.options.map((opt) => {
+                      const isActive = chosen === opt.name;
+                      const inStock = isOptionInStock(opt);
+                      const title = inStock ? opt.name : `${opt.name} — not available`;
+                      if (asSwatches) {
+                        const hex = getColorHex(opt.name);
+                        const isWhite = hex === "#ffffff" || hex === "#f4f4f5" || hex === "#e4e4e7";
+                        return (
+                          <button
+                            key={opt.name}
+                            type="button"
+                            disabled={!inStock}
+                            onClick={() => selectOption(group.name, opt.name, opt.image)}
+                            className={`relative w-8 h-8 rounded-full border transition-all duration-300 flex items-center justify-center overflow-hidden ${
+                              inStock ? "hover:scale-105 active:scale-95 cursor-pointer" : "cursor-not-allowed opacity-40"
+                            } ${isActive ? "ring-4 ring-offset-2 scale-105" : "border-zinc-200 opacity-80"}`}
+                            style={{
+                              backgroundColor: hex,
+                              borderColor: isActive ? hex : "#e4e4e7",
+                              outlineColor: hex,
+                            }}
+                            title={title}
+                            aria-label={title}
+                          >
+                            {isActive && inStock && (
+                              <span className={`w-1.5 h-1.5 rounded-full ${isWhite ? "bg-zinc-800" : "bg-white"}`} />
+                            )}
+                            {!inStock && (
+                              <span className="absolute w-[140%] h-[2px] bg-red-500 rotate-45" />
+                            )}
+                          </button>
+                        );
+                      }
+                      return (
+                        <button
+                          key={opt.name}
+                          type="button"
+                          disabled={!inStock}
+                          onClick={() => selectOption(group.name, opt.name, opt.image)}
+                          className={`flex items-center gap-2 rounded-2xl border-2 bg-white transition-all duration-200 ${
+                            opt.image ? "p-1 pr-3" : "px-4 py-2"
+                          } ${
+                            !inStock
+                              ? "border-zinc-100 text-zinc-300 cursor-not-allowed"
+                              : isActive
+                                ? "border-purple-600 text-zinc-950 shadow-sm cursor-pointer"
+                                : "border-zinc-200 text-zinc-600 hover:border-zinc-350 cursor-pointer"
+                          }`}
+                          title={title}
+                        >
+                          {opt.image && (
+                            <span className={`relative w-10 h-10 rounded-xl overflow-hidden bg-zinc-50 shrink-0 ${!inStock ? "opacity-40" : ""}`}>
+                              <Image src={opt.image} alt={opt.name} fill sizes="40px" style={{ objectFit: "cover" }} />
+                            </span>
+                          )}
+                          <span className="flex flex-col items-start leading-tight">
+                            <span className={`text-xs font-extrabold ${!inStock ? "line-through" : ""}`}>{opt.name}</span>
+                            {!inStock && (
+                              <span className="text-[8px] font-black tracking-widest uppercase text-red-400">Not available</span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })}
 
             {/* Quantity Selector */}
             <div className="border-t border-zinc-200/60 pt-5 flex flex-col gap-2.5">
@@ -315,7 +430,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               </span>
               <div className="flex items-center gap-1.5 bg-zinc-100 border border-zinc-200/60 rounded-full px-2.5 py-1.5 shadow-inner w-fit">
                 <button
-                  onClick={() => setActiveQuantity((q) => Math.max(1, q - 1))}
+                  onClick={() => setActiveQuantity(Math.max(1, activeQuantity - 1))}
                   className="w-8 h-8 flex items-center justify-center text-zinc-555 hover:text-zinc-800 rounded-full hover:bg-zinc-200/60 transition-colors border-0 bg-transparent font-bold cursor-pointer"
                 >
                   —
@@ -324,7 +439,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                   {activeQuantity}
                 </span>
                 <button
-                  onClick={() => setActiveQuantity((q) => Math.min(10, q + 1))}
+                  onClick={() => setActiveQuantity(Math.min(Math.max(1, maxQty), activeQuantity + 1))}
                   className="w-8 h-8 flex items-center justify-center text-zinc-555 hover:text-zinc-800 rounded-full hover:bg-zinc-200/60 transition-colors border-0 bg-transparent font-bold cursor-pointer"
                 >
                   +
@@ -335,20 +450,25 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             {/* Checkout Action CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 mt-4">
               <button 
-                onClick={() => addToCart(activeQuantity, activeColor)}
-                className="flex-1 bg-zinc-950 text-white text-xs font-bold tracking-widest py-4 rounded-full hover:bg-zinc-800 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-md shadow-zinc-950/10 cursor-pointer border-0"
+                disabled={!selectionAvailable}
+                onClick={() => addToCart(activeQuantity, variantLabel)}
+                className="flex-1 bg-zinc-950 text-white text-xs font-bold tracking-widest py-4 rounded-full hover:bg-zinc-800 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-md shadow-zinc-950/10 cursor-pointer border-0 disabled:bg-zinc-300 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:shadow-none"
               >
-                ADD TO CART
+                {soldOut || (stockLeft !== null && stockLeft <= 0)
+                  ? "NOT AVAILABLE"
+                  : selectionAvailable ? "ADD TO CART" : "ALL IN YOUR CART"}
               </button>
+              {selectionAvailable && (
               <button 
                 onClick={() => {
-                  addToCart(activeQuantity, activeColor);
+                  addToCart(activeQuantity, variantLabel);
                   router.push("/cart");
                 }}
                 className="flex-1 bg-zinc-950 text-white text-xs font-bold tracking-widest py-4 rounded-full hover:bg-zinc-800 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-lg cursor-pointer border-0"
               >
                 BUY NOW
               </button>
+              )}
             </div>
           </div>
 
@@ -432,9 +552,11 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                       <h4 className="text-xs font-extrabold text-zinc-950 font-outfit truncate mt-0.5">
                         {item.product.name}
                       </h4>
+                      {item.color && (
                       <p className="text-[9px] text-zinc-500 font-bold mt-0.5">
                         Variant: <span className="text-zinc-700 font-extrabold">{item.color}</span>
                       </p>
+                      )}
                       
                       <div className="flex items-center gap-2 mt-2">
                         <div className="flex items-center bg-zinc-50 border border-zinc-200/50 rounded-full px-1.5 py-0.5 shadow-inner">

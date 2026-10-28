@@ -28,6 +28,60 @@ import {
   type DiscountCodeRow,
   type DiscountType,
 } from "@/lib/pricing";
+import {
+  colorNamesFromVariants,
+  isOptionInStock,
+  isSoldOut,
+  normalizeStock,
+  normalizeVariants,
+  type VariantGroup,
+} from "@/lib/variants";
+
+/** Variant group as edited in Admin → Add Product (stock kept as typed text). */
+interface VariantGroupForm {
+  name: string;
+  options: { name: string; image: string; stock: string }[];
+}
+
+const VARIANT_GROUP_SUGGESTIONS = ["Color", "Size", "Options", "Material", "Style", "Model"];
+
+const toVariantForm = (groups: VariantGroup[]): VariantGroupForm[] =>
+  groups.map((g) => ({
+    name: g.name,
+    options: g.options.map((o) => ({ name: o.name, image: o.image, stock: o.stock === null ? "" : String(o.stock) })),
+  }));
+
+/** A tile of the homepage "Shop by Category" grid (Admin → Collections → Homepage Grid). */
+interface HomeTile {
+  id: string;
+  title: string;
+  image_url: string;
+  link_url: string;
+  tags: string[];
+  size: "wide" | "narrow";
+  sort_order: number;
+  is_active: boolean;
+}
+
+interface HomeTileForm {
+  title: string;
+  image_url: string;
+  link_url: string;
+  tags: string;
+  size: "wide" | "narrow";
+  is_active: boolean;
+}
+
+const EMPTY_TILE_FORM: HomeTileForm = {
+  title: "",
+  image_url: "",
+  link_url: "/shop",
+  tags: "",
+  size: "narrow",
+  is_active: true,
+};
+
+const STORE_CATEGORIES = ["Home and kitchen", "Tech & Gadgets", "Mobile & Auto", "Best sellers", "Trending"];
 
 /** Discount form values as edited in Admin → Discounts. */
 interface DiscountForm {
@@ -235,7 +289,9 @@ export default function AdminDashboardPage() {
   const [prodSlashedPrice, setProdSlashedPrice] = useState("");
   const [prodDescription, setProdDescription] = useState("");
   const [prodTags, setProdTags] = useState("");
-  const [prodColors, setProdColors] = useState("");
+  const [prodStock, setProdStock] = useState("");
+  const [prodVariants, setProdVariants] = useState<VariantGroupForm[]>([]);
+  const [uploadingVariantImage, setUploadingVariantImage] = useState<string | null>(null);
   const [prodFeatures, setProdFeatures] = useState("");
   const [prodImages, setProdImages] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -249,6 +305,16 @@ export default function AdminDashboardPage() {
   const [collTags, setCollTags] = useState("");
   const [collSelectedProducts, setCollSelectedProducts] = useState<string[]>([]);
   const [quickAddProductId, setQuickAddProductId] = useState<string>("");
+
+  // Collections tab: "collections" list or the homepage bento "home-grid"
+  const [collectionsView, setCollectionsView] = useState<"collections" | "home-grid">("collections");
+  const [homeTiles, setHomeTiles] = useState<HomeTile[]>([]);
+  const [homeTilesError, setHomeTilesError] = useState<string | null>(null);
+  const [editingTileId, setEditingTileId] = useState<string | null>(null);
+  const [isTileFormOpen, setIsTileFormOpen] = useState(false);
+  const [tileForm, setTileForm] = useState<HomeTileForm>(EMPTY_TILE_FORM);
+  const [uploadingTileImage, setUploadingTileImage] = useState(false);
+  const [savingTile, setSavingTile] = useState(false);
 
   // Load Admin session & data on mount
   useEffect(() => {
@@ -287,6 +353,8 @@ export default function AdminDashboardPage() {
                 features: item.features || [],
                 metaTitle: item.meta_title || "",
                 weightGrams: Number(item.weight_grams) || 0,
+                stock: normalizeStock(item.stock),
+                variants: normalizeVariants(item.variants, item.colors),
               }));
               setProducts(mappedProds);
             } else {
@@ -480,11 +548,9 @@ export default function AdminDashboardPage() {
               .select("*")
               .order("created_at", { ascending: true });
             if (offerErr) throw offerErr;
-            if (offerData && offerData.length > 0) {
-              setMarqueeOffers(offerData);
-            } else {
-              throw new Error("Marquee offers empty");
-            }
+            // An empty table stays empty here: the homepage marquee reads this
+            // table, so showing sample offers would not match the live site.
+            setMarqueeOffers(offerData || []);
           } catch (e) {
             console.error("Failed to load marquee_offers:", e);
             setMarqueeOffers([
@@ -550,6 +616,21 @@ export default function AdminDashboardPage() {
             setDiscountCodes((codeData || []) as DiscountCodeRow[]);
           } catch (e) {
             console.error("Failed to load discount_codes:", e);
+          }
+
+          // 8c. Fetch Homepage Grid Tiles
+          try {
+            const { data: tileData, error: tileErr } = await supabase
+              .from("home_collection_tiles")
+              .select("*")
+              .order("sort_order", { ascending: true });
+            if (tileErr) throw tileErr;
+            setHomeTiles((tileData || []) as HomeTile[]);
+          } catch (e: any) {
+            console.error("Failed to load home_collection_tiles:", e);
+            setHomeTilesError(
+              "The homepage grid table isn't set up yet. Run the latest Supabase migration (home_collection_tiles) to edit the grid here."
+            );
           }
 
           // 9. Fetch Hero Banners
@@ -1093,9 +1174,25 @@ export default function AdminDashboardPage() {
     const discountVal = slashedPriceNum ? `${Math.round(((slashedPriceNum - priceNum) / slashedPriceNum) * 100)}% OFF` : "";
 
     const tagsArr = prodTags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean);
-    const colorsArr = prodColors.split(",").map((c) => c.trim()).filter(Boolean);
     const featuresArr = prodFeatures.split(",").map((f) => f.trim()).filter(Boolean);
     const weightGrams = Math.max(0, Math.round(Number(prodWeight) || 0));
+
+    // Variants: every group needs a name and at least one named option
+    for (const g of prodVariants) {
+      const named = g.options.filter((o) => o.name.trim());
+      if (!g.name.trim() && named.length > 0) {
+        setSaveStatus("Error: give every variant a name (e.g. Color or Size).");
+        return;
+      }
+      if (g.name.trim() && named.length === 0) {
+        setSaveStatus(`Error: add at least one option to "${g.name.trim()}" or remove it.`);
+        return;
+      }
+    }
+    const variants = normalizeVariants(prodVariants);
+    const stock = normalizeStock(prodStock);
+    // The colour dots on product cards still read the plain colour list
+    const colorsArr = colorNamesFromVariants(variants);
 
     const productPayload = {
       id,
@@ -1112,6 +1209,8 @@ export default function AdminDashboardPage() {
       features: featuresArr,
       meta_title: prodMetaTitle,
       weight_grams: weightGrams,
+      stock,
+      variants,
       updated_at: new Date().toISOString(),
     };
 
@@ -1151,6 +1250,8 @@ export default function AdminDashboardPage() {
         features: featuresArr,
         metaTitle: prodMetaTitle,
         weightGrams,
+        stock,
+        variants,
       };
 
       if (editingProductId) {
@@ -1182,7 +1283,8 @@ export default function AdminDashboardPage() {
     setProdSlashedPrice("");
     setProdDescription("");
     setProdTags("");
-    setProdColors("");
+    setProdStock("");
+    setProdVariants([]);
     setProdFeatures("");
     setProdImages([]);
     setProdMetaTitle("");
@@ -1197,7 +1299,8 @@ export default function AdminDashboardPage() {
     setProdSlashedPrice(p.slashedPrice.replace(/Rs\.\s*|Rs\s*|,/gi, ""));
     setProdDescription(p.description);
     setProdTags((p.tags || []).join(", "));
-    setProdColors((p.colors || []).join(", "));
+    setProdStock(p.stock === null || p.stock === undefined ? "" : String(p.stock));
+    setProdVariants(toVariantForm(p.variants ?? normalizeVariants([], p.colors)));
     setProdFeatures((p.features || []).join(", "));
     setProdImages(p.images || []);
     setProdMetaTitle(p.metaTitle || "");
@@ -1216,6 +1319,64 @@ export default function AdminDashboardPage() {
       setProducts(products.filter((p) => p.id !== productId));
     } catch (err: any) {
       alert(`Failed to delete product: ${err.message}`);
+    }
+  };
+
+  // -------------------------
+  // VARIANTS EDITOR
+  // -------------------------
+  const updateVariantGroup = (gi: number, patch: Partial<VariantGroupForm>) =>
+    setProdVariants((prev) => prev.map((g, i) => (i === gi ? { ...g, ...patch } : g)));
+
+  const updateVariantOption = (gi: number, oi: number, patch: Partial<VariantGroupForm["options"][number]>) =>
+    setProdVariants((prev) =>
+      prev.map((g, i) =>
+        i === gi ? { ...g, options: g.options.map((o, j) => (j === oi ? { ...o, ...patch } : o)) } : g
+      )
+    );
+
+  const addVariantGroup = () => {
+    const used = new Set(prodVariants.map((g) => g.name.toLowerCase()));
+    const name = VARIANT_GROUP_SUGGESTIONS.find((n) => !used.has(n.toLowerCase())) || "";
+    setProdVariants((prev) => [...prev, { name, options: [{ name: "", image: "", stock: "" }] }]);
+  };
+
+  const removeVariantGroup = (gi: number) =>
+    setProdVariants((prev) => prev.filter((_, i) => i !== gi));
+
+  const addVariantOption = (gi: number) =>
+    updateVariantGroup(gi, { options: [...prodVariants[gi].options, { name: "", image: "", stock: "" }] });
+
+  const removeVariantOption = (gi: number, oi: number) =>
+    updateVariantGroup(gi, { options: prodVariants[gi].options.filter((_, j) => j !== oi) });
+
+  const handleVariantImageUpload = (gi: number, oi: number) => async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const key = `${gi}-${oi}`;
+    setUploadingVariantImage(key);
+    try {
+      let url = "";
+      if (supabase) {
+        const fileExt = file.name.split(".").pop();
+        const filePath = `variants/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from("products").upload(filePath, file);
+        if (uploadError) throw uploadError;
+        url = supabase.storage.from("products").getPublicUrl(filePath).data?.publicUrl || "";
+      } else {
+        url = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+      }
+      if (url) updateVariantOption(gi, oi, { image: url });
+    } catch (err: any) {
+      console.error("Variant image upload failed:", err);
+      alert(`Upload error: ${err.message || "Failed to upload image"}`);
+    } finally {
+      setUploadingVariantImage(null);
+      e.target.value = "";
     }
   };
 
@@ -1673,6 +1834,172 @@ export default function AdminDashboardPage() {
     } catch (err: any) {
       console.error("Failed to toggle banner status:", err);
       alert(`Update error: ${err.message || "Failed to update banner"}`);
+    }
+  };
+
+  // -------------------------
+  // HOMEPAGE GRID (bento tiles) HANDLERS
+  // -------------------------
+  const handleOpenTileForm = (tile?: HomeTile, prefill?: Partial<HomeTileForm>) => {
+    setEditingTileId(tile?.id ?? null);
+    setTileForm(
+      tile
+        ? {
+            title: tile.title,
+            image_url: tile.image_url,
+            link_url: tile.link_url,
+            tags: (tile.tags || []).join(", "),
+            size: tile.size,
+            is_active: tile.is_active,
+          }
+        : { ...EMPTY_TILE_FORM, ...prefill }
+    );
+    setIsTileFormOpen(true);
+    setCollectionsView("home-grid");
+  };
+
+  const handleCloseTileForm = () => {
+    setIsTileFormOpen(false);
+    setEditingTileId(null);
+    setTileForm(EMPTY_TILE_FORM);
+  };
+
+  const handleUploadTileImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingTileImage(true);
+    try {
+      if (supabase) {
+        const fileExt = file.name.split(".").pop();
+        const filePath = `home-grid/tile_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from("products").upload(filePath, file);
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from("products").getPublicUrl(filePath);
+        if (data?.publicUrl) setTileForm((prev) => ({ ...prev, image_url: data.publicUrl }));
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => setTileForm((prev) => ({ ...prev, image_url: reader.result as string }));
+        reader.readAsDataURL(file);
+      }
+    } catch (err: any) {
+      console.error("Tile image upload failed:", err);
+      alert(`Image upload error: ${err.message || "Failed to upload image"}`);
+    } finally {
+      setUploadingTileImage(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleSaveTile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const linkUrl = tileForm.link_url.trim() || "/shop";
+    if (!resolveBannerLink(linkUrl)) {
+      alert("The tile link doesn't look like a valid web address. Use a page on this site like /shop?collection=new-in, or a full https:// link.");
+      return;
+    }
+    const values = {
+      title: tileForm.title.trim(),
+      image_url: tileForm.image_url.trim(),
+      link_url: linkUrl,
+      tags: tileForm.tags.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean),
+      size: tileForm.size,
+      is_active: tileForm.is_active,
+    };
+    setSavingTile(true);
+    try {
+      if (editingTileId) {
+        if (supabase) {
+          const { data, error } = await supabase
+            .from("home_collection_tiles")
+            .update({ ...values, updated_at: new Date().toISOString() })
+            .eq("id", editingTileId)
+            .select("id");
+          if (error) throw error;
+          if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
+        }
+        setHomeTiles((prev) => prev.map((t) => (t.id === editingTileId ? { ...t, ...values } : t)));
+      } else {
+        const sortOrder = homeTiles.reduce((max, t) => Math.max(max, t.sort_order || 0), 0) + 1;
+        let id = `TILE-${Date.now()}`;
+        if (supabase) {
+          const { data, error } = await supabase
+            .from("home_collection_tiles")
+            .insert({ ...values, sort_order: sortOrder })
+            .select("id")
+            .single();
+          if (error) throw error;
+          id = data.id;
+        }
+        setHomeTiles((prev) => [...prev, { id, ...values, sort_order: sortOrder }]);
+      }
+      handleCloseTileForm();
+      setSaveStatus("Homepage grid saved!");
+      setTimeout(() => setSaveStatus(null), 2000);
+    } catch (err: any) {
+      console.error("Save tile failed:", err);
+      alert(`Save error: ${err.message || "Failed to save tile"}`);
+    } finally {
+      setSavingTile(false);
+    }
+  };
+
+  const handleDeleteTile = async (tile: HomeTile) => {
+    if (!confirm(`Remove "${tile.title || "this tile"}" from the homepage grid?`)) return;
+    try {
+      if (supabase) {
+        const { data, error } = await supabase.from("home_collection_tiles").delete().eq("id", tile.id).select("id");
+        if (error) throw error;
+        if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
+      }
+      setHomeTiles((prev) => prev.filter((t) => t.id !== tile.id));
+      if (editingTileId === tile.id) handleCloseTileForm();
+    } catch (err: any) {
+      alert(`Delete error: ${err.message || "Failed to delete tile"}`);
+    }
+  };
+
+  const handleToggleTileActive = async (tile: HomeTile) => {
+    try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from("home_collection_tiles")
+          .update({ is_active: !tile.is_active, updated_at: new Date().toISOString() })
+          .eq("id", tile.id)
+          .select("id");
+        if (error) throw error;
+        if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
+      }
+      setHomeTiles((prev) => prev.map((t) => (t.id === tile.id ? { ...t, is_active: !t.is_active } : t)));
+    } catch (err: any) {
+      alert(`Update error: ${err.message || "Failed to update tile"}`);
+    }
+  };
+
+  /** Swaps a tile with its neighbour (direction -1 = earlier, 1 = later). */
+  const handleMoveTile = async (index: number, direction: -1 | 1) => {
+    const ordered = [...homeTiles].sort((a, b) => a.sort_order - b.sort_order);
+    const other = index + direction;
+    if (other < 0 || other >= ordered.length) return;
+    // Renumber 1..n so equal sort_order values can't get stuck
+    const renumbered = ordered.map((t, i) => ({ ...t, sort_order: i + 1 }));
+    [renumbered[index], renumbered[other]] = [renumbered[other], renumbered[index]];
+    const next = renumbered.map((t, i) => ({ ...t, sort_order: i + 1 }));
+    try {
+      if (supabase) {
+        const changed = next.filter((t) => ordered.find((o) => o.id === t.id)?.sort_order !== t.sort_order);
+        for (const t of changed) {
+          const { data, error } = await supabase
+            .from("home_collection_tiles")
+            .update({ sort_order: t.sort_order, updated_at: new Date().toISOString() })
+            .eq("id", t.id)
+            .select("id");
+          if (error) throw error;
+          if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
+        }
+      }
+      setHomeTiles(next);
+    } catch (err: any) {
+      alert(`Reorder error: ${err.message || "Failed to reorder tiles"}`);
     }
   };
 
@@ -2188,6 +2515,7 @@ export default function AdminDashboardPage() {
                       <th className="py-4 px-6">Product</th>
                       <th className="py-4 px-6">Category</th>
                       <th className="py-4 px-6">Price</th>
+                      <th className="py-4 px-6">Stock</th>
                       <th className="py-4 px-6">Tags</th>
                       <th className="py-4 px-6 text-right">Actions</th>
                     </tr>
@@ -2218,6 +2546,38 @@ export default function AdminDashboardPage() {
                               <span className="text-xs text-slate-400 line-through">{p.slashedPrice}</span>
                             )}
                           </div>
+                        </td>
+                        <td className="py-4 px-6">
+                          {(() => {
+                            const groups = p.variants || [];
+                            const outOptions = groups.flatMap((g) => g.options.filter((o) => !isOptionInStock(o)).map((o) => o.name));
+                            const lowOptions = groups.flatMap((g) =>
+                              g.options.filter((o) => o.stock !== null && o.stock > 0 && o.stock <= 5).map((o) => `${o.name}: ${o.stock}`)
+                            );
+                            return (
+                              <div className="flex flex-col gap-1 max-w-[180px]">
+                                {isSoldOut(p.stock, groups) ? (
+                                  <span className="w-fit text-[9px] font-black text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-md uppercase">
+                                    Sold out
+                                  </span>
+                                ) : p.stock !== null && p.stock !== undefined ? (
+                                  <span className={`font-black ${p.stock <= 5 ? "text-amber-600" : "text-slate-800"}`}>{p.stock} in stock</span>
+                                ) : (
+                                  <span className="text-xs font-semibold text-slate-400">Not tracked</span>
+                                )}
+                                {outOptions.length > 0 && (
+                                  <span className="text-[10px] font-semibold text-red-500 leading-snug">
+                                    Not available: {outOptions.join(", ")}
+                                  </span>
+                                )}
+                                {lowOptions.length > 0 && (
+                                  <span className="text-[10px] font-semibold text-amber-600 leading-snug">
+                                    Low: {lowOptions.join(", ")}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="py-4 px-6">
                           <div className="flex flex-wrap gap-1 max-w-xs">
@@ -2294,7 +2654,7 @@ export default function AdminDashboardPage() {
                       onChange={(e) => setProdCategory(e.target.value)}
                       className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
                     >
-                      {["Home and kitchen", "Tech & Gadgets", "Mobile & Auto", "Best sellers", "Trending"].map((cat) => (
+                      {STORE_CATEGORIES.map((cat) => (
                         <option key={cat} value={cat}>
                           {cat}
                         </option>
@@ -2376,32 +2736,171 @@ export default function AdminDashboardPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2">
+                  <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
+                    Product Tags (Comma separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={prodTags}
+                    onChange={(e) => setProdTags(e.target.value)}
+                    placeholder="audio, wireless, anc, premium"
+                    className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                  />
+                </div>
+
+                {/* Stock & Variants */}
+                <div className="flex flex-col gap-4 border-t border-slate-200 pt-6">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-slate-800">Stock & Variants</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">
+                      Leave a stock box empty to not track it. Set it to 0 to show &quot;Not available&quot; — shoppers can&apos;t buy it until you add stock again.
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-2 max-w-xs">
                     <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
-                      Product Tags (Comma separated)
+                      Stock (whole product)
                     </label>
                     <input
-                      type="text"
-                      value={prodTags}
-                      onChange={(e) => setProdTags(e.target.value)}
-                      placeholder="audio, wireless, anc, premium"
+                      type="number"
+                      min={0}
+                      step={1}
+                      inputMode="numeric"
+                      value={prodStock}
+                      onChange={(e) => setProdStock(e.target.value)}
+                      placeholder="Not tracked"
                       className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
                     />
                   </div>
 
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
-                      Available Colors (Comma separated)
-                    </label>
-                    <input
-                      type="text"
-                      value={prodColors}
-                      onChange={(e) => setProdColors(e.target.value)}
-                      placeholder="Space Purple, Matte Black, Silver Gray"
-                      className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
-                    />
-                  </div>
+                  <datalist id="variant-group-suggestions">
+                    {VARIANT_GROUP_SUGGESTIONS.map((n) => (
+                      <option key={n} value={n} />
+                    ))}
+                  </datalist>
+
+                  {prodVariants.map((group, gi) => (
+                    <div key={gi} className="border border-slate-200 rounded-2xl p-4 flex flex-col gap-3 bg-slate-50/40">
+                      <div className="flex items-end gap-3">
+                        <div className="flex flex-col gap-2 flex-1">
+                          <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
+                            Variant name
+                          </label>
+                          <input
+                            type="text"
+                            list="variant-group-suggestions"
+                            value={group.name}
+                            onChange={(e) => updateVariantGroup(gi, { name: e.target.value })}
+                            placeholder="e.g. Color, Size, Options"
+                            className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeVariantGroup(gi)}
+                          className="px-3 py-3 text-[11px] font-bold text-red-600 bg-red-50 border border-red-200/80 hover:bg-red-100 rounded-2xl transition-all cursor-pointer"
+                        >
+                          Remove variant
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <div className="hidden sm:grid grid-cols-[56px_1fr_110px_32px] gap-2 px-1 text-[9px] font-black tracking-widest text-slate-400 uppercase">
+                          <span>Image</span>
+                          <span>Option</span>
+                          <span>Stock</span>
+                          <span />
+                        </div>
+                        {group.options.map((opt, oi) => {
+                          const uploadKey = `${gi}-${oi}`;
+                          const out = opt.stock.trim() !== "" && Number(opt.stock) <= 0;
+                          return (
+                            <div key={oi} className="grid grid-cols-[56px_1fr_90px_32px] sm:grid-cols-[56px_1fr_110px_32px] gap-2 items-center">
+                              <label
+                                className="relative w-14 h-14 rounded-xl border border-dashed border-slate-300 bg-white flex items-center justify-center overflow-hidden cursor-pointer hover:border-purple-500 text-slate-400 hover:text-purple-600"
+                                title={opt.image ? "Change image" : "Upload image (optional)"}
+                              >
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  disabled={uploadingVariantImage !== null}
+                                  onChange={handleVariantImageUpload(gi, oi)}
+                                />
+                                {uploadingVariantImage === uploadKey ? (
+                                  <div className="w-4 h-4 border-2 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
+                                ) : opt.image ? (
+                                  <img src={opt.image} alt={opt.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-[8px] font-black uppercase">+ Img</span>
+                                )}
+                                {opt.image && uploadingVariantImage !== uploadKey && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      updateVariantOption(gi, oi, { image: "" });
+                                    }}
+                                    className="absolute top-0.5 right-0.5 bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-black border-0 cursor-pointer"
+                                    title="Remove image"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </label>
+                              <input
+                                type="text"
+                                value={opt.name}
+                                onChange={(e) => updateVariantOption(gi, oi, { name: e.target.value })}
+                                placeholder={/size/i.test(group.name) ? "e.g. XL" : "e.g. Matte Black"}
+                                className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                              />
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  inputMode="numeric"
+                                  value={opt.stock}
+                                  onChange={(e) => updateVariantOption(gi, oi, { stock: e.target.value })}
+                                  placeholder="∞"
+                                  title="Stock for this option (empty = not tracked, 0 = not available)"
+                                  className={`w-full ${out ? "!border-red-300 !text-red-600" : ""} bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all`}
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeVariantOption(gi, oi)}
+                                disabled={group.options.length === 1}
+                                className="w-8 h-8 rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed border-0 bg-transparent cursor-pointer font-black"
+                                title="Remove option"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => addVariantOption(gi)}
+                        className="self-start text-[11px] font-bold text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-100 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                      >
+                        + Add option
+                      </button>
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={addVariantGroup}
+                    disabled={prodVariants.length >= 5}
+                    className="self-start bg-white hover:bg-slate-50 border border-slate-250 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-full transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    + Add variant (Color, Size, Options…)
+                  </button>
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -2490,6 +2989,30 @@ export default function AdminDashboardPage() {
             </div>
           )}          {/* TAB 4: COLLECTIONS SYSTEM */}
           {activeTab === "collections" && (
+            <div className="flex flex-col gap-6">
+
+              {/* Collections / Homepage Grid switch */}
+              <div className="flex items-center gap-2 bg-white border border-slate-200/80 p-1.5 rounded-full shadow-xs w-fit">
+                {([
+                  ["collections", "Collections"],
+                  ["home-grid", "Homepage Grid"],
+                ] as const).map(([view, label]) => (
+                  <button
+                    key={view}
+                    type="button"
+                    onClick={() => setCollectionsView(view)}
+                    className={`px-5 py-2 rounded-full text-xs font-extrabold tracking-wide transition-all cursor-pointer border-0 ${
+                      collectionsView === view
+                        ? "bg-slate-900 text-white shadow-sm"
+                        : "bg-transparent text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {collectionsView === "collections" && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               
               {/* Left Form: Create / Edit Collection */}
@@ -2725,6 +3248,17 @@ export default function AdminDashboardPage() {
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
+                              onClick={() => handleOpenTileForm(undefined, {
+                                title: c.name,
+                                link_url: `/shop?collection=${encodeURIComponent(c.id)}`,
+                              })}
+                              className="px-3 py-1.5 text-[11px] font-bold text-purple-700 bg-purple-50 border border-purple-200/80 hover:bg-purple-100 rounded-xl transition-all cursor-pointer"
+                              title="Show this collection as a tile in the homepage grid"
+                            >
+                              + Homepage grid
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => handleEditCollection(c)}
                               className="px-3 py-1.5 text-[11px] font-bold text-slate-700 bg-white border border-slate-250 hover:bg-slate-50 hover:border-slate-350 rounded-xl transition-all cursor-pointer shadow-xs"
                             >
@@ -2840,6 +3374,330 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
+            </div>
+              )}
+
+              {/* HOMEPAGE GRID: the "Shop by Category" bento tiles on the homepage */}
+              {collectionsView === "home-grid" && (() => {
+                const orderedTiles = [...homeTiles].sort((a, b) => a.sort_order - b.sort_order);
+                const linkChoices: { value: string; label: string }[] = [
+                  { value: "/shop", label: "All products (Shop page)" },
+                  ...collections.map((c) => ({
+                    value: `/shop?collection=${encodeURIComponent(c.id)}`,
+                    label: `Collection: ${c.name}`,
+                  })),
+                  ...STORE_CATEGORIES.map((cat) => ({
+                    value: `/shop?category=${cat}`,
+                    label: `Category: ${cat}`,
+                  })),
+                ];
+                const currentChoice = linkChoices.some((o) => o.value === tileForm.link_url) ? tileForm.link_url : "custom";
+                return (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+                    {/* Left: preview + list */}
+                    <div className="lg:col-span-7 bg-white border border-slate-200/80 rounded-[2rem] p-6 flex flex-col gap-5 shadow-xs">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h3 className="text-xs font-black tracking-[0.2em] text-slate-555 uppercase">
+                            Homepage Grid ({homeTiles.length})
+                          </h3>
+                          <p className="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
+                            The &quot;Shop by Category&quot; tiles on the homepage. Change images, link a tile to any collection, or add more tiles. Wide tiles take 2 of 3 columns.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenTileForm()}
+                          disabled={Boolean(homeTilesError)}
+                          className="shrink-0 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-extrabold tracking-wider px-4 py-2.5 rounded-full transition-all cursor-pointer border-0 shadow-sm"
+                        >
+                          + ADD TILE
+                        </button>
+                      </div>
+
+                      {homeTilesError && (
+                        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold px-4 py-3 rounded-2xl">
+                          {homeTilesError}
+                        </div>
+                      )}
+
+                      {!homeTilesError && orderedTiles.length === 0 && (
+                        <div className="text-center py-8 text-xs text-slate-400 font-medium bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                          No tiles yet — the homepage shows the default four. Add a tile to take over.
+                        </div>
+                      )}
+
+                      {/* Live layout preview (same 3-column grid as the homepage) */}
+                      {orderedTiles.length > 0 && (
+                        <div className="grid grid-cols-3 grid-flow-row-dense gap-2 p-3 bg-slate-50 rounded-2xl border border-slate-200/60">
+                          {orderedTiles.filter((t) => t.is_active).map((t) => (
+                            <div
+                              key={t.id}
+                              className={`${t.size === "wide" ? "col-span-2" : "col-span-1"} relative h-20 rounded-xl overflow-hidden bg-slate-800`}
+                            >
+                              {t.image_url && <img src={t.image_url} alt="" className="w-full h-full object-cover opacity-80" />}
+                              <span className="absolute bottom-1 left-2 right-2 text-[9px] font-extrabold text-white truncate drop-shadow">
+                                {t.title}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex flex-col gap-3">
+                        {orderedTiles.map((t, i) => (
+                          <div
+                            key={t.id}
+                            className={`flex items-center gap-4 p-3 border rounded-2xl transition-all ${
+                              editingTileId === t.id
+                                ? "border-purple-300 bg-purple-50/30"
+                                : t.is_active ? "border-slate-200/80 bg-slate-50/40" : "border-slate-200 bg-slate-50/40 opacity-60"
+                            }`}
+                          >
+                            <div className="w-20 h-14 rounded-xl overflow-hidden bg-slate-800 shrink-0">
+                              {t.image_url ? (
+                                <img src={t.image_url} alt={t.title} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-[8px] font-bold text-slate-400 uppercase">No image</div>
+                              )}
+                            </div>
+                            <div className="flex flex-col min-w-0 flex-1 text-left">
+                              <span className="font-extrabold text-slate-800 text-sm truncate">{t.title || "Untitled tile"}</span>
+                              <span className="text-[10px] font-mono text-slate-400 truncate">{t.link_url}</span>
+                              <span className="text-[9px] font-black tracking-widest text-slate-400 uppercase mt-0.5">
+                                {t.size === "wide" ? "Wide" : "Narrow"} · {t.is_active ? "Visible" : "Hidden"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleMoveTile(i, -1)}
+                                disabled={i === 0}
+                                className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer text-xs font-black"
+                                title="Move earlier"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMoveTile(i, 1)}
+                                disabled={i === orderedTiles.length - 1}
+                                className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer text-xs font-black"
+                                title="Move later"
+                              >
+                                ↓
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleTileActive(t)}
+                                className={`px-2.5 py-1.5 text-[10px] font-extrabold rounded-lg border cursor-pointer ${
+                                  t.is_active ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
+                                }`}
+                              >
+                                {t.is_active ? "SHOWN" : "HIDDEN"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenTileForm(t)}
+                                className="px-3 py-1.5 text-[11px] font-bold text-slate-700 bg-white border border-slate-250 hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTile(t)}
+                                className="px-3 py-1.5 text-[11px] font-bold text-red-600 bg-red-50 border border-red-200/80 hover:bg-red-100 rounded-xl transition-all cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Right: add / edit tile form */}
+                    <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-[2rem] p-6 flex flex-col gap-5 shadow-xs">
+                      <h3 className="text-xs font-black tracking-[0.2em] text-slate-550 uppercase">
+                        {editingTileId ? "Edit Tile" : "Add Tile"}
+                      </h3>
+
+                      {saveStatus && (
+                        <div className="bg-purple-50 border border-purple-100 text-purple-600 text-xs font-semibold px-4 py-2 rounded-xl text-center">
+                          {saveStatus.toUpperCase()}
+                        </div>
+                      )}
+
+                      {!isTileFormOpen ? (
+                        <div className="text-center py-8 text-xs text-slate-400 font-medium bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                          Click <span className="font-bold text-slate-600">Edit</span> on a tile to change its image or link, or <span className="font-bold text-slate-600">+ Add Tile</span> to add another collection.
+                        </div>
+                      ) : (
+                        <form onSubmit={handleSaveTile} className="flex flex-col gap-4">
+                          {/* Image */}
+                          <div className="flex flex-col gap-2">
+                            <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
+                              Tile Image
+                            </label>
+                            <div className="relative w-full h-40 rounded-2xl overflow-hidden bg-slate-800 border border-slate-200">
+                              {tileForm.image_url ? (
+                                <img src={tileForm.image_url} alt="Tile preview" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                  No image
+                                </div>
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                              <span className="absolute bottom-3 left-4 right-4 text-sm font-extrabold text-white truncate">
+                                {tileForm.title}
+                              </span>
+                            </div>
+                            <div className="flex gap-2">
+                              <label className="flex-1 text-center bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold py-2.5 rounded-full cursor-pointer transition-all">
+                                <input type="file" accept="image/*" className="hidden" onChange={handleUploadTileImage} disabled={uploadingTileImage} />
+                                {uploadingTileImage ? "Uploading..." : tileForm.image_url ? "Change image" : "Upload image"}
+                              </label>
+                              {tileForm.image_url && (
+                                <button
+                                  type="button"
+                                  onClick={() => setTileForm((prev) => ({ ...prev, image_url: "" }))}
+                                  className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-bold rounded-full cursor-pointer border-0"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
+                              Title
+                            </label>
+                            <input
+                              type="text"
+                              value={tileForm.title}
+                              onChange={(e) => setTileForm((prev) => ({ ...prev, title: e.target.value }))}
+                              placeholder="e.g. New In"
+                              className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
+                              Opens
+                            </label>
+                            <select
+                              value={currentChoice}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (value === "custom") {
+                                  setTileForm((prev) => ({ ...prev, link_url: "" }));
+                                  return;
+                                }
+                                const choice = linkChoices.find((o) => o.value === value);
+                                setTileForm((prev) => ({
+                                  ...prev,
+                                  link_url: value,
+                                  // Name an untitled tile after what it opens
+                                  title: prev.title || (choice ? choice.label.replace(/^(Collection|Category): /, "") : ""),
+                                }));
+                              }}
+                              className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                            >
+                              {linkChoices.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                              <option value="custom">Custom link…</option>
+                            </select>
+                            {currentChoice === "custom" && (
+                              <input
+                                type="text"
+                                value={tileForm.link_url}
+                                onChange={(e) => setTileForm((prev) => ({ ...prev, link_url: e.target.value }))}
+                                placeholder="/product/your-product or https://..."
+                                className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                              />
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
+                              Hashtags (comma separated, optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={tileForm.tags}
+                              onChange={(e) => setTileForm((prev) => ({ ...prev, tags: e.target.value }))}
+                              placeholder="keyboard, mouse"
+                              className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-2">
+                              <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
+                                Size
+                              </label>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                {(["narrow", "wide"] as const).map((size) => (
+                                  <button
+                                    key={size}
+                                    type="button"
+                                    onClick={() => setTileForm((prev) => ({ ...prev, size }))}
+                                    className={`py-2.5 rounded-xl border text-[11px] font-bold transition-all cursor-pointer ${
+                                      tileForm.size === size
+                                        ? "bg-purple-50 border-purple-500 text-purple-600"
+                                        : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600"
+                                    }`}
+                                  >
+                                    {size === "wide" ? "Wide" : "Narrow"}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">
+                                Visibility
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setTileForm((prev) => ({ ...prev, is_active: !prev.is_active }))}
+                                className={`py-2.5 rounded-xl border text-[11px] font-bold transition-all cursor-pointer ${
+                                  tileForm.is_active
+                                    ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                                    : "bg-amber-50 border-amber-300 text-amber-700"
+                                }`}
+                              >
+                                {tileForm.is_active ? "Shown on homepage" : "Hidden"}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              type="submit"
+                              disabled={savingTile || uploadingTileImage}
+                              className="flex-1 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white text-xs font-black tracking-widest py-4 rounded-full transition-all cursor-pointer border-0 shadow-sm"
+                            >
+                              {savingTile ? "SAVING..." : editingTileId ? "SAVE TILE" : "ADD TO HOMEPAGE"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCloseTileForm}
+                              className="px-5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-full transition-all cursor-pointer border-0"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 

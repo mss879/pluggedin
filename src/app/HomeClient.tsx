@@ -8,6 +8,15 @@ import LazyVideo from "../components/LazyVideo";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { resolveBannerLink } from "@/lib/banner-link";
 import Footer from "../components/Footer";
+import { getVariantGroups } from "./products";
+import {
+  defaultSelection,
+  isSoldOut,
+  needsChoice,
+  selectionLabel,
+  type VariantGroup,
+  type VariantSelection,
+} from "@/lib/variants";
 
 interface Product {
   id: string;
@@ -23,12 +32,16 @@ interface Product {
   images?: string[];
   colors?: string[];
   features?: string[];
+  stock?: number | null;
+  variants?: VariantGroup[];
 }
 
 interface CartItem {
   product: Product;
   quantity: number;
+  /** Variant label, e.g. "Black / XL" */
   color: string;
+  options?: VariantSelection;
 }
 
 const getProductColors = (product: Product): string[] => {
@@ -379,6 +392,42 @@ function HeroPicture({
   );
 }
 
+/** A tile of the "Shop by Category" bento grid (Admin → Collections → Homepage Grid). */
+export interface HomeTile {
+  id: string;
+  title: string;
+  image_url: string;
+  link_url: string;
+  tags: string[];
+  size: "wide" | "narrow";
+}
+
+// Hashtag chip colours, cycled per tile
+const TILE_CHIP_STYLES = [
+  "text-pink-300 bg-pink-950/40 hover:bg-pink-900/50 border-pink-500/30",
+  "text-blue-300 bg-blue-950/40 hover:bg-blue-900/50 border-blue-500/30",
+  "text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/50 border-emerald-500/30",
+  "text-purple-300 bg-purple-950/40 hover:bg-purple-900/50 border-purple-500/30",
+];
+
+// Shown until tiles are set up in the admin (same four that used to be hard-coded)
+const HOME_TILES_DEFAULT: HomeTile[] = [
+  { id: "tile-1", title: "Home & Kitchen Essentials", image_url: "/categories/home_kitchen.webp", link_url: "/shop?category=Home and kitchen", tags: ["lightbar", "speaker"], size: "wide" },
+  { id: "tile-2", title: "Workspace Tech & Gadgets", image_url: "/categories/tech_gadgets.webp", link_url: "/shop?category=Tech & Gadgets", tags: ["keyboard", "mouse"], size: "narrow" },
+  { id: "tile-3", title: "Mobile & Auto Gear", image_url: "/categories/mobile_auto.webp", link_url: "/shop?category=Mobile & Auto", tags: ["backpack", "stand"], size: "narrow" },
+  { id: "tile-4", title: "Best Sellers Hub", image_url: "/categories/best_sellers.webp", link_url: "/shop?category=Best sellers", tags: ["headphones", "keyboard"], size: "wide" },
+];
+
+// Marquee text used only when Admin → Offer Section has nothing for that row
+const MARQUEE_ROW_1_DEFAULT = [
+  "Smart Design", "Studio Gear", "Elevated Daily", "Premium Audio",
+  "Ultra Durable", "Minimalist Essentials", "Pluggedin Labs", "High Performance",
+];
+const MARQUEE_ROW_2_DEFAULT = [
+  "Tech & Style", "Noise Cancelling", "Fast Wireless Charger", "Tactile Switches",
+  "Water Resistant", "Ambient LED", "Carbon Fiber Lift", "Creators Choice",
+];
+
 const HERO_SLIDES_DEFAULT = [
   {
     id: "slide-1",
@@ -422,11 +471,15 @@ export default function HomeClient({
   initialCollections = [],
   initialCollectionProducts = [],
   initialHeroBanners = [],
+  initialHomeTiles = [],
+  initialMarqueeOffers = [],
 }: {
   initialProducts: Product[];
   initialCollections?: any[];
   initialCollectionProducts?: any[];
   initialHeroBanners?: any[];
+  initialHomeTiles?: HomeTile[];
+  initialMarqueeOffers?: { text: string; row_number: number }[];
 }) {
   const router = useRouter();
   useEffect(() => {
@@ -471,16 +524,67 @@ export default function HomeClient({
       }))
     : HERO_SLIDES_DEFAULT;
 
+  const homeTiles = initialHomeTiles.length > 0 ? initialHomeTiles : HOME_TILES_DEFAULT;
+
+  const offersForRow = (row: number) =>
+    initialMarqueeOffers.filter((o) => o.row_number === row).map((o) => o.text.trim()).filter(Boolean);
+  const marqueeRow1 = offersForRow(1).length > 0 ? offersForRow(1) : MARQUEE_ROW_1_DEFAULT;
+  const marqueeRow2 = offersForRow(2).length > 0 ? offersForRow(2) : MARQUEE_ROW_2_DEFAULT;
+
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
+  // currentSlide is a dependency so the 5.5s countdown restarts after every
+  // manual change (arrows, dots, swipe) instead of jumping right after one.
   useEffect(() => {
-    if (!isAutoPlaying) return;
+    if (!isAutoPlaying || HERO_SLIDES.length < 2) return;
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
     }, 5500);
     return () => clearInterval(timer);
-  }, [isAutoPlaying, HERO_SLIDES.length]);
+  }, [isAutoPlaying, HERO_SLIDES.length, currentSlide]);
+
+  const goToNextSlide = () => setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+  const goToPrevSlide = () => setCurrentSlide((prev) => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length);
+
+  // Finger swipe between hero slides on touch screens
+  const heroTouch = useRef<{ x: number; y: number; swiping: boolean } | null>(null);
+  // When the last swipe ended; the click a browser may fire right after a
+  // swipe must not open the banner link or press a button.
+  const lastHeroSwipeAt = useRef(-Infinity);
+  const SWIPE_THRESHOLD_PX = 40;
+
+  const handleHeroTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    heroTouch.current = { x: t.clientX, y: t.clientY, swiping: false };
+    setIsAutoPlaying(false);
+  };
+
+  const handleHeroTouchMove = (e: React.TouchEvent) => {
+    const start = heroTouch.current;
+    if (!start) return;
+    const t = e.touches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    // Mostly-horizontal movement is a swipe; vertical movement scrolls the page
+    if (!start.swiping && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+      start.swiping = true;
+    }
+  };
+
+  const handleHeroTouchEnd = (e: React.TouchEvent) => {
+    const start = heroTouch.current;
+    heroTouch.current = null;
+    setIsAutoPlaying(true);
+    if (!start || HERO_SLIDES.length < 2) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    if (start.swiping && Math.abs(dx) >= SWIPE_THRESHOLD_PX) {
+      lastHeroSwipeAt.current = e.timeStamp;
+      if (dx < 0) goToNextSlide();
+      else goToPrevSlide();
+    }
+  };
 
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -599,7 +703,7 @@ export default function HomeClient({
     }
   };
 
-  const addToCart = (product: Product, quantity: number, color: string) => {
+  const addToCart = (product: Product, quantity: number, color: string, options?: VariantSelection) => {
     const existingIndex = cart.findIndex(
       (item) => item.product.id === product.id && item.color === color
     );
@@ -607,7 +711,7 @@ export default function HomeClient({
     if (existingIndex > -1) {
       newCart[existingIndex].quantity += quantity;
     } else {
-      newCart.push({ product, quantity, color });
+      newCart.push({ product, quantity, color, options });
     }
     saveCart(newCart);
 
@@ -616,8 +720,24 @@ export default function HomeClient({
     setTimeout(() => setCartAnimate(false), 800);
 
     // Toast notification
-    setSearchToast(`Added ${quantity}x ${product.name} (${color}) to cart!`);
+    setSearchToast(`Added ${quantity}x ${product.name}${color ? ` (${color})` : ""} to cart!`);
     setTimeout(() => setSearchToast(null), 3000);
+  };
+
+  // Card cart buttons: sold out → nothing; options to choose → product page
+  const quickAdd = (product: Product) => {
+    const groups = getVariantGroups(product);
+    if (isSoldOut(product.stock, groups)) {
+      setSearchToast(`${product.name} is out of stock`);
+      setTimeout(() => setSearchToast(null), 3000);
+      return;
+    }
+    if (needsChoice(groups)) {
+      router.push(`/product/${product.id}`);
+      return;
+    }
+    const sel = defaultSelection(groups);
+    addToCart(product, 1, selectionLabel(groups, sel), sel);
   };
 
   const removeFromCart = (productId: string, color: string) => {
@@ -822,9 +942,22 @@ export default function HomeClient({
         {/* Section 0: Creative 3/4 Screen Height Hero Banner Carousel */}
         <section className="w-full px-3 sm:px-6 lg:px-8 max-w-[1700px] mx-auto py-2 sm:py-4">
           <div 
-            className="relative w-full h-[70vh] min-h-[480px] max-h-[720px] rounded-2xl md:rounded-3xl overflow-hidden bg-zinc-950 shadow-2xl group border border-purple-500/20"
+            className="relative w-full h-[70vh] min-h-[480px] max-h-[720px] rounded-2xl md:rounded-3xl overflow-hidden bg-zinc-950 shadow-2xl group border border-purple-500/20 touch-pan-y"
             onMouseEnter={() => setIsAutoPlaying(false)}
             onMouseLeave={() => setIsAutoPlaying(true)}
+            onTouchStart={handleHeroTouchStart}
+            onTouchMove={handleHeroTouchMove}
+            onTouchEnd={handleHeroTouchEnd}
+            onTouchCancel={() => {
+              heroTouch.current = null;
+              setIsAutoPlaying(true);
+            }}
+            onClickCapture={(e) => {
+              if (e.timeStamp - lastHeroSwipeAt.current < 500) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            }}
           >
             {HERO_SLIDES.map((slide, idx) => {
               const isActive = idx === currentSlide;
@@ -890,8 +1023,8 @@ export default function HomeClient({
 
                   {/* Content Container */}
                   <div className="absolute inset-0 z-20 flex flex-col justify-end p-6 sm:p-10 md:p-14 lg:p-16 max-w-4xl text-left pointer-events-none">
-                    {/* Badges (Only on subsequent slides) */}
-                    {idx !== 0 && (slide.badge || slide.tag) && (
+                    {/* Badges */}
+                    {(slide.badge || slide.tag) && (
                       <div className="flex items-center gap-3 mb-3 sm:mb-4 flex-wrap">
                         {slide.badge && (
                           <span className="text-[10px] sm:text-xs font-bold tracking-[0.25em] text-purple-300 bg-purple-950/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-purple-500/30 uppercase shadow-md">
@@ -913,15 +1046,15 @@ export default function HomeClient({
                       </h1>
                     )}
 
-                    {/* Subtitle (Only on subsequent slides) */}
-                    {idx !== 0 && slide.subtitle && (
+                    {/* Subtitle */}
+                    {slide.subtitle && (
                       <p className="text-xs sm:text-sm md:text-base text-zinc-300 font-medium leading-relaxed max-w-2xl mb-6 sm:mb-8 drop-shadow-sm">
                         {slide.subtitle}
                       </p>
                     )}
 
-                    {/* Action CTAs (Only on subsequent slides) */}
-                    {idx !== 0 && (slide.primaryCta.text || slide.secondaryCta.text) && (
+                    {/* Action CTAs */}
+                    {(slide.primaryCta.text || slide.secondaryCta.text) && (
                       <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                         {slide.primaryCta.text && (
                         <Link
@@ -952,7 +1085,7 @@ export default function HomeClient({
 
             {/* Previous Arrow Button */}
             <button
-              onClick={() => setCurrentSlide((prev) => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
+              onClick={goToPrevSlide}
               className="absolute left-4 top-1/2 -translate-y-1/2 z-30 bg-black/40 hover:bg-purple-600 text-white backdrop-blur-md p-3 rounded-full border border-white/20 hover:scale-110 active:scale-95 transition-all duration-300 cursor-pointer hidden sm:flex items-center justify-center shadow-lg"
               aria-label="Previous slide"
             >
@@ -963,7 +1096,7 @@ export default function HomeClient({
 
             {/* Next Arrow Button */}
             <button
-              onClick={() => setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length)}
+              onClick={goToNextSlide}
               className="absolute right-4 top-1/2 -translate-y-1/2 z-30 bg-black/40 hover:bg-purple-600 text-white backdrop-blur-md p-3 rounded-full border border-white/20 hover:scale-110 active:scale-95 transition-all duration-300 cursor-pointer hidden sm:flex items-center justify-center shadow-lg"
               aria-label="Next slide"
             >
@@ -1037,10 +1170,7 @@ export default function HomeClient({
                 {/* Marquee Row 1 */}
                 <div className="flex overflow-hidden select-none gap-4">
                   <div className="marquee-scroll flex gap-8 whitespace-nowrap text-xs md:text-sm font-bold tracking-widest text-zinc-900 font-syne uppercase">
-                    {Array(4).fill([
-                      "Smart Design", "Studio Gear", "Elevated Daily", "Premium Audio", 
-                      "Ultra Durable", "Minimalist Essentials", "Pluggedin Labs", "High Performance"
-                    ]).flat().map((item, idx) => (
+                    {Array(4).fill(marqueeRow1).flat().map((item, idx) => (
                       <span key={idx} className="flex items-center gap-4">
                         <span>{item}</span>
                         <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_#8b5cf6]" />
@@ -1052,10 +1182,7 @@ export default function HomeClient({
                 {/* Marquee Row 2 */}
                 <div className="flex overflow-hidden select-none gap-4">
                   <div className="marquee-scroll-reverse flex gap-8 whitespace-nowrap text-xs md:text-sm font-bold tracking-widest text-purple-600 font-syne uppercase">
-                    {Array(4).fill([
-                      "Tech & Style", "Noise Cancelling", "Fast Wireless Charger", "Tactile Switches",
-                      "Water Resistant", "Ambient LED", "Carbon Fiber Lift", "Creators Choice"
-                    ]).flat().map((item, idx) => (
+                    {Array(4).fill(marqueeRow2).flat().map((item, idx) => (
                       <span key={idx} className="flex items-center gap-4">
                         <span>{item}</span>
                         <span className="w-1.5 h-1.5 rounded-full bg-zinc-950 shadow-[0_0_8px_rgba(0,0,0,0.5)]" />
@@ -1078,227 +1205,74 @@ export default function HomeClient({
                 <div className="w-12 h-[3px] bg-purple-500 mt-3 rounded-full" />
               </div>
 
-              {/* Bento Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl mx-auto">
-                {/* Card 1: Home and kitchen (span-2) */}
-                <div 
-                  onClick={() => router.push("/shop?category=Home and kitchen")}
-                  className="md:col-span-2 group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6 md:p-8"
-                >
-                  {/* Background Image */}
-                  <div className="absolute inset-0 z-0">
-                    <Image 
-                      src="/categories/home_kitchen.webp" 
-                      alt="Home and kitchen" 
-                      fill
-                      sizes="(max-width: 768px) 100vw, 66vw"
-                      style={{ objectFit: "cover" }}
-                      className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                      loading="eager"
-                      />
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
-                  </div>
+              {/* Bento Grid (tiles are managed in Admin → Collections → Homepage Grid).
+                  Wide tiles take 2 of the 3 columns; dense packing fills gaps. */}
+              <div className="grid grid-cols-1 md:grid-cols-3 md:grid-flow-row-dense gap-8 w-full max-w-6xl mx-auto">
+                {homeTiles.map((tile, idx) => {
+                  const link = resolveBannerLink(tile.link_url) ?? { href: "/shop", external: false };
+                  const open = () => {
+                    if (link.external) window.open(link.href, "_blank", "noopener,noreferrer");
+                    else router.push(link.href);
+                  };
+                  const wide = tile.size === "wide";
+                  return (
+                    <div
+                      key={tile.id}
+                      role="link"
+                      tabIndex={0}
+                      onClick={open}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") open();
+                      }}
+                      className={`${wide ? "md:col-span-2" : "md:col-span-1"} group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-900 cursor-pointer flex flex-col justify-between ${wide && idx === 0 ? "p-6 md:p-8" : "p-6"}`}
+                    >
+                      {/* Background Image */}
+                      <div className="absolute inset-0 z-0">
+                        {tile.image_url && (
+                          <Image
+                            src={tile.image_url}
+                            alt={tile.title || "Collection"}
+                            fill
+                            sizes={wide ? "(max-width: 768px) 100vw, 66vw" : "(max-width: 768px) 100vw, 33vw"}
+                            style={{ objectFit: "cover" }}
+                            className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                            loading="eager"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
+                      </div>
 
-                  {/* Content Overlay */}
-                  <div className="relative z-10 flex flex-col justify-between h-full w-full">
-                    <div className="flex justify-end w-full">
-                      <span className="text-[10px] font-black tracking-widest text-purple-200 bg-purple-950/85 border border-purple-500/50 backdrop-blur-md px-3 py-1 rounded-full uppercase shadow-md shadow-purple-950/50 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-400 transition-all duration-300">
-                        EXPLORE →
-                      </span>
-                    </div>
-                    
-                    <div className="max-w-md text-left">
-                      <h3 className="text-xl md:text-2xl font-extrabold text-white font-outfit">
-                        Home & Kitchen Essentials
-                      </h3>
-                      <div className="flex flex-wrap gap-2 mt-3 relative z-20 pointer-events-auto">
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push("/shop?category=Home and kitchen");
-                          }}
-                          className="text-[9px] font-bold tracking-widest text-pink-300 bg-pink-955/40 hover:bg-pink-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-pink-500/30 uppercase transition-all"
-                        >
-                          #lightbar
-                        </span>
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push("/shop?category=Home and kitchen");
-                          }}
-                          className="text-[9px] font-bold tracking-widest text-pink-300 bg-pink-955/40 hover:bg-pink-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-pink-500/30 uppercase transition-all"
-                        >
-                          #speaker
-                        </span>
+                      {/* Content Overlay */}
+                      <div className="relative z-10 flex flex-col justify-between h-full w-full">
+                        <div className="flex justify-end w-full">
+                          <span className="text-[10px] font-black tracking-widest text-purple-200 bg-purple-950/85 border border-purple-500/50 backdrop-blur-md px-3 py-1 rounded-full uppercase shadow-md shadow-purple-950/50 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-400 transition-all duration-300">
+                            EXPLORE →
+                          </span>
+                        </div>
+
+                        <div className={`${wide ? "max-w-md" : ""} text-left`}>
+                          {tile.title && (
+                            <h3 className={`${wide && idx === 0 ? "text-xl md:text-2xl" : "text-xl"} font-extrabold text-white font-outfit`}>
+                              {tile.title}
+                            </h3>
+                          )}
+                          {tile.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3 relative z-20 pointer-events-auto">
+                              {tile.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className={`text-[9px] font-bold tracking-widest backdrop-blur-md px-3 py-1 rounded-full border uppercase transition-all ${TILE_CHIP_STYLES[idx % TILE_CHIP_STYLES.length]}`}
+                                >
+                                  #{tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Card 2: Tech & Gadgets (span-1) */}
-                <div 
-                  onClick={() => router.push("/shop?category=Tech & Gadgets")}
-                  className="md:col-span-1 group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6"
-                >
-                  {/* Background Image */}
-                  <div className="absolute inset-0 z-0">
-                    <Image 
-                      src="/categories/tech_gadgets.webp" 
-                      alt="Tech & Gadgets" 
-                      fill
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                      style={{ objectFit: "cover" }}
-                      className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                      loading="eager"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
-                  </div>
-
-                  {/* Content Overlay */}
-                  <div className="relative z-10 flex flex-col justify-between h-full w-full">
-                    <div className="flex justify-end w-full">
-                      <span className="text-[10px] font-black tracking-widest text-purple-200 bg-purple-950/85 border border-purple-500/50 backdrop-blur-md px-3 py-1 rounded-full uppercase shadow-md shadow-purple-950/50 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-400 transition-all duration-300">
-                        EXPLORE →
-                      </span>
-                    </div>
-                    
-                    <div className="text-left">
-                      <h3 className="text-xl font-extrabold text-white font-outfit">
-                        Workspace Tech & Gadgets
-                      </h3>
-                      <div className="flex flex-wrap gap-2 mt-3 relative z-20 pointer-events-auto">
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push("/shop?category=Tech & Gadgets");
-                          }}
-                          className="text-[9px] font-bold tracking-widest text-blue-300 bg-blue-955/40 hover:bg-blue-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-blue-500/30 uppercase transition-all"
-                        >
-                          #keyboard
-                        </span>
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push("/shop?category=Tech & Gadgets");
-                          }}
-                          className="text-[9px] font-bold tracking-widest text-blue-300 bg-blue-955/40 hover:bg-blue-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-blue-500/30 uppercase transition-all"
-                        >
-                          #mouse
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card 4: Mobile & Auto (span-1) */}
-                <div 
-                  onClick={() => router.push("/shop?category=Mobile & Auto")}
-                  className="md:col-span-1 group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6"
-                >
-                  {/* Background Image */}
-                  <div className="absolute inset-0 z-0">
-                    <Image 
-                      src="/categories/mobile_auto.webp" 
-                      alt="Mobile & Auto" 
-                      fill
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                      style={{ objectFit: "cover" }}
-                      className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                      loading="eager"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
-                  </div>
-
-                  {/* Content Overlay */}
-                  <div className="relative z-10 flex flex-col justify-between h-full w-full">
-                    <div className="flex justify-end w-full">
-                      <span className="text-[10px] font-black tracking-widest text-purple-200 bg-purple-950/85 border border-purple-500/50 backdrop-blur-md px-3 py-1 rounded-full uppercase shadow-md shadow-purple-950/50 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-400 transition-all duration-300">
-                        EXPLORE →
-                      </span>
-                    </div>
-                    
-                    <div className="text-left">
-                      <h3 className="text-xl font-extrabold text-white font-outfit">
-                        Mobile & Auto Gear
-                      </h3>
-                      <div className="flex flex-wrap gap-2 mt-3 relative z-20 pointer-events-auto">
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push("/shop?category=Mobile & Auto");
-                          }}
-                          className="text-[9px] font-bold tracking-widest text-emerald-300 bg-emerald-955/40 hover:bg-emerald-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-500/30 uppercase transition-all"
-                        >
-                          #backpack
-                        </span>
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push("/shop?category=Mobile & Auto");
-                          }}
-                          className="text-[9px] font-bold tracking-widest text-emerald-300 bg-emerald-955/40 hover:bg-emerald-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-500/30 uppercase transition-all"
-                        >
-                          #stand
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card 5: Best sellers (span-2) */}
-                <div 
-                  onClick={() => router.push("/shop?category=Best sellers")}
-                  className="md:col-span-2 group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-50 cursor-pointer flex flex-col justify-between p-6"
-                >
-                  {/* Background Image */}
-                  <div className="absolute inset-0 z-0">
-                    <Image 
-                      src="/categories/best_sellers.webp" 
-                      alt="Best sellers" 
-                      fill
-                      sizes="(max-width: 768px) 100vw, 66vw"
-                      style={{ objectFit: "cover" }}
-                      className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                      loading="eager"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
-                  </div>
-
-                  {/* Content Overlay */}
-                  <div className="relative z-10 flex flex-col justify-between h-full w-full">
-                    <div className="flex justify-end w-full">
-                      <span className="text-[10px] font-black tracking-widest text-purple-200 bg-purple-950/85 border border-purple-500/50 backdrop-blur-md px-3 py-1 rounded-full uppercase shadow-md shadow-purple-950/50 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-400 transition-all duration-300">
-                        EXPLORE →
-                      </span>
-                    </div>
-                    
-                    <div className="text-left">
-                      <h3 className="text-xl font-extrabold text-white font-outfit">
-                        Best Sellers Hub
-                      </h3>
-                      <div className="flex flex-wrap gap-2 mt-3 relative z-20 pointer-events-auto">
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push("/shop?category=Best sellers");
-                          }}
-                          className="text-[9px] font-bold tracking-widest text-purple-300 bg-purple-955/40 hover:bg-purple-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-purple-500/30 uppercase transition-all"
-                        >
-                          #headphones
-                        </span>
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push("/shop?category=Best sellers");
-                          }}
-                          className="text-[9px] font-bold tracking-widest text-purple-300 bg-purple-955/40 hover:bg-purple-900/50 backdrop-blur-md px-3 py-1 rounded-full border border-purple-500/30 uppercase transition-all"
-                        >
-                          #keyboard
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -1374,8 +1348,7 @@ export default function HomeClient({
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          const colors = getProductColors(product);
-                          addToCart(product, 1, colors[0] || product.color);
+                          quickAdd(product);
                         }}
                         className="md:hidden absolute bottom-3 right-3 bg-purple-600 active:bg-purple-700 text-white p-2.5 rounded-full shadow-lg z-20 flex items-center justify-center border-0 active:scale-95 transition-all duration-150"
                         title="Add to Cart"
@@ -1399,8 +1372,7 @@ export default function HomeClient({
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            const colors = getProductColors(product);
-                            addToCart(product, 1, colors[0] || product.color);
+                            quickAdd(product);
                           }}
                           className="bg-purple-600 hover:bg-purple-700 text-white p-2.5 rounded-xl shadow-lg shadow-purple-600/10 transition-all duration-200 cursor-pointer border-0 flex items-center justify-center hover:scale-105 active:scale-95"
                           title="Add to Cart"
@@ -1442,9 +1414,15 @@ export default function HomeClient({
                           <span className="w-1 h-1 rounded-full bg-purple-500 animate-pulse" />
                           Fast Delivery
                         </span>
-                        <span className="text-[8px] font-bold text-zinc-400 tracking-wider uppercase">
-                          In Stock
-                        </span>
+                        {isSoldOut(product.stock, getVariantGroups(product)) ? (
+                          <span className="text-[8px] font-bold text-red-500 tracking-wider uppercase">
+                            Sold Out
+                          </span>
+                        ) : (
+                          <span className="text-[8px] font-bold text-zinc-400 tracking-wider uppercase">
+                            In Stock
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1527,8 +1505,7 @@ export default function HomeClient({
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          const colors = getProductColors(product);
-                          addToCart(product, 1, colors[0] || product.color);
+                          quickAdd(product);
                         }}
                         className="md:hidden absolute bottom-3 right-3 bg-purple-600 active:bg-purple-700 text-white p-2.5 rounded-full shadow-lg z-20 flex items-center justify-center border-0 active:scale-95 transition-all duration-150"
                         title="Add to Cart"
@@ -1552,8 +1529,7 @@ export default function HomeClient({
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            const colors = getProductColors(product);
-                            addToCart(product, 1, colors[0] || product.color);
+                            quickAdd(product);
                           }}
                           className="bg-purple-600 hover:bg-purple-700 text-white p-2.5 rounded-xl shadow-lg shadow-purple-600/10 transition-all duration-200 cursor-pointer border-0 flex items-center justify-center hover:scale-105 active:scale-95"
                           title="Add to Cart"
@@ -1595,9 +1571,15 @@ export default function HomeClient({
                           <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
                           Fast Delivery
                         </span>
-                        <span className="text-[8px] font-bold text-zinc-400 tracking-wider uppercase">
-                          In Stock
-                        </span>
+                        {isSoldOut(product.stock, getVariantGroups(product)) ? (
+                          <span className="text-[8px] font-bold text-red-500 tracking-wider uppercase">
+                            Sold Out
+                          </span>
+                        ) : (
+                          <span className="text-[8px] font-bold text-zinc-400 tracking-wider uppercase">
+                            In Stock
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1951,9 +1933,11 @@ export default function HomeClient({
                     <h4 className="text-xs font-extrabold text-zinc-950 font-outfit truncate mt-0.5">
                       {item.product.name}
                     </h4>
+                    {item.color && (
                     <p className="text-[9px] text-zinc-500 font-bold mt-0.5">
                       Variant: <span className="text-zinc-700 font-extrabold">{item.color}</span>
                     </p>
+                    )}
                     
                     {/* Quantity Selector inside cart item */}
                     <div className="flex items-center gap-2 mt-2">

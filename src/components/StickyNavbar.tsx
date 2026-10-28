@@ -725,9 +725,11 @@ export default function StickyNavbar() {
                       <h4 className="text-xs font-extrabold text-zinc-950 font-outfit truncate mt-0.5">
                         {item.product.name}
                       </h4>
+                      {item.color && (
                       <p className="text-[9px] text-zinc-500 font-bold mt-0.5">
                         Variant: <span className="text-zinc-700 font-extrabold">{item.color}</span>
                       </p>
+                      )}
 
                       <div className="flex items-center gap-2 mt-2">
                         <div className="flex items-center bg-zinc-55 border border-zinc-200/50 rounded-full px-1.5 py-0.5 shadow-inner">

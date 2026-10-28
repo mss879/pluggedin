@@ -23,7 +23,10 @@ import { computeOrderPricing, type DiscountRule } from "@/lib/pricing";
 interface CartItem {
   product: Product;
   quantity: number;
+  /** Variant label, e.g. "Black / XL" */
   color: string;
+  /** Chosen option per variant group, e.g. { Color: "Black", Size: "XL" } */
+  options?: Record<string, string>;
 }
 
 function BankDetailsCard({
@@ -297,6 +300,7 @@ export default function CheckoutClient() {
           items: cart.map((item) => ({
             id: item.product.id,
             color: item.color,
+            options: item.options,
             quantity: item.quantity,
           })),
           payment_method: paymentMethod,
@@ -313,6 +317,12 @@ export default function CheckoutClient() {
           setAppliedDiscount(null);
           setCodeError(data.error);
           setPlacingError(`${data.error} We've removed it — please review your total and try again.`);
+          setPlacingStatus("error");
+          return;
+        }
+        // Out of stock / option no longer available — say which item
+        if (data.field === "stock" && data.error) {
+          setPlacingError(data.error);
           setPlacingStatus("error");
           return;
         }
@@ -686,7 +696,7 @@ export default function CheckoutClient() {
                           {item.product.name}
                         </h4>
                         <p className="text-[9px] text-zinc-550 font-bold mt-0.5">
-                          Qty: <span className="text-zinc-800 font-extrabold">{item.quantity}</span> • Color: <span className="text-zinc-800 font-extrabold">{item.color}</span>
+                          Qty: <span className="text-zinc-800 font-extrabold">{item.quantity}</span>{item.color && <> • Option: <span className="text-zinc-800 font-extrabold">{item.color}</span></>}
                         </p>
                       </div>
                       <div className="text-xs font-black text-purple-950 font-outfit shrink-0">

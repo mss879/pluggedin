@@ -92,12 +92,17 @@ function generateOrderEmailHtml({
   bodyIntro,
   orderStatusLabel,
   extraSectionHtml = "",
+  greetingName = customerName,
+  footerNote = "You received this email because you placed an order with PluggedIn Storefront.",
 }: OrderEmailPayload & {
   bannerTitle: string;
   bannerSubtitle: string;
   bodyIntro: string;
   orderStatusLabel: string;
   extraSectionHtml?: string;
+  /** Defaults to the customer's name. */
+  greetingName?: string;
+  footerNote?: string;
 }) {
   const formatPrice = (amount: number) => {
     return `Rs. ${Math.round(amount).toLocaleString()}`;
@@ -131,7 +136,7 @@ function generateOrderEmailHtml({
     <tr style="border-bottom: 1px solid #f1f5f9;">
       <td style="padding: 16px 0; text-align: left;">
         <div style="font-weight: 700; color: #0f172a; font-size: 14px;">${escapeHtml(item.name)}</div>
-        <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Color: ${escapeHtml(item.color)}</div>
+        ${item.color ? `<div style="font-size: 11px; color: #64748b; margin-top: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Option: ${escapeHtml(item.color)}</div>` : ""}
       </td>
       <td style="padding: 16px 0; text-align: center; color: #475569; font-size: 14px; font-weight: 600;">
         ${item.quantity}
@@ -202,7 +207,7 @@ function generateOrderEmailHtml({
           <!-- Order Summary Body -->
           <div style="padding: 32px 32px 24px 32px; text-align: left;">
             <p style="margin: 0 0 20px 0; font-size: 15px; color: #334155; font-weight: 500; line-height: 1.6;">
-              Hi ${escapeHtml(customerName)},<br>
+              Hi ${escapeHtml(greetingName)},<br>
               ${bodyIntro}
             </p>
 
@@ -306,7 +311,7 @@ function generateOrderEmailHtml({
               © ${new Date().getFullYear()} PLUGGEDIN. ALL RIGHTS RESERVED.
             </p>
             <p style="margin: 6px 0 0 0; font-size: 10px; color: #94a3b8; font-weight: 500; line-height: 1.5;">
-              You received this email because you placed an order with PluggedIn Storefront.
+              ${footerNote}
             </p>
             <div style="margin-top: 12px;">
               <a href="https://pluggedin.lk/privacy-policy" style="color: #7c3aed; text-decoration: none; font-size: 11px; font-weight: 600; margin: 0 8px;">Privacy Policy</a>
@@ -485,7 +490,48 @@ export async function sendBankReceiptNotReceivedEmail(payload: OrderEmailPayload
   }
 }
 
-// 6. Admin Login Verification Code Email
+// 6. New Order Alert for the store (sent to the admin 2FA inbox)
+export async function sendNewOrderAdminEmail(to: string, payload: OrderEmailPayload) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[Resend] API key is missing. Skipping email send.");
+    return { success: false, error: "Resend API Key missing" };
+  }
+
+  const paymentNote = payload.paymentMethod === "bank_transfer"
+    ? "The customer will pay by bank transfer — check Admin → Orders for their payment slip before dispatching."
+    : "Open Admin → Orders to process it.";
+  const emailHtml = generateOrderEmailHtml({
+    ...payload,
+    bannerTitle: "New Order",
+    bannerSubtitle: `${escapeHtml(payload.customerName)} · Rs. ${Math.round(payload.totalAmount).toLocaleString()}`,
+    greetingName: "PluggedIn team",
+    bodyIntro: `A new order has just been placed on the store. ${paymentNote}`,
+    orderStatusLabel: "New · Pending",
+    footerNote: "You received this email because a new order was placed on the PluggedIn store.",
+  });
+
+  try {
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "PluggedIn Storefront <orders@pluggedin.lk>";
+    const data = await getResendClient().emails.send({
+      from: fromEmail,
+      to: [to],
+      replyTo: payload.customerEmail,
+      subject: `New order ${payload.orderId} — Rs. ${Math.round(payload.totalAmount).toLocaleString()} from ${payload.customerName}`,
+      html: emailHtml,
+    });
+    if (data.error) {
+      console.error("[Resend] New order admin email rejected:", data.error.message);
+      return { success: false, error: "email_send_failed" };
+    }
+    console.log(`[Resend] New order admin email sent for ${payload.orderId}`);
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("[Resend] Failed to send new order admin email:", error?.message || error);
+    return { success: false, error: "email_send_failed" };
+  }
+}
+
+// 7. Admin Login Verification Code Email
 export async function sendAdminLoginCodeEmail(to: string, code: string, expiresInMinutes: number) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("[Resend] API key is missing. Skipping email send.");

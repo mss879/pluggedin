@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { sendOrderConfirmationEmail } from "@/lib/email";
+import { sendNewOrderAdminEmail, sendOrderConfirmationEmail } from "@/lib/email";
 import { rateLimit, getClientIp, isAllowedOrigin } from "@/lib/rate-limit";
 import { normalizePaymentSettings, type PaymentSettings } from "@/lib/payment-settings";
 import { DELIVERY_SETTINGS_COLUMNS, formatWeight, normalizeDeliveryRates } from "@/lib/delivery";
 import { computeOrderPricing, normalizeCode, toDiscountRule, type DiscountCodeRow } from "@/lib/pricing";
 import { claimDiscountUse, lookupDiscountCode, releaseDiscountUse } from "@/lib/discounts-server";
+import { reserveStock, releaseStock, type StockLine } from "@/lib/stock-server";
+import { ADMIN_2FA_EMAIL } from "@/lib/admin-auth";
+import {
+  availableQuantity,
+  normalizeStock,
+  normalizeVariants,
+  resolveSelection,
+  selectionLabel,
+  type VariantSelection,
+} from "@/lib/variants";
 
 // Field length caps to prevent oversized payloads / DB bloat
 const MAX_NAME = 100;
@@ -86,10 +96,10 @@ export async function POST(request: Request) {
     }
 
     // Normalize and validate each requested line (quantity must be a sane integer)
-    const requested: { id: string; color: string; quantity: number }[] = [];
+    const requested: { id: string; color: string; options: unknown; quantity: number }[] = [];
     for (const item of items) {
       const id = String(item?.id || "").trim().slice(0, 100);
-      const color = String(item?.color || "").trim().slice(0, 60);
+      const color = String(item?.color || "").trim().slice(0, 200);
       const quantity = Number(item?.quantity);
       if (!id || !Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QTY) {
         return NextResponse.json(
@@ -97,7 +107,7 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
-      requested.push({ id, color, quantity });
+      requested.push({ id, color, options: item?.options, quantity });
     }
 
     // Generate collision-resistant order reference (e.g. ORD-20260613-3F8A2C1B)
@@ -107,13 +117,21 @@ export async function POST(request: Request) {
 
     // Authoritative items + total are rebuilt from the database, NEVER trusted
     // from the client. This is the price-tampering guard.
-    let authoritativeItems = requested.map((r) => ({
+    let authoritativeItems: {
+      id: string;
+      name: string;
+      color: string;
+      options?: VariantSelection;
+      quantity: number;
+      price: string;
+    }[] = requested.map((r) => ({
       id: r.id,
       name: r.id,
       color: r.color,
       quantity: r.quantity,
       price: formatRs(0),
     }));
+    let stockLines: StockLine[] = [];
     let totalAmount = 0;
     let deliveryFee = 0;
     let deliveryLabel: string | null = null;
@@ -125,7 +143,7 @@ export async function POST(request: Request) {
       const ids = requested.map((r) => r.id);
       const { data: dbProducts, error: prodErr } = await supabase
         .from("products")
-        .select("id, name, price, weight_grams")
+        .select("id, name, price, weight_grams, stock, variants, colors")
         .in("id", ids);
 
       if (prodErr) {
@@ -139,7 +157,13 @@ export async function POST(request: Request) {
       const priceMap = new Map(
         (dbProducts || []).map((p) => [
           p.id,
-          { name: p.name as string, price: Number(p.price), weightGrams: Number(p.weight_grams) || 0 },
+          {
+            name: p.name as string,
+            price: Number(p.price),
+            weightGrams: Number(p.weight_grams) || 0,
+            stock: normalizeStock(p.stock),
+            variants: normalizeVariants(p.variants, p.colors),
+          },
         ])
       );
 
@@ -153,16 +177,76 @@ export async function POST(request: Request) {
         }
       }
 
-      authoritativeItems = requested.map((r) => {
+      // Chosen variant options must exist on the product
+      const selections: (VariantSelection | null)[] = [];
+      for (const r of requested) {
         const p = priceMap.get(r.id)!;
+        const sel = resolveSelection(p.variants, r.options, r.color);
+        if (!sel) {
+          return NextResponse.json(
+            { error: `The options chosen for ${p.name} are no longer available. Please remove it from your cart and add it again.`, field: "stock" },
+            { status: 400 }
+          );
+        }
+        selections.push(p.variants.length > 0 ? sel : null);
+      }
+
+      // Stock check (friendly message). The atomic reservation below is what
+      // actually prevents overselling when two people check out at once.
+      const wanted = new Map<string, number>();
+      requested.forEach((r, i) => {
+        wanted.set(r.id, (wanted.get(r.id) || 0) + r.quantity);
+        for (const [group, option] of Object.entries(selections[i] || {})) {
+          const key = `${r.id}\u0000${group}\u0000${option}`;
+          wanted.set(key, (wanted.get(key) || 0) + r.quantity);
+        }
+      });
+      for (const [i, r] of requested.entries()) {
+        const p = priceMap.get(r.id)!;
+        const sel = selections[i] || {};
+        const productLeft = p.stock;
+        const optionLeft = availableQuantity(null, p.variants, sel);
+        const overProduct = productLeft !== null && wanted.get(r.id)! > productLeft;
+        const overOption = Object.entries(sel).some(([group, option]) => {
+          const opt = p.variants.find((g) => g.name === group)?.options.find((o) => o.name === option);
+          return opt?.stock != null && wanted.get(`${r.id}\u0000${group}\u0000${option}`)! > opt.stock;
+        });
+        if (overProduct || overOption) {
+          const left = Math.min(productLeft ?? Infinity, optionLeft ?? Infinity);
+          const what = selectionLabel(p.variants, sel) ? `${p.name} (${selectionLabel(p.variants, sel)})` : p.name;
+          return NextResponse.json(
+            {
+              error: left <= 0
+                ? `Sorry, ${what} is out of stock. Please remove it from your cart.`
+                : `Sorry, only ${left} of ${what} left in stock. Please lower the quantity in your cart.`,
+              field: "stock",
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      authoritativeItems = requested.map((r, i) => {
+        const p = priceMap.get(r.id)!;
+        const sel = selections[i];
         return {
           id: r.id,
           name: p.name,
-          color: r.color,
+          color: sel ? selectionLabel(p.variants, sel) : r.color,
+          ...(sel ? { options: sel } : {}),
           quantity: r.quantity,
           price: formatRs(p.price),
         };
       });
+
+      // Only products / options whose stock is tracked need reserving
+      const tracked = requested.some((r, i) => {
+        const p = priceMap.get(r.id)!;
+        return p.stock !== null || availableQuantity(null, p.variants, selections[i] || {}) !== null;
+      });
+      if (tracked) {
+        stockLines = requested.map((r, i) => ({ id: r.id, quantity: r.quantity, options: selections[i] || {} }));
+      }
       // Delivery rates (weight-based + free-delivery offer) from the admin
       const { data: ratesRow, error: ratesErr } = await supabase
         .from("delivery_settings")
@@ -208,6 +292,20 @@ export async function POST(request: Request) {
         );
       }
 
+      // Take the stock (all or nothing)
+      if (stockLines.length > 0) {
+        const reserved = await reserveStock(stockLines);
+        if (!reserved.ok) {
+          if (discountRow) await releaseDiscountUse(discountRow.id);
+          return NextResponse.json(
+            reserved.outOfStock
+              ? { error: `Sorry, ${reserved.outOfStock} just sold out. Please update your cart and try again.`, field: "stock" }
+              : { error: "We couldn't check stock for your order. Please try again." },
+            { status: reserved.outOfStock ? 400 : 500 }
+          );
+        }
+      }
+
       totalWeightGrams = pricing.weightGrams;
       deliveryFee = pricing.deliveryFee;
       deliveryLabel = formatWeight(pricing.weightGrams) + (pricing.freeDeliveryReason ? " · free delivery" : "");
@@ -228,14 +326,16 @@ export async function POST(request: Request) {
         total_weight_grams: totalWeightGrams,
         discount_code: appliedCode,
         discount_amount: discountAmount,
+        stock_reserved: stockLines.length > 0,
         payment_method: cleanPayment,
         status: "pending",
       });
 
       if (error) {
         console.error("Supabase insert order error:", error);
-        // Give the code's use back since no order was created
+        // Give the code's use and the stock back since no order was created
         if (discountRow) await releaseDiscountUse(discountRow.id);
+        if (stockLines.length > 0) await releaseStock(stockLines);
         return NextResponse.json(
           { error: "We couldn't place your order right now. Please try again." },
           { status: 500 }
@@ -261,25 +361,32 @@ export async function POST(request: Request) {
       }
     }
 
-    // Send order confirmation email via Resend (best-effort)
-    try {
-      await sendOrderConfirmationEmail({
-        orderId,
-        customerName: cleanName,
-        customerEmail: cleanEmail,
-        phoneNumber: cleanPhone,
-        shippingAddress: cleanAddress,
-        items: authoritativeItems,
-        totalAmount,
-        paymentMethod: cleanPayment,
-        deliveryFee,
-        deliveryZone: deliveryLabel,
-        discountAmount,
-        discountCode: appliedCode,
-        bankDetails,
-      });
-    } catch (emailErr) {
-      console.error("Order created but failed to send confirmation email:", emailErr);
+    // Confirmation to the customer + new-order alert to the store inbox (the
+    // same inbox that receives the admin login codes). Best-effort.
+    const emailPayload = {
+      orderId,
+      customerName: cleanName,
+      customerEmail: cleanEmail,
+      phoneNumber: cleanPhone,
+      shippingAddress: cleanAddress,
+      items: authoritativeItems,
+      totalAmount,
+      paymentMethod: cleanPayment,
+      deliveryFee,
+      deliveryZone: deliveryLabel,
+      discountAmount,
+      discountCode: appliedCode,
+      bankDetails,
+    };
+    const [customerEmail, adminEmail] = await Promise.allSettled([
+      sendOrderConfirmationEmail(emailPayload),
+      sendNewOrderAdminEmail(ADMIN_2FA_EMAIL, emailPayload),
+    ]);
+    if (customerEmail.status === "rejected") {
+      console.error("Order created but failed to send confirmation email:", customerEmail.reason);
+    }
+    if (adminEmail.status === "rejected") {
+      console.error("Order created but failed to send admin new-order email:", adminEmail.reason);
     }
 
     return NextResponse.json({ success: true, orderId, total: totalAmount });
