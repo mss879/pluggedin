@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS } from "./products";
 import { normalizeStock, normalizeVariants } from "@/lib/variants";
 import HomeClient, { type HomeTile } from "./HomeClient";
+import { normalizeHomeSections, type HomeSection } from "@/lib/home-sections";
 
 // Rendered on every request. This page shows content the admin edits
 // (hero banners, products, collections). It used ISR (revalidate = 60), but on
@@ -134,6 +135,22 @@ async function getHeroBanners() {
   return [];
 }
 
+// Homepage layout (Admin → Homepage Layout). Empty → the original layout.
+async function getHomeSections(): Promise<HomeSection[]> {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from("home_sections")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (!error && data) return normalizeHomeSections(data);
+    }
+  } catch (e) {
+    console.warn("Failed to fetch homepage layout on server:", e);
+  }
+  return [];
+}
+
 // Scrolling offer text under the hero (Admin → Offer Section), row 1 and row 2.
 async function getMarqueeOffers(): Promise<{ text: string; row_number: number }[]> {
   try {
@@ -178,12 +195,13 @@ async function getHomeTiles(): Promise<HomeTile[]> {
 }
 
 export default async function Page() {
-  const [products, { collections, collectionProducts }, heroBanners, homeTiles, marqueeOffers] = await Promise.all([
+  const [products, { collections, collectionProducts }, heroBanners, homeTiles, marqueeOffers, homeSections] = await Promise.all([
     getProducts(),
     getCollections(),
     getHeroBanners(),
     getHomeTiles(),
     getMarqueeOffers(),
+    getHomeSections(),
   ]);
   return (
     <>
@@ -202,6 +220,7 @@ export default async function Page() {
         initialHeroBanners={heroBanners}
         initialHomeTiles={homeTiles}
         initialMarqueeOffers={marqueeOffers}
+        initialHomeSections={homeSections}
       />
     </>
   );

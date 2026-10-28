@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { Fragment, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { MOCK_PRODUCTS, getCategoryIcon, Product } from "../products";
@@ -36,6 +36,14 @@ import {
   normalizeVariants,
   type VariantGroup,
 } from "@/lib/variants";
+import {
+  BUILTIN_SECTIONS,
+  DEFAULT_HOME_SECTIONS,
+  builtinInfo,
+  isVideoUrl,
+  normalizeHomeSections,
+  type HomeSection,
+} from "@/lib/home-sections";
 
 /** Variant group as edited in Admin → Add Product (stock kept as typed text). */
 interface VariantGroupForm {
@@ -82,6 +90,24 @@ const EMPTY_TILE_FORM: HomeTileForm = {
 };
 
 const STORE_CATEGORIES = ["Home and kitchen", "Tech & Gadgets", "Mobile & Auto", "Best sellers", "Trending"];
+
+/** A banner / collection section as edited in Admin → Homepage Layout. */
+interface SectionForm {
+  /** null = adding a new section */
+  id: string | null;
+  section_type: "banner" | "collection";
+  title: string;
+  subtitle: string;
+  image_url: string;
+  mobile_image_url: string;
+  link_url: string;
+  button_text: string;
+  collection_id: string;
+  product_limit: string;
+  is_active: boolean;
+  /** New sections only: id of the section to place it after ("" = top of the page) */
+  insert_after: string;
+}
 
 /** Discount form values as edited in Admin → Discounts. */
 interface DiscountForm {
@@ -315,6 +341,13 @@ export default function AdminDashboardPage() {
   const [tileForm, setTileForm] = useState<HomeTileForm>(EMPTY_TILE_FORM);
   const [uploadingTileImage, setUploadingTileImage] = useState(false);
   const [savingTile, setSavingTile] = useState(false);
+
+  // Homepage Layout tab
+  const [homeSections, setHomeSections] = useState<HomeSection[]>([]);
+  const [homeSectionsError, setHomeSectionsError] = useState<string | null>(null);
+  const [sectionForm, setSectionForm] = useState<SectionForm | null>(null);
+  const [savingSection, setSavingSection] = useState(false);
+  const [uploadingSectionImage, setUploadingSectionImage] = useState<"image_url" | "mobile_image_url" | null>(null);
 
   // Load Admin session & data on mount
   useEffect(() => {
@@ -633,6 +666,21 @@ export default function AdminDashboardPage() {
             );
           }
 
+          // 8d. Fetch Homepage Layout
+          try {
+            const { data: sectionData, error: sectionErr } = await supabase
+              .from("home_sections")
+              .select("*")
+              .order("sort_order", { ascending: true });
+            if (sectionErr) throw sectionErr;
+            setHomeSections(normalizeHomeSections(sectionData));
+          } catch (e: any) {
+            console.error("Failed to load home_sections:", e);
+            setHomeSectionsError(
+              "The homepage layout table isn't set up yet. Run the latest Supabase migration (home_sections) to edit the layout here."
+            );
+          }
+
           // 9. Fetch Hero Banners
           try {
             const { data: bannerData, error: bannerErr } = await supabase
@@ -695,6 +743,7 @@ export default function AdminDashboardPage() {
         } else {
           // Offline Fallbacks
           setProducts(MOCK_PRODUCTS);
+          setHomeSections(DEFAULT_HOME_SECTIONS);
           setCollections([
             {
               id: "audio-elite",
@@ -2004,6 +2053,252 @@ export default function AdminDashboardPage() {
   };
 
   // -------------------------
+  // HOMEPAGE LAYOUT HANDLERS
+  // -------------------------
+  // Places a page can link to (used by homepage grid tiles and banner sections)
+  const linkChoices: { value: string; label: string }[] = [
+    { value: "/shop", label: "All products (Shop page)" },
+    ...collections.map((c) => ({
+      value: `/shop?collection=${encodeURIComponent(c.id)}`,
+      label: `Collection: ${c.name}`,
+    })),
+    ...STORE_CATEGORIES.map((cat) => ({
+      value: `/shop?category=${cat}`,
+      label: `Category: ${cat}`,
+    })),
+  ];
+
+  const orderedSections = [...homeSections].sort((a, b) => a.sort_order - b.sort_order);
+
+  const sectionLabel = (section: HomeSection) => {
+    if (section.section_type === "builtin") return builtinInfo(section.builtin_key)?.label || section.builtin_key || "Section";
+    if (section.section_type === "banner") return `Banner${section.title ? `: ${section.title}` : ""}`;
+    const coll = collections.find((c) => c.id === section.collection_id);
+    return `Collection: ${section.title || coll?.name || "(collection deleted)"}`;
+  };
+
+  /** Saves a new top-to-bottom order (renumbered 1..n; only changed rows are written). */
+  const saveSectionOrder = async (ordered: HomeSection[]) => {
+    const next = ordered.map((section, i) => ({ ...section, sort_order: i + 1 }));
+    if (supabase) {
+      const before = new Map(homeSections.map((section) => [section.id, section.sort_order]));
+      for (const section of next) {
+        if (before.get(section.id) === section.sort_order) continue;
+        const { data, error } = await supabase
+          .from("home_sections")
+          .update({ sort_order: section.sort_order, updated_at: new Date().toISOString() })
+          .eq("id", section.id)
+          .select("id");
+        if (error) throw error;
+        if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
+      }
+    }
+    setHomeSections(next);
+  };
+
+  const handleMoveSection = async (index: number, direction: -1 | 1) => {
+    const other = index + direction;
+    if (other < 0 || other >= orderedSections.length) return;
+    const next = [...orderedSections];
+    [next[index], next[other]] = [next[other], next[index]];
+    try {
+      await saveSectionOrder(next);
+    } catch (err: any) {
+      alert(`Reorder error: ${err.message || "Failed to move section"}`);
+    }
+  };
+
+  const handleToggleSectionActive = async (section: HomeSection) => {
+    try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from("home_sections")
+          .update({ is_active: !section.is_active, updated_at: new Date().toISOString() })
+          .eq("id", section.id)
+          .select("id");
+        if (error) throw error;
+        if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
+      }
+      setHomeSections((prev) => prev.map((x) => (x.id === section.id ? { ...x, is_active: !x.is_active } : x)));
+    } catch (err: any) {
+      alert(`Update error: ${err.message || "Failed to update section"}`);
+    }
+  };
+
+  const handleDeleteSection = async (section: HomeSection) => {
+    if (section.section_type === "builtin") return;
+    if (!confirm(`Remove "${sectionLabel(section)}" from the homepage?`)) return;
+    try {
+      if (supabase) {
+        const { data, error } = await supabase.from("home_sections").delete().eq("id", section.id).select("id");
+        if (error) throw error;
+        if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
+      }
+      setHomeSections((prev) => prev.filter((x) => x.id !== section.id));
+      if (sectionForm?.id === section.id) setSectionForm(null);
+    } catch (err: any) {
+      alert(`Delete error: ${err.message || "Failed to delete section"}`);
+    }
+  };
+
+  /** The layout table exists but has no rows: create the original homepage blocks. */
+  const handleSetUpDefaultLayout = async () => {
+    try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from("home_sections")
+          .insert(BUILTIN_SECTIONS.map((b, i) => ({ section_type: "builtin", builtin_key: b.key, sort_order: i + 1 })))
+          .select("*");
+        if (error) throw error;
+        setHomeSections(normalizeHomeSections(data));
+      } else {
+        setHomeSections(DEFAULT_HOME_SECTIONS);
+      }
+    } catch (err: any) {
+      alert(`Setup error: ${err.message || "Failed to set up the layout"}`);
+    }
+  };
+
+  const handleOpenSectionForm = (type: "banner" | "collection", insertAfter?: string, section?: HomeSection) => {
+    setSectionForm(
+      section
+        ? {
+            id: section.id,
+            section_type: section.section_type === "collection" ? "collection" : "banner",
+            title: section.title,
+            subtitle: section.subtitle,
+            image_url: section.image_url,
+            mobile_image_url: section.mobile_image_url,
+            link_url: section.link_url,
+            button_text: section.button_text,
+            collection_id: section.collection_id || "",
+            product_limit: String(section.product_limit),
+            is_active: section.is_active,
+            insert_after: "",
+          }
+        : {
+            id: null,
+            section_type: type,
+            title: "",
+            subtitle: "",
+            image_url: "",
+            mobile_image_url: "",
+            link_url: "",
+            button_text: "",
+            collection_id: collections[0]?.id || "",
+            product_limit: "8",
+            is_active: true,
+            insert_after: insertAfter ?? orderedSections[orderedSections.length - 1]?.id ?? "",
+          }
+    );
+  };
+
+  const handleUploadSectionFile = (field: "image_url" | "mobile_image_url") => async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingSectionImage(field);
+    try {
+      let url = "";
+      if (supabase) {
+        const fileExt = file.name.split(".").pop();
+        const filePath = `home-sections/${field === "mobile_image_url" ? "mobile_" : ""}${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from("products").upload(filePath, file);
+        if (uploadError) throw uploadError;
+        url = supabase.storage.from("products").getPublicUrl(filePath).data?.publicUrl || "";
+      } else {
+        url = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+      }
+      if (url) setSectionForm((prev) => (prev ? { ...prev, [field]: url } : prev));
+    } catch (err: any) {
+      console.error("Section image upload failed:", err);
+      alert(`Upload error: ${err.message || "Failed to upload file"}`);
+    } finally {
+      setUploadingSectionImage(null);
+      e.target.value = "";
+    }
+  };
+
+  const handleSaveSection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sectionForm) return;
+    const form = sectionForm;
+    const linkUrl = form.link_url.trim();
+    if (form.section_type === "banner") {
+      if (!form.image_url.trim()) {
+        alert("Please upload an image (or video) for the banner.");
+        return;
+      }
+      if (linkUrl && !resolveBannerLink(linkUrl)) {
+        alert("The banner link doesn't look like a valid web address. Use a page on this site like /shop?collection=new-in, or a full https:// link.");
+        return;
+      }
+    }
+    if (form.section_type === "collection" && !form.collection_id) {
+      alert("Please choose which collection to show.");
+      return;
+    }
+
+    const values = {
+      section_type: form.section_type,
+      title: form.title.trim(),
+      subtitle: form.subtitle.trim(),
+      image_url: form.section_type === "banner" ? form.image_url.trim() : "",
+      mobile_image_url: form.section_type === "banner" ? form.mobile_image_url.trim() : "",
+      link_url: form.section_type === "banner" ? linkUrl : "",
+      button_text: form.section_type === "banner" ? form.button_text.trim() : "",
+      collection_id: form.section_type === "collection" ? form.collection_id : null,
+      product_limit: Math.min(24, Math.max(1, Math.round(Number(form.product_limit) || 8))),
+      is_active: form.is_active,
+    };
+
+    setSavingSection(true);
+    try {
+      if (form.id) {
+        if (supabase) {
+          const { data, error } = await supabase
+            .from("home_sections")
+            .update({ ...values, updated_at: new Date().toISOString() })
+            .eq("id", form.id)
+            .select("id");
+          if (error) throw error;
+          if (!data || data.length === 0) throw new Error(NOT_SAVED_MSG);
+        }
+        setHomeSections((prev) => prev.map((x) => (x.id === form.id ? { ...x, ...values } : x)));
+      } else {
+        // Insert at the end, then move it to the chosen position
+        const sortOrder = orderedSections.length + 1;
+        let created: HomeSection = { id: `SEC-${Date.now()}`, builtin_key: null, sort_order: sortOrder, ...values };
+        if (supabase) {
+          const { data, error } = await supabase
+            .from("home_sections")
+            .insert({ ...values, sort_order: sortOrder })
+            .select("*")
+            .single();
+          if (error) throw error;
+          created = normalizeHomeSections([data])[0];
+        }
+        const next = [...orderedSections];
+        const afterIndex = form.insert_after ? next.findIndex((x) => x.id === form.insert_after) : -1;
+        next.splice(afterIndex + 1, 0, created);
+        setHomeSections([...homeSections, created]);
+        await saveSectionOrder(next);
+      }
+      setSectionForm(null);
+      setSaveStatus("Homepage layout saved!");
+      setTimeout(() => setSaveStatus(null), 2000);
+    } catch (err: any) {
+      console.error("Save section failed:", err);
+      alert(`Save error: ${err.message || "Failed to save section"}`);
+    } finally {
+      setSavingSection(false);
+    }
+  };
+
+  // -------------------------
   // ANALYTICS AGGREGATIONS
   // -------------------------
   const totalVisits = visits.length;
@@ -2246,6 +2541,22 @@ export default function AdminDashboardPage() {
                   {contactInquiries.length}
                 </span>
               )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab("homepage-layout")}
+              className={`flex items-center justify-between gap-3 px-4 py-3 rounded-2xl transition-all cursor-pointer font-bold border-0 text-left ${
+                activeTab === "homepage-layout"
+                  ? "bg-purple-600 text-white shadow-md shadow-purple-600/15"
+                  : "bg-transparent text-slate-550 hover:text-slate-900 hover:bg-slate-50"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm12 0a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                </svg>
+                Homepage Layout
+              </div>
             </button>
 
             <button
@@ -3380,17 +3691,6 @@ export default function AdminDashboardPage() {
               {/* HOMEPAGE GRID: the "Shop by Category" bento tiles on the homepage */}
               {collectionsView === "home-grid" && (() => {
                 const orderedTiles = [...homeTiles].sort((a, b) => a.sort_order - b.sort_order);
-                const linkChoices: { value: string; label: string }[] = [
-                  { value: "/shop", label: "All products (Shop page)" },
-                  ...collections.map((c) => ({
-                    value: `/shop?collection=${encodeURIComponent(c.id)}`,
-                    label: `Collection: ${c.name}`,
-                  })),
-                  ...STORE_CATEGORIES.map((cat) => ({
-                    value: `/shop?category=${cat}`,
-                    label: `Category: ${cat}`,
-                  })),
-                ];
                 const currentChoice = linkChoices.some((o) => o.value === tileForm.link_url) ? tileForm.link_url : "custom";
                 return (
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -4852,6 +5152,492 @@ export default function AdminDashboardPage() {
 
               </div>
 
+            </div>
+          )}
+
+          {/* ================= HOMEPAGE LAYOUT TAB ================= */}
+          {activeTab === "homepage-layout" && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start text-left">
+
+              {/* Left: the homepage, top to bottom */}
+              <div className="lg:col-span-7 bg-white border border-slate-200/80 rounded-[2rem] p-6 flex flex-col gap-4 shadow-xs">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <span className="text-[9px] font-black tracking-[0.25em] text-purple-600 uppercase">
+                      Homepage Customization
+                    </span>
+                    <h2 className="text-xl font-extrabold text-slate-900 font-syne mt-0.5">Homepage Layout</h2>
+                    <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
+                      Your homepage from top to bottom. Move sections up or down, hide them, or add new banners and collections anywhere.
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={Boolean(homeSectionsError)}
+                      onClick={() => handleOpenSectionForm("banner")}
+                      className="bg-purple-600 hover:bg-purple-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-[11px] font-extrabold tracking-wider px-4 py-2 rounded-full transition-all cursor-pointer border-0 shadow-sm"
+                    >
+                      + ADD BANNER
+                    </button>
+                    <button
+                      type="button"
+                      disabled={Boolean(homeSectionsError)}
+                      onClick={() => handleOpenSectionForm("collection")}
+                      className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white text-[11px] font-extrabold tracking-wider px-4 py-2 rounded-full transition-all cursor-pointer border-0 shadow-sm"
+                    >
+                      + ADD COLLECTION
+                    </button>
+                  </div>
+                </div>
+
+                {homeSectionsError && (
+                  <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold px-4 py-3 rounded-2xl">
+                    {homeSectionsError}
+                  </div>
+                )}
+
+                {!homeSectionsError && orderedSections.length === 0 && (
+                  <div className="flex flex-col items-center gap-3 text-center py-8 text-xs text-slate-500 font-medium bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                    The layout hasn&apos;t been set up yet — the homepage is showing its original layout.
+                    <button
+                      type="button"
+                      onClick={handleSetUpDefaultLayout}
+                      className="bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-extrabold px-4 py-2 rounded-full cursor-pointer border-0"
+                    >
+                      Set up layout editing
+                    </button>
+                  </div>
+                )}
+
+                {orderedSections.length > 0 && (
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-slate-100/70 border border-dashed border-slate-200 text-[10px] font-black tracking-widest text-slate-400 uppercase">
+                      Top menu (always first)
+                    </div>
+
+                    {orderedSections.map((section, i) => {
+                      const info = section.section_type === "builtin" ? builtinInfo(section.builtin_key) : undefined;
+                      const missingCollection = section.section_type === "collection" && !collections.some((c) => c.id === section.collection_id);
+                      const isEditing = sectionForm?.id === section.id;
+                      const insertHereActive = sectionForm && !sectionForm.id && sectionForm.insert_after === section.id;
+                      return (
+                        <Fragment key={section.id}>
+                          {/* Insert point above (only before the first section) */}
+                          {i === 0 && (
+                            <button
+                              type="button"
+                              disabled={Boolean(homeSectionsError)}
+                              onClick={() => handleOpenSectionForm(sectionForm?.section_type || "banner", "")}
+                              className={`self-center my-1 text-[10px] font-bold px-3 py-0.5 rounded-full border border-dashed cursor-pointer transition-all ${
+                                sectionForm && !sectionForm.id && sectionForm.insert_after === ""
+                                  ? "border-purple-500 text-purple-600 bg-purple-50"
+                                  : "border-transparent text-slate-300 hover:text-purple-600 hover:border-purple-300"
+                              }`}
+                            >
+                              + add section here
+                            </button>
+                          )}
+
+                          <div
+                            className={`flex items-center gap-3 p-3 border rounded-2xl transition-all ${
+                              isEditing
+                                ? "border-purple-300 bg-purple-50/40"
+                                : section.is_active
+                                  ? "border-slate-200/80 bg-white"
+                                  : "border-slate-200 bg-slate-50 opacity-60"
+                            }`}
+                          >
+                            <span className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 text-[11px] font-black flex items-center justify-center shrink-0">
+                              {i + 1}
+                            </span>
+
+                            {section.section_type === "banner" && section.image_url ? (
+                              isVideoUrl(section.image_url) ? (
+                                <video src={section.image_url} muted className="w-16 h-10 rounded-lg object-cover bg-slate-800 shrink-0" />
+                              ) : (
+                                <img src={section.image_url} alt="" className="w-16 h-10 rounded-lg object-cover bg-slate-800 shrink-0" />
+                              )
+                            ) : null}
+
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-extrabold text-slate-800 text-sm truncate">{sectionLabel(section)}</span>
+                                <span className={`text-[8px] font-black tracking-widest px-2 py-0.5 rounded-full border uppercase ${
+                                  section.section_type === "builtin"
+                                    ? "bg-slate-50 border-slate-200 text-slate-500"
+                                    : section.section_type === "banner"
+                                      ? "bg-purple-50 border-purple-200 text-purple-650"
+                                      : "bg-blue-50 border-blue-200 text-blue-650"
+                                }`}>
+                                  {section.section_type === "builtin" ? "Built-in" : section.section_type}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-medium truncate">
+                                {info
+                                  ? info.description
+                                  : section.section_type === "collection"
+                                    ? missingCollection
+                                      ? "This collection was deleted — choose another one or remove this section."
+                                      : `Shows up to ${section.product_limit} products · hidden on the homepage if the collection is empty`
+                                    : section.link_url || "No link"}
+                              </span>
+                              {info?.editIn && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveTab(info.editIn!.tab);
+                                    if (info.editIn!.tab === "collections") {
+                                      setCollectionsView(info.key === "category_grid" ? "home-grid" : "collections");
+                                    }
+                                  }}
+                                  className="self-start text-[10px] font-bold text-purple-600 hover:text-purple-800 bg-transparent border-0 p-0 cursor-pointer"
+                                >
+                                  Edit content in {info.editIn.label} →
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleMoveSection(i, -1)}
+                                disabled={i === 0}
+                                className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer text-xs font-black"
+                                title="Move up"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMoveSection(i, 1)}
+                                disabled={i === orderedSections.length - 1}
+                                className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer text-xs font-black"
+                                title="Move down"
+                              >
+                                ↓
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSectionActive(section)}
+                                className={`px-2.5 py-1.5 text-[10px] font-extrabold rounded-lg border cursor-pointer ${
+                                  section.is_active ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
+                                }`}
+                              >
+                                {section.is_active ? "SHOWN" : "HIDDEN"}
+                              </button>
+                              {section.section_type !== "builtin" && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenSectionForm(section.section_type as "banner" | "collection", undefined, section)}
+                                    className="px-3 py-1.5 text-[11px] font-bold text-slate-700 bg-white border border-slate-250 hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteSection(section)}
+                                    className="px-3 py-1.5 text-[11px] font-bold text-red-600 bg-red-50 border border-red-200/80 hover:bg-red-100 rounded-xl transition-all cursor-pointer"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Insert point below this section */}
+                          <button
+                            type="button"
+                            disabled={Boolean(homeSectionsError)}
+                            onClick={() => handleOpenSectionForm(sectionForm?.section_type || "banner", section.id)}
+                            className={`self-center my-1 text-[10px] font-bold px-3 py-0.5 rounded-full border border-dashed cursor-pointer transition-all ${
+                              insertHereActive
+                                ? "border-purple-500 text-purple-600 bg-purple-50"
+                                : "border-transparent text-slate-300 hover:text-purple-600 hover:border-purple-300"
+                            }`}
+                          >
+                            + add section here
+                          </button>
+                        </Fragment>
+                      );
+                    })}
+
+                    <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-slate-100/70 border border-dashed border-slate-200 text-[10px] font-black tracking-widest text-slate-400 uppercase">
+                      Footer (always last)
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right: add / edit a banner or collection section */}
+              <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-[2rem] p-6 flex flex-col gap-5 shadow-xs lg:sticky lg:top-0">
+                <h3 className="text-xs font-black tracking-[0.2em] text-slate-550 uppercase">
+                  {sectionForm?.id ? "Edit Section" : "Add Section"}
+                </h3>
+
+                {saveStatus && (
+                  <div className="bg-purple-50 border border-purple-100 text-purple-600 text-xs font-semibold px-4 py-2 rounded-xl text-center">
+                    {saveStatus.toUpperCase()}
+                  </div>
+                )}
+
+                {!sectionForm ? (
+                  <div className="text-center py-8 px-4 text-xs text-slate-400 font-medium bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 leading-relaxed">
+                    Use <span className="font-bold text-slate-600">+ Add banner</span>, <span className="font-bold text-slate-600">+ Add collection</span> or <span className="font-bold text-slate-600">+ add section here</span> between sections.
+                    <br />
+                    Built-in sections can be moved and hidden; their content is edited in their own tabs.
+                  </div>
+                ) : (
+                  <form onSubmit={handleSaveSection} className="flex flex-col gap-4">
+                    {/* Type (new sections only) */}
+                    {!sectionForm.id && (
+                      <div className="grid grid-cols-2 gap-2">
+                        {(["banner", "collection"] as const).map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setSectionForm({ ...sectionForm, section_type: type })}
+                            className={`py-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
+                              sectionForm.section_type === type
+                                ? "bg-purple-50 border-purple-500 text-purple-600"
+                                : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600"
+                            }`}
+                          >
+                            {type === "banner" ? "Banner" : "Collection"}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Position (new sections only) */}
+                    {!sectionForm.id && (
+                      <div className="flex flex-col gap-2">
+                        <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">Position</label>
+                        <select
+                          value={sectionForm.insert_after}
+                          onChange={(e) => setSectionForm({ ...sectionForm, insert_after: e.target.value })}
+                          className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                        >
+                          <option value="">At the top of the page</option>
+                          {orderedSections.map((section, i) => (
+                            <option key={section.id} value={section.id}>
+                              After {i + 1}. {sectionLabel(section)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {sectionForm.section_type === "banner" ? (
+                      <>
+                        {/* Desktop image / video */}
+                        <div className="flex flex-col gap-2">
+                          <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">Image or video (desktop & tablet)</label>
+                          <div className="relative w-full h-36 rounded-2xl overflow-hidden bg-slate-800 border border-slate-200">
+                            {sectionForm.image_url ? (
+                              isVideoUrl(sectionForm.image_url) ? (
+                                <video src={sectionForm.image_url} muted autoPlay loop playsInline className="w-full h-full object-cover" />
+                              ) : (
+                                <img src={sectionForm.image_url} alt="Banner preview" className="w-full h-full object-cover" />
+                              )
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                No image
+                              </div>
+                            )}
+                          </div>
+                          <label className="text-center bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold py-2.5 rounded-full cursor-pointer transition-all">
+                            <input type="file" accept="image/*,video/mp4,video/webm" className="hidden" onChange={handleUploadSectionFile("image_url")} disabled={uploadingSectionImage !== null} />
+                            {uploadingSectionImage === "image_url" ? "Uploading..." : sectionForm.image_url ? "Change image / video" : "Upload image / video"}
+                          </label>
+                        </div>
+
+                        {/* Optional phone image */}
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-20 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+                            {sectionForm.mobile_image_url && (
+                              <img src={sectionForm.mobile_image_url} alt="Mobile preview" className="w-full h-full object-cover" />
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-1.5 flex-1">
+                            <span className="text-[10px] font-semibold text-slate-500">
+                              Phone image (optional) — a taller image for small screens.
+                            </span>
+                            <div className="flex gap-2">
+                              <label className="text-center bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-3 py-2 rounded-full cursor-pointer transition-all">
+                                <input type="file" accept="image/*" className="hidden" onChange={handleUploadSectionFile("mobile_image_url")} disabled={uploadingSectionImage !== null} />
+                                {uploadingSectionImage === "mobile_image_url" ? "Uploading..." : sectionForm.mobile_image_url ? "Change" : "Upload"}
+                              </label>
+                              {sectionForm.mobile_image_url && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSectionForm({ ...sectionForm, mobile_image_url: "" })}
+                                  className="text-[11px] font-bold text-red-600 bg-transparent border-0 cursor-pointer"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">Heading (optional)</label>
+                          <input
+                            type="text"
+                            value={sectionForm.title}
+                            onChange={(e) => setSectionForm({ ...sectionForm, title: e.target.value })}
+                            placeholder="e.g. Weekend Sale"
+                            className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">Text (optional)</label>
+                          <textarea
+                            value={sectionForm.subtitle}
+                            onChange={(e) => setSectionForm({ ...sectionForm, subtitle: e.target.value })}
+                            placeholder="A short line under the heading"
+                            className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all h-20 resize-none"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">Button text (optional)</label>
+                          <input
+                            type="text"
+                            value={sectionForm.button_text}
+                            onChange={(e) => setSectionForm({ ...sectionForm, button_text: e.target.value })}
+                            placeholder="e.g. Shop now"
+                            className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">Clicking the banner opens</label>
+                          {(() => {
+                            const choice = !sectionForm.link_url
+                              ? "none"
+                              : linkChoices.some((o) => o.value === sectionForm.link_url) ? sectionForm.link_url : "custom";
+                            return (
+                              <>
+                                <select
+                                  value={choice}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    setSectionForm({
+                                      ...sectionForm,
+                                      link_url: value === "none" ? "" : value === "custom" ? "https://" : value,
+                                    });
+                                  }}
+                                  className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                                >
+                                  <option value="none">Nothing (not clickable)</option>
+                                  {linkChoices.map((o) => (
+                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                  ))}
+                                  <option value="custom">Custom link…</option>
+                                </select>
+                                {choice === "custom" && (
+                                  <input
+                                    type="text"
+                                    value={sectionForm.link_url}
+                                    onChange={(e) => setSectionForm({ ...sectionForm, link_url: e.target.value })}
+                                    placeholder="/product/your-product or https://..."
+                                    className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                                  />
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex flex-col gap-2">
+                          <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">Collection</label>
+                          <select
+                            value={sectionForm.collection_id}
+                            onChange={(e) => setSectionForm({ ...sectionForm, collection_id: e.target.value })}
+                            className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                          >
+                            <option value="">Choose a collection…</option>
+                            {collections.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name} ({getCollectionProductCount(c)} products)
+                              </option>
+                            ))}
+                          </select>
+                          <span className="text-[10px] text-slate-400 ml-1">
+                            Create or fill collections in the Collections tab.
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">Heading (optional)</label>
+                          <input
+                            type="text"
+                            value={sectionForm.title}
+                            onChange={(e) => setSectionForm({ ...sectionForm, title: e.target.value })}
+                            placeholder={collections.find((c) => c.id === sectionForm.collection_id)?.name || "Collection name"}
+                            className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="flex flex-col gap-2">
+                            <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">Small label (optional)</label>
+                            <input
+                              type="text"
+                              value={sectionForm.subtitle}
+                              onChange={(e) => setSectionForm({ ...sectionForm, subtitle: e.target.value })}
+                              placeholder="Collection"
+                              className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <label className="text-[9px] font-black tracking-widest text-slate-450 uppercase ml-1">Products to show</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={24}
+                              value={sectionForm.product_limit}
+                              onChange={(e) => setSectionForm({ ...sectionForm, product_limit: e.target.value })}
+                              className="bg-slate-50 border border-slate-250 focus:bg-white focus:border-purple-500/80 focus:shadow-[0_0_10px_rgba(139,92,246,0.05)] rounded-2xl px-4 py-3 text-xs md:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setSectionForm({ ...sectionForm, is_active: !sectionForm.is_active })}
+                      className={`py-2.5 rounded-xl border text-[11px] font-bold transition-all cursor-pointer ${
+                        sectionForm.is_active
+                          ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                          : "bg-amber-50 border-amber-300 text-amber-700"
+                      }`}
+                    >
+                      {sectionForm.is_active ? "Shown on homepage" : "Hidden"}
+                    </button>
+
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        type="submit"
+                        disabled={savingSection || uploadingSectionImage !== null}
+                        className="flex-1 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white text-xs font-black tracking-widest py-4 rounded-full transition-all cursor-pointer border-0 shadow-sm"
+                      >
+                        {savingSection ? "SAVING..." : sectionForm.id ? "SAVE SECTION" : "ADD TO HOMEPAGE"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSectionForm(null)}
+                        className="px-5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-full transition-all cursor-pointer border-0"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
             </div>
           )}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image, { getImageProps } from "next/image";
@@ -17,6 +17,12 @@ import {
   type VariantGroup,
   type VariantSelection,
 } from "@/lib/variants";
+import {
+  DEFAULT_HOME_SECTIONS,
+  OUTER_BUILTINS,
+  isVideoUrl,
+  type HomeSection,
+} from "@/lib/home-sections";
 
 interface Product {
   id: string;
@@ -473,6 +479,7 @@ export default function HomeClient({
   initialHeroBanners = [],
   initialHomeTiles = [],
   initialMarqueeOffers = [],
+  initialHomeSections = [],
 }: {
   initialProducts: Product[];
   initialCollections?: any[];
@@ -480,6 +487,8 @@ export default function HomeClient({
   initialHeroBanners?: any[];
   initialHomeTiles?: HomeTile[];
   initialMarqueeOffers?: { text: string; row_number: number }[];
+  /** Homepage layout (Admin → Homepage Layout); empty = the original layout. */
+  initialHomeSections?: HomeSection[];
 }) {
   const router = useRouter();
   useEffect(() => {
@@ -525,6 +534,7 @@ export default function HomeClient({
     : HERO_SLIDES_DEFAULT;
 
   const homeTiles = initialHomeTiles.length > 0 ? initialHomeTiles : HOME_TILES_DEFAULT;
+  const homeSections = initialHomeSections.length > 0 ? initialHomeSections : DEFAULT_HOME_SECTIONS;
 
   const offersForRow = (row: number) =>
     initialMarqueeOffers.filter((o) => o.row_number === row).map((o) => o.text.trim()).filter(Boolean);
@@ -896,24 +906,28 @@ export default function HomeClient({
     );
   };
 
-  // Dynamic collections filtering for Section 4 (Trending) and Section 5 (New In)
+  // Products of a collection: smart = matching tags, manual = linked products
+  const getCollectionProducts = (coll: any): Product[] => {
+    if (coll.type === "smart") {
+      const matchTags = (coll.rules?.tags || []).map((t: string) => t.toLowerCase());
+      return products.filter((p) => {
+        const pTags = (p.tags || []).map((t: string) => t.toLowerCase());
+        return matchTags.some((t: string) => pTags.includes(t));
+      });
+    }
+    return products.filter((p) =>
+      collectionProducts.some((cp) => cp.collection_id === coll.id && cp.product_id === p.id)
+    );
+  };
+
+  // Section 4 (Trending) and Section 5 (New In)
   const trendingProducts = (() => {
     const coll = collections.find(c => c.id.toLowerCase() === "trending-products" || c.id.toLowerCase() === "trending");
     if (!coll) {
       // Fallback: original mock IDs + category match
       return products.filter(p => ["headphones", "charger", "keyboard", "sleeve", "lightbar", "riser", "mouse"].includes(p.id) || p.category.toLowerCase() === "trending");
     }
-    if (coll.type === "smart") {
-      const matchTags = (coll.rules?.tags || []).map((t: string) => t.toLowerCase());
-      return products.filter(p => {
-        const pTags = (p.tags || []).map((t: string) => t.toLowerCase());
-        return matchTags.some((t: string) => pTags.includes(t));
-      });
-    } else {
-      return products.filter(p => 
-        collectionProducts.some(cp => cp.collection_id === coll.id && cp.product_id === p.id)
-      );
-    }
+    return getCollectionProducts(coll);
   })();
 
   const newInProducts = (() => {
@@ -922,23 +936,125 @@ export default function HomeClient({
       // Fallback: original mock IDs
       return products.filter(p => ["speaker", "webcam", "mic", "stand", "backpack"].includes(p.id));
     }
-    if (coll.type === "smart") {
-      const matchTags = (coll.rules?.tags || []).map((t: string) => t.toLowerCase());
-      return products.filter(p => {
-        const pTags = (p.tags || []).map((t: string) => t.toLowerCase());
-        return matchTags.some((t: string) => pTags.includes(t));
-});
-    } else {
-      return products.filter(p => 
-        collectionProducts.some(cp => cp.collection_id === coll.id && cp.product_id === p.id)
-      );
-    }
+    return getCollectionProducts(coll);
   })();
 
-  return (
-    <>
-      <div className="w-full bg-white font-outfit select-none pt-[70px] md:pt-[80px]">
-        
+  // Product card used by Trending, New In and collection sections
+  const renderProductCard = (product: Product, dotSize = "w-1.5 h-1.5") => (
+    <div
+      key={product.id}
+      onClick={() => router.push(`/product/${product.id}`)}
+      className="group bg-white border border-zinc-100/80 rounded-3xl overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 flex flex-col cursor-pointer relative"
+    >
+      {/* Image Container with soft gradient background & elegant padding */}
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-2 flex items-center justify-center border-b border-zinc-100/50">
+        <Image
+          src={(product.images && product.images.length > 0) ? product.images[0] : `/products/${product.id}.webp`}
+          alt={product.name}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          style={{ objectFit: "contain" }}
+          className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-2"
+          loading="eager"
+        />
+
+        {/* Floating Discount Badge */}
+        {product.discount && (
+          <div className="absolute top-3.5 left-3.5 z-10">
+            <span className="bg-red-500 text-white text-[8px] font-black tracking-widest px-2.5 py-1 rounded-lg shadow-md shadow-red-500/10 uppercase">
+              {product.discount}
+            </span>
+          </div>
+        )}
+
+        {/* Floating Add to Cart Button for Mobile */}
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            quickAdd(product);
+          }}
+          className="md:hidden absolute bottom-3 right-3 bg-purple-600 active:bg-purple-700 text-white p-2.5 rounded-full shadow-lg z-20 flex items-center justify-center border-0 active:scale-95 transition-all duration-150"
+          title="Add to Cart"
+        >
+          <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+        </button>
+
+        {/* Floating Action Overlay: Slide-up Quick-Add Bar */}
+        <div className="absolute bottom-3.5 left-3.5 right-3.5 translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-10 flex gap-2">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/product/${product.id}`);
+            }}
+            className="flex-grow bg-white/95 backdrop-blur-md border border-zinc-200/50 hover:bg-zinc-950 hover:text-white hover:border-zinc-950 text-zinc-900 text-[10px] font-extrabold tracking-widest py-2.5 rounded-xl shadow-lg transition-all duration-200 cursor-pointer"
+          >
+            VIEW DETAILS
+          </button>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              quickAdd(product);
+            }}
+            className="bg-purple-600 hover:bg-purple-700 text-white p-2.5 rounded-xl shadow-lg shadow-purple-600/10 transition-all duration-200 cursor-pointer border-0 flex items-center justify-center hover:scale-105 active:scale-95"
+            title="Add to Cart"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 32 32">
+              <g transform="translate(-156,-196)">
+                <path fillRule="evenodd" d="m 159,198.00586 c -0.55228,0 -1,0.44772 -1,1 0,0.55228 0.44772,1 1,1 h 1.18945 l 3.83203,18.20703 c 0.0979,0.46231 0.50597,0.79302 0.97852,0.79297 h 17 c 0.55228,0 1,-0.44772 1,-1 0,-0.55228 -0.44772,-1 -1,-1 h -16.18945 l -0.42188,-2 H 181 c 0.45916,1.8e-4 0.85946,-0.31232 0.9707,-0.75781 l 1.29492,-5.21485 C 184.90874,207.96028 186,206.10519 186,204.00586 c 0,-3.30186 -2.69814,-6 -6,-6 -2.60121,0 -4.8265,1.67494 -5.6543,4 h -11.69336 l -0.67382,-3.20508 C 161.88145,198.33756 161.47315,198.006 161,198.00586 Z m 21,2 c 2.22098,0 4,1.77902 4,4 0,2.22098 -1.77902,4 -4,4 -2.22098,0 -4,-1.77902 -4,-4 0,-2.22098 1.77902,-4 4,-4 z m -16.92578,4 H 174 c 0,3.30186 2.69814,6 6,6 0.33554,0 0.6635,-0.0305 0.98438,-0.084 l -0.76563,3.08398 H 165 c -0.01,0.002 -0.0196,0.004 -0.0293,0.006 z" />
+                <path fillRule="evenodd" d="m 169,220.00586 c -1.64501,0 -3,1.35499 -3,3 0,1.64501 1.35499,3 3,3 1.64501,0 3,-1.35499 3,-3 0,-1.64501 -1.35499,-3 -3,-3 z m 0,2 c 0.56413,0 1,0.43587 1,1 0,0.56413 -0.43587,1 -1,1 -0.56413,0 -1,-0.43587 -1,-1 0,-0.56413 0.43587,-1 1,-1 z" />
+                <path fillRule="evenodd" d="m 179,220.00586 c -1.64501,0 -3,1.35499 -3,3 0,1.64501 1.35499,3 3,3 1.64501,0 3,-1.35499 3,-3 0,-1.64501 -1.35499,-3 -3,-3 z m 0,2 c 0.56413,0 1,0.43587 1,1 0,0.56413 -0.43587,1 -1,1 -0.56413,0 -1,-0.43587 -1,-1 0,-0.56413 0.43587,-1 1,-1 z" />
+                <path fillRule="evenodd" d="m 180,201.00586 a 1,1 0 0 0 -1,1 v 1 h -1 a 1,1 0 0 0 -1,1 1,1 0 0 0 1,1 h 1 v 1 a 1,1 0 0 0 1,1 1,1 0 0 0 1,-1 v -1 h 1 a 1,1 0 0 0 1,-1 1,1 0 0 0 -1,-1 h -1 v -1 a 1,1 0 0 0 -1,-1 z" />
+              </g>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Content Details */}
+      <div className="p-5 flex flex-col gap-1 flex-grow text-left">
+        <span className="text-[8px] font-bold tracking-widest text-purple-600 uppercase">
+          {product.category}
+        </span>
+        <h4 className="text-xs sm:text-sm font-extrabold text-zinc-950 font-outfit group-hover:text-purple-700 transition-colors duration-200 truncate mt-1">
+          {product.name}
+        </h4>
+
+        {/* Premium Pricing presentation */}
+        <div className="flex items-baseline gap-2 mt-2">
+          <span className="text-base sm:text-lg font-black text-zinc-950 font-outfit tracking-tight">
+            {product.price}
+          </span>
+          <span className="text-xs text-zinc-400 line-through font-bold">
+            {product.slashedPrice}
+          </span>
+        </div>
+
+        {/* Premium card divider footer */}
+        <div className="flex justify-between items-center mt-3 pt-3 border-t border-zinc-100/70">
+          <span className="text-[8px] font-bold text-purple-600 tracking-wider uppercase flex items-center gap-1">
+            <span className={`${dotSize} rounded-full bg-purple-500 animate-pulse`} />
+            Fast Delivery
+          </span>
+          {isSoldOut(product.stock, getVariantGroups(product)) ? (
+            <span className="text-[8px] font-bold text-red-500 tracking-wider uppercase">
+              Sold Out
+            </span>
+          ) : (
+            <span className="text-[8px] font-bold text-zinc-400 tracking-wider uppercase">
+              In Stock
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // The original homepage blocks (moved / hidden from Admin → Homepage Layout)
+  const builtinSections: Record<string, () => React.ReactNode> = {
+    hero: () => (
+      <>
         {/* Section 0: Creative 3/4 Screen Height Hero Banner Carousel */}
         <section className="w-full px-3 sm:px-6 lg:px-8 max-w-[1700px] mx-auto py-2 sm:py-4">
           <div 
@@ -1127,7 +1243,10 @@ export default function HomeClient({
             </div>
           </div>
         </section>
-
+      </>
+    ),
+    perks: () => (
+      <>
         {/* Section 0.5: Trust Perks Bar */}
         <div className="w-full px-3 sm:px-6 lg:px-8 max-w-[1700px] mx-auto py-3">
           <div className="grid grid-cols-2 gap-3 sm:gap-4 p-4 sm:p-5 bg-purple-50/40 border border-purple-100/60 rounded-2xl md:rounded-3xl shadow-sm">
@@ -1158,576 +1277,527 @@ export default function HomeClient({
             ))}
           </div>
         </div>
+      </>
+    ),
+    marquee: () => (
+      <>
+        {/* Section 1: Infinite Carousel */}
+        <div className="w-full py-8 border-y border-purple-100/30 bg-purple-50/5 relative overflow-hidden rounded-2xl">
+          {/* Ambient Background glow */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/5 to-transparent pointer-events-none" />
 
-        {/* Solid White Content Wrapper */}
-        <div className="relative z-20 bg-white w-full px-4 sm:px-6 lg:px-8 pt-8 pb-16 lg:pb-20 max-w-[1700px] mx-auto">
-            {/* Section 1: Infinite Carousel */}
-            <div className="w-full py-8 border-y border-purple-100/30 bg-purple-50/5 relative overflow-hidden rounded-2xl">
-              {/* Ambient Background glow */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/5 to-transparent pointer-events-none" />
-              
-              <div className="hover-pause flex flex-col gap-4">
-                {/* Marquee Row 1 */}
-                <div className="flex overflow-hidden select-none gap-4">
-                  <div className="marquee-scroll flex gap-8 whitespace-nowrap text-xs md:text-sm font-bold tracking-widest text-zinc-900 font-syne uppercase">
-                    {Array(4).fill(marqueeRow1).flat().map((item, idx) => (
-                      <span key={idx} className="flex items-center gap-4">
-                        <span>{item}</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_#8b5cf6]" />
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Marquee Row 2 */}
-                <div className="flex overflow-hidden select-none gap-4">
-                  <div className="marquee-scroll-reverse flex gap-8 whitespace-nowrap text-xs md:text-sm font-bold tracking-widest text-purple-600 font-syne uppercase">
-                    {Array(4).fill(marqueeRow2).flat().map((item, idx) => (
-                      <span key={idx} className="flex items-center gap-4">
-                        <span>{item}</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-950 shadow-[0_0_8px_rgba(0,0,0,0.5)]" />
-                      </span>
-                    ))}
-                  </div>
-                </div>
+          <div className="hover-pause flex flex-col gap-4">
+            {/* Marquee Row 1 */}
+            <div className="flex overflow-hidden select-none gap-4">
+              <div className="marquee-scroll flex gap-8 whitespace-nowrap text-xs md:text-sm font-bold tracking-widest text-zinc-900 font-syne uppercase">
+                {Array(4).fill(marqueeRow1).flat().map((item, idx) => (
+                  <span key={idx} className="flex items-center gap-4">
+                    <span>{item}</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_#8b5cf6]" />
+                  </span>
+                ))}
               </div>
             </div>
 
-            {/* Section 2: Bento Grid Categories */}
-            <div className="hidden md:flex w-full py-16 px-2 sm:px-4 flex-col gap-8">
-              <div className="flex flex-col items-center text-center max-w-xl mx-auto mb-4">
-                <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
-                  Curated Collections
-                </span>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 font-outfit tracking-tight">
-                  SHOP BY CATEGORY
-                </h2>
-                <div className="w-12 h-[3px] bg-purple-500 mt-3 rounded-full" />
+            {/* Marquee Row 2 */}
+            <div className="flex overflow-hidden select-none gap-4">
+              <div className="marquee-scroll-reverse flex gap-8 whitespace-nowrap text-xs md:text-sm font-bold tracking-widest text-purple-600 font-syne uppercase">
+                {Array(4).fill(marqueeRow2).flat().map((item, idx) => (
+                  <span key={idx} className="flex items-center gap-4">
+                    <span>{item}</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-950 shadow-[0_0_8px_rgba(0,0,0,0.5)]" />
+                  </span>
+                ))}
               </div>
+            </div>
+          </div>
+        </div>
+      </>
+    ),
+    category_grid: () => (
+      <>
+        {/* Section 2: Bento Grid Categories */}
+        <div className="hidden md:flex w-full py-16 px-2 sm:px-4 flex-col gap-8">
+          <div className="flex flex-col items-center text-center max-w-xl mx-auto mb-4">
+            <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
+              Curated Collections
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 font-outfit tracking-tight">
+              SHOP BY CATEGORY
+            </h2>
+            <div className="w-12 h-[3px] bg-purple-500 mt-3 rounded-full" />
+          </div>
 
-              {/* Bento Grid (tiles are managed in Admin → Collections → Homepage Grid).
-                  Wide tiles take 2 of the 3 columns; dense packing fills gaps. */}
-              <div className="grid grid-cols-1 md:grid-cols-3 md:grid-flow-row-dense gap-8 w-full max-w-6xl mx-auto">
-                {homeTiles.map((tile, idx) => {
-                  const link = resolveBannerLink(tile.link_url) ?? { href: "/shop", external: false };
-                  const open = () => {
-                    if (link.external) window.open(link.href, "_blank", "noopener,noreferrer");
-                    else router.push(link.href);
-                  };
-                  const wide = tile.size === "wide";
-                  return (
-                    <div
-                      key={tile.id}
-                      role="link"
-                      tabIndex={0}
-                      onClick={open}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") open();
-                      }}
-                      className={`${wide ? "md:col-span-2" : "md:col-span-1"} group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-900 cursor-pointer flex flex-col justify-between ${wide && idx === 0 ? "p-6 md:p-8" : "p-6"}`}
-                    >
-                      {/* Background Image */}
-                      <div className="absolute inset-0 z-0">
-                        {tile.image_url && (
-                          <Image
-                            src={tile.image_url}
-                            alt={tile.title || "Collection"}
-                            fill
-                            sizes={wide ? "(max-width: 768px) 100vw, 66vw" : "(max-width: 768px) 100vw, 33vw"}
-                            style={{ objectFit: "cover" }}
-                            className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                            loading="eager"
-                          />
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
-                      </div>
+          {/* Bento Grid (tiles are managed in Admin → Collections → Homepage Grid).
+              Wide tiles take 2 of the 3 columns; dense packing fills gaps. */}
+          <div className="grid grid-cols-1 md:grid-cols-3 md:grid-flow-row-dense gap-8 w-full max-w-6xl mx-auto">
+            {homeTiles.map((tile, idx) => {
+              const link = resolveBannerLink(tile.link_url) ?? { href: "/shop", external: false };
+              const open = () => {
+                if (link.external) window.open(link.href, "_blank", "noopener,noreferrer");
+                else router.push(link.href);
+              };
+              const wide = tile.size === "wide";
+              return (
+                <div
+                  key={tile.id}
+                  role="link"
+                  tabIndex={0}
+                  onClick={open}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") open();
+                  }}
+                  className={`${wide ? "md:col-span-2" : "md:col-span-1"} group relative h-[350px] rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-zinc-200/40 bg-zinc-900 cursor-pointer flex flex-col justify-between ${wide && idx === 0 ? "p-6 md:p-8" : "p-6"}`}
+                >
+                  {/* Background Image */}
+                  <div className="absolute inset-0 z-0">
+                    {tile.image_url && (
+                      <Image
+                        src={tile.image_url}
+                        alt={tile.title || "Collection"}
+                        fill
+                        sizes={wide ? "(max-width: 768px) 100vw, 66vw" : "(max-width: 768px) 100vw, 33vw"}
+                        style={{ objectFit: "cover" }}
+                        className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                        loading="eager"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
+                  </div>
 
-                      {/* Content Overlay */}
-                      <div className="relative z-10 flex flex-col justify-between h-full w-full">
-                        <div className="flex justify-end w-full">
-                          <span className="text-[10px] font-black tracking-widest text-purple-200 bg-purple-950/85 border border-purple-500/50 backdrop-blur-md px-3 py-1 rounded-full uppercase shadow-md shadow-purple-950/50 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-400 transition-all duration-300">
-                            EXPLORE →
-                          </span>
-                        </div>
-
-                        <div className={`${wide ? "max-w-md" : ""} text-left`}>
-                          {tile.title && (
-                            <h3 className={`${wide && idx === 0 ? "text-xl md:text-2xl" : "text-xl"} font-extrabold text-white font-outfit`}>
-                              {tile.title}
-                            </h3>
-                          )}
-                          {tile.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-3 relative z-20 pointer-events-auto">
-                              {tile.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className={`text-[9px] font-bold tracking-widest backdrop-blur-md px-3 py-1 rounded-full border uppercase transition-all ${TILE_CHIP_STYLES[idx % TILE_CHIP_STYLES.length]}`}
-                                >
-                                  #{tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                  {/* Content Overlay */}
+                  <div className="relative z-10 flex flex-col justify-between h-full w-full">
+                    <div className="flex justify-end w-full">
+                      <span className="text-[10px] font-black tracking-widest text-purple-200 bg-purple-950/85 border border-purple-500/50 backdrop-blur-md px-3 py-1 rounded-full uppercase shadow-md shadow-purple-950/50 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-400 transition-all duration-300">
+                        EXPLORE →
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
 
-            {/* Section 3: Full-Width Cinematic Video Banner */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 aspect-video max-h-[380px] md:max-h-[600px] mt-16 overflow-hidden border-t border-purple-100/30 group cursor-pointer">
-              {/* Commercial video banner */}
+                    <div className={`${wide ? "max-w-md" : ""} text-left`}>
+                      {tile.title && (
+                        <h3 className={`${wide && idx === 0 ? "text-xl md:text-2xl" : "text-xl"} font-extrabold text-white font-outfit`}>
+                          {tile.title}
+                        </h3>
+                      )}
+                      {tile.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-3 relative z-20 pointer-events-auto">
+                          {tile.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className={`text-[9px] font-bold tracking-widest backdrop-blur-md px-3 py-1 rounded-full border uppercase transition-all ${TILE_CHIP_STYLES[idx % TILE_CHIP_STYLES.length]}`}
+                            >
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </>
+    ),
+    video_banner: () => (
+      <>
+        {/* Section 3: Full-Width Cinematic Video Banner */}
+        <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 aspect-video max-h-[380px] md:max-h-[600px] mt-16 overflow-hidden border-t border-purple-100/30 group cursor-pointer">
+          {/* Commercial video banner */}
+          <LazyVideo 
+            className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-102"
+            autoPlay
+            loop
+            muted
+            playsInline
+            src="/Create_commercial_for_web_store_202606112343.mp4"
+            poster="/posters/Create_commercial_for_web_store_202606112343.webp"
+          />
+
+          {/* Premium Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent z-10" />
+
+          {/* Content Overlay */}
+          <div className="absolute inset-0 z-20 flex flex-col justify-end p-8 md:p-12">
+            <div className="max-w-xl text-left">
+              <h3 className="text-2xl md:text-4xl font-extrabold text-white font-outfit tracking-tight leading-tight uppercase">
+                Curated Living<br />
+                Essentials Elevated.
+              </h3>
+            </div>
+          </div>
+        </div>
+      </>
+    ),
+    trending: () => (
+      <>
+        {/* Section 4: Trending Products (Full Width) */}
+        <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 pt-16 pb-8 px-6 lg:px-8 flex flex-col gap-8">
+          <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
+            <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
+              Featured collection
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 font-outfit tracking-tight">
+              TRENDING PRODUCTS
+            </h2>
+            <div className="w-12 h-[3px] bg-purple-500 mt-2.5 rounded-full" />
+          </div>
+
+          {/* Product Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full px-6 lg:px-8">
+            {trendingProducts.map((product) => renderProductCard(product, "w-1 h-1"))}
+          </div>
+        </div>
+      </>
+    ),
+    dual_video: () => (
+      <>
+        {/* Section 4.5: Dual Video Banner (Full Width, No Gaps) */}
+        <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-0 w-full">
+            <div className="relative aspect-video w-full overflow-hidden">
               <LazyVideo 
-                className="w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-102"
+                className="w-full h-full object-cover"
                 autoPlay
                 loop
                 muted
                 playsInline
-                src="/Create_commercial_for_web_store_202606112343.mp4"
-                poster="/posters/Create_commercial_for_web_store_202606112343.webp"
+                src="/Wireless_noodle_maker_commercial_202606120110.mp4"
+                poster="/posters/Wireless_noodle_maker_commercial_202606120110.webp"
               />
-              
-              {/* Premium Gradient Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent z-10" />
-
-              {/* Content Overlay */}
-              <div className="absolute inset-0 z-20 flex flex-col justify-end p-8 md:p-12">
-                <div className="max-w-xl text-left">
-                  <h3 className="text-2xl md:text-4xl font-extrabold text-white font-outfit tracking-tight leading-tight uppercase">
-                    Curated Living<br />
-                    Essentials Elevated.
-                  </h3>
-                </div>
-              </div>
+              <div className="absolute inset-0 bg-purple-950/5 pointer-events-none" />
             </div>
-
-            {/* Section 4: Trending Products (Full Width) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 pt-16 pb-8 px-6 lg:px-8 flex flex-col gap-8">
-              <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
-                <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
-                  Featured collection
-                </span>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 font-outfit tracking-tight">
-                  TRENDING PRODUCTS
-                </h2>
-                <div className="w-12 h-[3px] bg-purple-500 mt-2.5 rounded-full" />
-              </div>
-
-              {/* Product Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full px-6 lg:px-8">
-                {trendingProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    onClick={() => router.push(`/product/${product.id}`)}
-                    className="group bg-white border border-zinc-100/80 rounded-3xl overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 flex flex-col cursor-pointer relative"
-                  >
-                    {/* Image Container with soft gradient background & elegant padding */}
-                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-2 flex items-center justify-center border-b border-zinc-100/50">
-                      <Image
-                        src={(product.images && product.images.length > 0) ? product.images[0] : `/products/${product.id}.webp`}
-                        alt={product.name}
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                        style={{ objectFit: "contain" }}
-                        className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-2"
-                        loading="eager"
-                      />
-                      
-                      {/* Floating Discount Badge */}
-                      {product.discount && (
-                        <div className="absolute top-3.5 left-3.5 z-10">
-                          <span className="bg-red-500 text-white text-[8px] font-black tracking-widest px-2.5 py-1 rounded-lg shadow-md shadow-red-500/10 uppercase">
-                            {product.discount}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Floating Add to Cart Button for Mobile */}
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          quickAdd(product);
-                        }}
-                        className="md:hidden absolute bottom-3 right-3 bg-purple-600 active:bg-purple-700 text-white p-2.5 rounded-full shadow-lg z-20 flex items-center justify-center border-0 active:scale-95 transition-all duration-150"
-                        title="Add to Cart"
-                      >
-                        <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                      </button>
-
-                      {/* Floating Action Overlay: Slide-up Quick-Add Bar */}
-                      <div className="absolute bottom-3.5 left-3.5 right-3.5 translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-10 flex gap-2">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/product/${product.id}`);
-                          }}
-                          className="flex-grow bg-white/95 backdrop-blur-md border border-zinc-200/50 hover:bg-zinc-950 hover:text-white hover:border-zinc-950 text-zinc-900 text-[10px] font-extrabold tracking-widest py-2.5 rounded-xl shadow-lg transition-all duration-200 cursor-pointer"
-                        >
-                          VIEW DETAILS
-                        </button>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            quickAdd(product);
-                          }}
-                          className="bg-purple-600 hover:bg-purple-700 text-white p-2.5 rounded-xl shadow-lg shadow-purple-600/10 transition-all duration-200 cursor-pointer border-0 flex items-center justify-center hover:scale-105 active:scale-95"
-                          title="Add to Cart"
-                        >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 32 32">
-                            <g transform="translate(-156,-196)">
-                              <path fillRule="evenodd" d="m 159,198.00586 c -0.55228,0 -1,0.44772 -1,1 0,0.55228 0.44772,1 1,1 h 1.18945 l 3.83203,18.20703 c 0.0979,0.46231 0.50597,0.79302 0.97852,0.79297 h 17 c 0.55228,0 1,-0.44772 1,-1 0,-0.55228 -0.44772,-1 -1,-1 h -16.18945 l -0.42188,-2 H 181 c 0.45916,1.8e-4 0.85946,-0.31232 0.9707,-0.75781 l 1.29492,-5.21485 C 184.90874,207.96028 186,206.10519 186,204.00586 c 0,-3.30186 -2.69814,-6 -6,-6 -2.60121,0 -4.8265,1.67494 -5.6543,4 h -11.69336 l -0.67382,-3.20508 C 161.88145,198.33756 161.47315,198.006 161,198.00586 Z m 21,2 c 2.22098,0 4,1.77902 4,4 0,2.22098 -1.77902,4 -4,4 -2.22098,0 -4,-1.77902 -4,-4 0,-2.22098 1.77902,-4 4,-4 z m -16.92578,4 H 174 c 0,3.30186 2.69814,6 6,6 0.33554,0 0.6635,-0.0305 0.98438,-0.084 l -0.76563,3.08398 H 165 c -0.01,0.002 -0.0196,0.004 -0.0293,0.006 z" />
-                              <path fillRule="evenodd" d="m 169,220.00586 c -1.64501,0 -3,1.35499 -3,3 0,1.64501 1.35499,3 3,3 1.64501,0 3,-1.35499 3,-3 0,-1.64501 -1.35499,-3 -3,-3 z m 0,2 c 0.56413,0 1,0.43587 1,1 0,0.56413 -0.43587,1 -1,1 -0.56413,0 -1,-0.43587 -1,-1 0,-0.56413 0.43587,-1 1,-1 z" />
-                              <path fillRule="evenodd" d="m 179,220.00586 c -1.64501,0 -3,1.35499 -3,3 0,1.64501 1.35499,3 3,3 1.64501,0 3,-1.35499 3,-3 0,-1.64501 -1.35499,-3 -3,-3 z m 0,2 c 0.56413,0 1,0.43587 1,1 0,0.56413 -0.43587,1 -1,1 -0.56413,0 -1,-0.43587 -1,-1 0,-0.56413 0.43587,-1 1,-1 z" />
-                              <path fillRule="evenodd" d="m 180,201.00586 a 1,1 0 0 0 -1,1 v 1 h -1 a 1,1 0 0 0 -1,1 1,1 0 0 0 1,1 h 1 v 1 a 1,1 0 0 0 1,1 1,1 0 0 0 1,-1 v -1 h 1 a 1,1 0 0 0 1,-1 1,1 0 0 0 -1,-1 h -1 v -1 a 1,1 0 0 0 -1,-1 z" />
-                            </g>
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Content Details */}
-                    <div className="p-5 flex flex-col gap-1 flex-grow text-left">
-                      <span className="text-[8px] font-bold tracking-widest text-purple-600 uppercase">
-                        {product.category}
-                      </span>
-                      <h4 className="text-xs sm:text-sm font-extrabold text-zinc-950 font-outfit group-hover:text-purple-700 transition-colors duration-200 truncate mt-1">
-                        {product.name}
-                      </h4>
-                      
-                      {/* Premium Pricing presentation */}
-                      <div className="flex items-baseline gap-2 mt-2">
-                        <span className="text-base sm:text-lg font-black text-zinc-950 font-outfit tracking-tight">
-                          {product.price}
-                        </span>
-                        <span className="text-xs text-zinc-400 line-through font-bold">
-                          {product.slashedPrice}
-                        </span>
-                      </div>
-
-                      {/* Premium card divider footer */}
-                      <div className="flex justify-between items-center mt-3 pt-3 border-t border-zinc-100/70">
-                        <span className="text-[8px] font-bold text-purple-600 tracking-wider uppercase flex items-center gap-1">
-                          <span className="w-1 h-1 rounded-full bg-purple-500 animate-pulse" />
-                          Fast Delivery
-                        </span>
-                        {isSoldOut(product.stock, getVariantGroups(product)) ? (
-                          <span className="text-[8px] font-bold text-red-500 tracking-wider uppercase">
-                            Sold Out
-                          </span>
-                        ) : (
-                          <span className="text-[8px] font-bold text-zinc-400 tracking-wider uppercase">
-                            In Stock
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="relative aspect-video w-full overflow-hidden">
+              <LazyVideo 
+                className="w-full h-full object-cover"
+                autoPlay
+                loop
+                muted
+                playsInline
+                src="/Automatic_pet_feeder_commercial_202606120038.mp4"
+                poster="/posters/Automatic_pet_feeder_commercial_202606120038.webp"
+              />
+              <div className="absolute inset-0 bg-purple-950/5 pointer-events-none" />
             </div>
-
-            {/* Section 4.5: Dual Video Banner (Full Width, No Gaps) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-0 w-full">
-                <div className="relative aspect-video w-full overflow-hidden">
-                  <LazyVideo 
-                    className="w-full h-full object-cover"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    src="/Wireless_noodle_maker_commercial_202606120110.mp4"
-                    poster="/posters/Wireless_noodle_maker_commercial_202606120110.webp"
-                  />
-                  <div className="absolute inset-0 bg-purple-950/5 pointer-events-none" />
-                </div>
-                <div className="relative aspect-video w-full overflow-hidden">
-                  <LazyVideo 
-                    className="w-full h-full object-cover"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    src="/Automatic_pet_feeder_commercial_202606120038.mp4"
-                    poster="/posters/Automatic_pet_feeder_commercial_202606120038.webp"
-                  />
-                  <div className="absolute inset-0 bg-purple-950/5 pointer-events-none" />
-                </div>
-              </div>
-            </div>
-
-            {/* Section 5: New In Products (Full Width) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8">
-              <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
-                <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
-                  Latest Arrivals
-                </span>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 font-outfit tracking-tight">
-                  NEW IN
-                </h2>
-                <div className="w-12 h-[3px] bg-purple-500 mt-3 rounded-full" />
-              </div>
-
-              {/* Product Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 w-full px-6 lg:px-8">
-                {newInProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    onClick={() => router.push(`/product/${product.id}`)}
-                    className="group bg-white border border-zinc-100/80 rounded-3xl overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 flex flex-col cursor-pointer relative"
-                  >
-                    {/* Image Container with soft gradient background & elegant padding */}
-                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-zinc-50/50 to-white/30 p-2 flex items-center justify-center border-b border-zinc-100/50">
-                      <Image
-                        src={(product.images && product.images.length > 0) ? product.images[0] : `/products/${product.id}.webp`}
-                        alt={product.name}
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                        style={{ objectFit: "contain" }}
-                        className="transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 !p-2"
-                        loading="eager"
-                      />
-                      
-                      {/* Floating Discount Badge */}
-                      {product.discount && (
-                        <div className="absolute top-3.5 left-3.5 z-10">
-                          <span className="bg-red-500 text-white text-[8px] font-black tracking-widest px-2.5 py-1 rounded-lg shadow-md shadow-red-500/10 uppercase">
-                            {product.discount}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Floating Add to Cart Button for Mobile */}
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          quickAdd(product);
-                        }}
-                        className="md:hidden absolute bottom-3 right-3 bg-purple-600 active:bg-purple-700 text-white p-2.5 rounded-full shadow-lg z-20 flex items-center justify-center border-0 active:scale-95 transition-all duration-150"
-                        title="Add to Cart"
-                      >
-                        <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                      </button>
-
-                      {/* Floating Action Overlay: Slide-up Quick-Add Bar */}
-                      <div className="absolute bottom-3.5 left-3.5 right-3.5 translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-10 flex gap-2">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/product/${product.id}`);
-                          }}
-                          className="flex-grow bg-white/95 backdrop-blur-md border border-zinc-200/50 hover:bg-zinc-950 hover:text-white hover:border-zinc-950 text-zinc-900 text-[10px] font-extrabold tracking-widest py-2.5 rounded-xl shadow-lg transition-all duration-200 cursor-pointer"
-                        >
-                          VIEW DETAILS
-                        </button>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            quickAdd(product);
-                          }}
-                          className="bg-purple-600 hover:bg-purple-700 text-white p-2.5 rounded-xl shadow-lg shadow-purple-600/10 transition-all duration-200 cursor-pointer border-0 flex items-center justify-center hover:scale-105 active:scale-95"
-                          title="Add to Cart"
-                        >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 32 32">
-                            <g transform="translate(-156,-196)">
-                              <path fillRule="evenodd" d="m 159,198.00586 c -0.55228,0 -1,0.44772 -1,1 0,0.55228 0.44772,1 1,1 h 1.18945 l 3.83203,18.20703 c 0.0979,0.46231 0.50597,0.79302 0.97852,0.79297 h 17 c 0.55228,0 1,-0.44772 1,-1 0,-0.55228 -0.44772,-1 -1,-1 h -16.18945 l -0.42188,-2 H 181 c 0.45916,1.8e-4 0.85946,-0.31232 0.9707,-0.75781 l 1.29492,-5.21485 C 184.90874,207.96028 186,206.10519 186,204.00586 c 0,-3.30186 -2.69814,-6 -6,-6 -2.60121,0 -4.8265,1.67494 -5.6543,4 h -11.69336 l -0.67382,-3.20508 C 161.88145,198.33756 161.47315,198.006 161,198.00586 Z m 21,2 c 2.22098,0 4,1.77902 4,4 0,2.22098 -1.77902,4 -4,4 -2.22098,0 -4,-1.77902 -4,-4 0,-2.22098 1.77902,-4 4,-4 z m -16.92578,4 H 174 c 0,3.30186 2.69814,6 6,6 0.33554,0 0.6635,-0.0305 0.98438,-0.084 l -0.76563,3.08398 H 165 c -0.01,0.002 -0.0196,0.004 -0.0293,0.006 z" />
-                              <path fillRule="evenodd" d="m 169,220.00586 c -1.64501,0 -3,1.35499 -3,3 0,1.64501 1.35499,3 3,3 1.64501,0 3,-1.35499 3,-3 0,-1.64501 -1.35499,-3 -3,-3 z m 0,2 c 0.56413,0 1,0.43587 1,1 0,0.56413 -0.43587,1 -1,1 -0.56413,0 -1,-0.43587 -1,-1 0,-0.56413 0.43587,-1 1,-1 z" />
-                              <path fillRule="evenodd" d="m 179,220.00586 c -1.64501,0 -3,1.35499 -3,3 0,1.64501 1.35499,3 3,3 1.64501,0 3,-1.35499 3,-3 0,-1.64501 -1.35499,-3 -3,-3 z m 0,2 c 0.56413,0 1,0.43587 1,1 0,0.56413 -0.43587,1 -1,1 -0.56413,0 -1,-0.43587 -1,-1 0,-0.56413 0.43587,-1 1,-1 z" />
-                              <path fillRule="evenodd" d="m 180,201.00586 a 1,1 0 0 0 -1,1 v 1 h -1 a 1,1 0 0 0 -1,1 1,1 0 0 0 1,1 h 1 v 1 a 1,1 0 0 0 1,1 1,1 0 0 0 1,-1 v -1 h 1 a 1,1 0 0 0 1,-1 1,1 0 0 0 -1,-1 h -1 v -1 a 1,1 0 0 0 -1,-1 z" />
-                            </g>
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Content Details */}
-                    <div className="p-5 flex flex-col gap-1 flex-grow text-left">
-                      <span className="text-[8px] font-bold tracking-widest text-purple-600 uppercase">
-                        {product.category}
-                      </span>
-                      <h4 className="text-xs sm:text-sm font-extrabold text-zinc-950 font-outfit group-hover:text-purple-700 transition-colors duration-200 truncate mt-1">
-                        {product.name}
-                      </h4>
-                      
-                      {/* Premium Pricing presentation */}
-                      <div className="flex items-baseline gap-2 mt-2">
-                        <span className="text-base sm:text-lg font-black text-zinc-950 font-outfit tracking-tight">
-                          {product.price}
-                        </span>
-                        <span className="text-xs text-zinc-400 line-through font-bold">
-                          {product.slashedPrice}
-                        </span>
-                      </div>
-
-                      {/* Premium card divider footer */}
-                      <div className="flex justify-between items-center mt-3 pt-3 border-t border-zinc-100/70">
-                        <span className="text-[8px] font-bold text-purple-600 tracking-wider uppercase flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
-                          Fast Delivery
-                        </span>
-                        {isSoldOut(product.stock, getVariantGroups(product)) ? (
-                          <span className="text-[8px] font-bold text-red-500 tracking-wider uppercase">
-                            Sold Out
-                          </span>
-                        ) : (
-                          <span className="text-[8px] font-bold text-zinc-400 tracking-wider uppercase">
-                            In Stock
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Section 5.5: Lifestyle Image Gallery Banner (Full Width, No Gaps) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-0 w-full">
-                {[1, 2, 3].map((num) => (
-                  <div key={num} className="relative aspect-[4/3] w-full overflow-hidden group/banner">
-                    <Image
-                      src={`/banner_${num}.webp`}
-                      alt={`Lifestyle gallery banner ${num}`}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                      style={{ objectFit: "cover" }}
-                      className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/banner:scale-105"
-                      loading="eager"
-                    />
-                    <div className="absolute inset-0 bg-purple-950/5 opacity-0 group-hover/banner:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Section 5.3: Why Choose Us (Full Width) */}
-            <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8">
-              <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
-                <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
-                  06 // OUR PROMISE
-                </span>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 font-outfit tracking-tight uppercase">
-                  WHY PLUGGEDIN?
-                </h2>
-                <div className="w-12 h-[3px] bg-purple-500 mt-3 rounded-full" />
-              </div>
-
-              {/* Promise Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full px-6 lg:px-8">
-                {/* Promise Card 1 */}
-                <div className="group bg-gradient-to-br from-zinc-50 to-white border border-zinc-150 rounded-3xl p-8 shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 text-left flex flex-col gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300 shadow-sm">
-                    {/* Studio-Grade Quality Icon */}
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-extrabold text-zinc-950 font-outfit mb-2 group-hover:text-purple-700 transition-colors duration-200 uppercase">
-                      Studio-Grade Quality
-                    </h3>
-                    <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
-                      Every element is rigorously engineered for high-performance creators. We bridge technical precision with cinematic styling.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Promise Card 2 */}
-                <div className="group bg-gradient-to-br from-zinc-50 to-white border border-zinc-150 rounded-3xl p-8 shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 text-left flex flex-col gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300 shadow-sm">
-                    {/* Free Global Shipping Icon */}
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 002 2h1.5a2.5 2.5 0 012.5 2.5v.15m-1.385.385l-.79-.79-2.122-2.122a2 2 0 00-2.828 0L9.122 13.5a2 2 0 01-2.828 0L4.793 12H3" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-extrabold text-zinc-950 font-outfit mb-2 group-hover:text-purple-700 transition-colors duration-200 uppercase">
-                      Islandwide Express Delivery
-                    </h3>
-                    <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
-                      Enjoy 24-hour priority dispatch and tracked islandwide delivery on all orders and setups.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 5.7: FAQ Accordion List (Full Width) */}
-            <div id="faq" className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white py-16 px-6 lg:px-8 flex flex-col gap-8 border-t border-b border-purple-100/30">
-              <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
-                <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
-                  07 // FAQ
-                </span>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 font-outfit tracking-tight uppercase">
-                  FREQUENTLY ASKED QUESTIONS
-                </h2>
-                <div className="w-12 h-[3px] bg-purple-500 mt-3 rounded-full" />
-              </div>
-
-              {/* FAQ Accordions Container */}
-              <div className="w-full max-w-4xl mx-auto px-6 lg:px-8 flex flex-col gap-4">
-                {[
-                  {
-                    q: "Do products come with a warranty?",
-                    a: "Yes, all PluggedIn premium electronics and smart setup accessories are backed by our comprehensive 2-year warranty. It covers any manufacturing defects, hardware malfunctions, or hardware failures under normal workspace usage."
-                  },
-                  {
-                    q: "How long does shipping take?",
-                    a: "Delivery typically takes 3 to 5 business days depending on your region. All smart setup packages and orders benefit from tracked delivery and automatic 24-hour priority dispatch."
-                  },
-                  {
-                    q: "Do you ship internationally?",
-                    a: "Yes, we ship islandwide. All local shipments are fully tracked and insured for safe delivery to your doorstep."
-                  }
-                ].map((item, idx) => {
-                  const isOpen = openFaq === idx;
-                  return (
-                    <div
-                      key={idx}
-                      className="border border-zinc-200/60 rounded-2xl overflow-hidden bg-zinc-50/50 hover:bg-zinc-50 hover:border-purple-200/60 transition-all duration-300"
-                    >
-                      <button
-                        onClick={() => setOpenFaq(isOpen ? null : idx)}
-                        className="w-full flex justify-between items-center p-5 text-left font-outfit font-extrabold text-xs sm:text-sm text-zinc-950 hover:text-purple-700 transition-colors duration-200 cursor-pointer border-0 bg-transparent outline-none"
-                      >
-                        <span className="uppercase tracking-wide">{item.q}</span>
-                        <span className={`ml-4 w-7 h-7 rounded-full bg-white border border-zinc-200 flex items-center justify-center shrink-0 transition-all duration-300 shadow-sm ${
-                          isOpen ? "rotate-45 text-purple-600 border-purple-200" : "text-zinc-500"
-                        }`}>
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-                          </svg>
-                        </span>
-                      </button>
-
-                      {/* Expandable answer */}
-                      <div
-                        className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden ${
-                          isOpen ? "max-h-[300px] border-t border-zinc-200/20" : "max-h-0"
-                        }`}
-                      >
-                        <div className="p-5 text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium bg-white">
-                          {item.a}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Section 6: Premium Floating 3D Footer */}
-            <Footer />
-
           </div>
         </div>
+      </>
+    ),
+    new_in: () => (
+      <>
+        {/* Section 5: New In Products (Full Width) */}
+        <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8">
+          <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
+            <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
+              Latest Arrivals
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 font-outfit tracking-tight">
+              NEW IN
+            </h2>
+            <div className="w-12 h-[3px] bg-purple-500 mt-3 rounded-full" />
+          </div>
+
+          {/* Product Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 w-full px-6 lg:px-8">
+            {newInProducts.map((product) => renderProductCard(product))}
+          </div>
+        </div>
+      </>
+    ),
+    lifestyle_gallery: () => (
+      <>
+        {/* Section 5.5: Lifestyle Image Gallery Banner (Full Width, No Gaps) */}
+        <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-b border-purple-100/10 overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 w-full">
+            {[1, 2, 3].map((num) => (
+              <div key={num} className="relative aspect-[4/3] w-full overflow-hidden group/banner">
+                <Image
+                  src={`/banner_${num}.webp`}
+                  alt={`Lifestyle gallery banner ${num}`}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  style={{ objectFit: "cover" }}
+                  className="transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/banner:scale-105"
+                  loading="eager"
+                />
+                <div className="absolute inset-0 bg-purple-950/5 opacity-0 group-hover/banner:opacity-100 transition-opacity duration-500 pointer-events-none" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </>
+    ),
+    why_us: () => (
+      <>
+        {/* Section 5.3: Why Choose Us (Full Width) */}
+        <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8">
+          <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
+            <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
+              06 // OUR PROMISE
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 font-outfit tracking-tight uppercase">
+              WHY PLUGGEDIN?
+            </h2>
+            <div className="w-12 h-[3px] bg-purple-500 mt-3 rounded-full" />
+          </div>
+
+          {/* Promise Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full px-6 lg:px-8">
+            {/* Promise Card 1 */}
+            <div className="group bg-gradient-to-br from-zinc-50 to-white border border-zinc-150 rounded-3xl p-8 shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 text-left flex flex-col gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300 shadow-sm">
+                {/* Studio-Grade Quality Icon */}
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-zinc-950 font-outfit mb-2 group-hover:text-purple-700 transition-colors duration-200 uppercase">
+                  Studio-Grade Quality
+                </h3>
+                <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
+                  Every element is rigorously engineered for high-performance creators. We bridge technical precision with cinematic styling.
+                </p>
+              </div>
+            </div>
+
+            {/* Promise Card 2 */}
+            <div className="group bg-gradient-to-br from-zinc-50 to-white border border-zinc-150 rounded-3xl p-8 shadow-[0_8px_24px_rgba(0,0,0,0.015)] hover:shadow-[0_20px_40px_rgba(139,92,246,0.06)] hover:border-purple-200/60 hover:-translate-y-1.5 transition-all duration-300 text-left flex flex-col gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300 shadow-sm">
+                {/* Free Global Shipping Icon */}
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 002 2h1.5a2.5 2.5 0 012.5 2.5v.15m-1.385.385l-.79-.79-2.122-2.122a2 2 0 00-2.828 0L9.122 13.5a2 2 0 01-2.828 0L4.793 12H3" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-zinc-950 font-outfit mb-2 group-hover:text-purple-700 transition-colors duration-200 uppercase">
+                  Islandwide Express Delivery
+                </h3>
+                <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
+                  Enjoy 24-hour priority dispatch and tracked islandwide delivery on all orders and setups.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    ),
+    faq: () => (
+      <>
+        {/* Section 5.7: FAQ Accordion List (Full Width) */}
+        <div id="faq" className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white py-16 px-6 lg:px-8 flex flex-col gap-8 border-t border-b border-purple-100/30">
+          <div className="flex flex-col items-start text-left w-full px-6 lg:px-8 mb-4">
+            <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
+              07 // FAQ
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 font-outfit tracking-tight uppercase">
+              FREQUENTLY ASKED QUESTIONS
+            </h2>
+            <div className="w-12 h-[3px] bg-purple-500 mt-3 rounded-full" />
+          </div>
+
+          {/* FAQ Accordions Container */}
+          <div className="w-full max-w-4xl mx-auto px-6 lg:px-8 flex flex-col gap-4">
+            {[
+              {
+                q: "Do products come with a warranty?",
+                a: "Yes, all PluggedIn premium electronics and smart setup accessories are backed by our comprehensive 2-year warranty. It covers any manufacturing defects, hardware malfunctions, or hardware failures under normal workspace usage."
+              },
+              {
+                q: "How long does shipping take?",
+                a: "Delivery typically takes 3 to 5 business days depending on your region. All smart setup packages and orders benefit from tracked delivery and automatic 24-hour priority dispatch."
+              },
+              {
+                q: "Do you ship internationally?",
+                a: "Yes, we ship islandwide. All local shipments are fully tracked and insured for safe delivery to your doorstep."
+              }
+            ].map((item, idx) => {
+              const isOpen = openFaq === idx;
+              return (
+                <div
+                  key={idx}
+                  className="border border-zinc-200/60 rounded-2xl overflow-hidden bg-zinc-50/50 hover:bg-zinc-50 hover:border-purple-200/60 transition-all duration-300"
+                >
+                  <button
+                    onClick={() => setOpenFaq(isOpen ? null : idx)}
+                    className="w-full flex justify-between items-center p-5 text-left font-outfit font-extrabold text-xs sm:text-sm text-zinc-950 hover:text-purple-700 transition-colors duration-200 cursor-pointer border-0 bg-transparent outline-none"
+                  >
+                    <span className="uppercase tracking-wide">{item.q}</span>
+                    <span className={`ml-4 w-7 h-7 rounded-full bg-white border border-zinc-200 flex items-center justify-center shrink-0 transition-all duration-300 shadow-sm ${
+                      isOpen ? "rotate-45 text-purple-600 border-purple-200" : "text-zinc-500"
+                    }`}>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                      </svg>
+                    </span>
+                  </button>
+
+                  {/* Expandable answer */}
+                  <div
+                    className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden ${
+                      isOpen ? "max-h-[300px] border-t border-zinc-200/20" : "max-h-0"
+                    }`}
+                  >
+                    <div className="p-5 text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium bg-white">
+                      {item.a}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </>
+    ),
+  };
+
+  // Admin-added full-width banner (image or video, optional text / button / link)
+  const renderBannerSection = (section: HomeSection, firstInGroup: boolean) => {
+    const link = resolveBannerLink(section.link_url);
+    const hasText = Boolean(section.title || section.subtitle || section.button_text);
+    const label = section.title || section.button_text || "Open banner link";
+    const mediaClass = "w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-102";
+    return (
+      <div className={`relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 aspect-[4/3] sm:aspect-video max-h-[380px] md:max-h-[600px] ${firstInGroup ? "" : "mt-16"} overflow-hidden border-t border-purple-100/30 group bg-zinc-900`}>
+        {!section.image_url ? null : isVideoUrl(section.image_url) ? (
+          <LazyVideo className={mediaClass} autoPlay loop muted playsInline src={section.image_url} />
+        ) : section.mobile_image_url ? (
+          <HeroPicture
+            desktopSrc={section.image_url}
+            mobileSrc={section.mobile_image_url}
+            alt={section.title || "PluggedIn"}
+            eager={false}
+            className={mediaClass}
+          />
+        ) : (
+          <Image
+            src={section.image_url}
+            alt={section.title || "PluggedIn"}
+            fill
+            sizes="100vw"
+            style={{ objectFit: "cover" }}
+            className={mediaClass}
+          />
+        )}
+
+        {hasText && (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent z-10 pointer-events-none" />
+        )}
+
+        {/* The whole banner is the link */}
+        {link && (
+          link.external ? (
+            <a href={link.href} target="_blank" rel="noopener noreferrer" aria-label={label} className="absolute inset-0 z-[15] cursor-pointer" />
+          ) : (
+            <Link href={link.href} aria-label={label} className="absolute inset-0 z-[15] cursor-pointer" />
+          )
+        )}
+
+        {hasText && (
+          <div className="absolute inset-0 z-20 flex flex-col justify-end p-8 md:p-12 pointer-events-none">
+            <div className="max-w-xl text-left">
+              {section.title && (
+                <h3 className="text-2xl md:text-4xl font-extrabold text-white font-outfit tracking-tight leading-tight uppercase">
+                  {section.title}
+                </h3>
+              )}
+              {section.subtitle && (
+                <p className="text-xs sm:text-sm md:text-base text-zinc-200 font-medium leading-relaxed mt-3 max-w-lg">
+                  {section.subtitle}
+                </p>
+              )}
+              {section.button_text && (
+                <span className="inline-flex items-center gap-2 mt-5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs sm:text-sm font-extrabold tracking-widest px-7 py-3.5 rounded-full shadow-lg shadow-purple-600/30 group-hover:scale-105 transition-transform duration-300 uppercase">
+                  {section.button_text}
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Admin-added collection: that collection's products, like Trending / New In
+  const renderCollectionSection = (section: HomeSection) => {
+    const coll = collections.find((c) => c.id === section.collection_id);
+    if (!coll) return null;
+    const items = getCollectionProducts(coll).slice(0, section.product_limit);
+    if (items.length === 0) return null;
+    return (
+      <div className="relative z-20 w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-6 lg:-mx-8 bg-white border-t border-purple-100/30 py-16 px-6 lg:px-8 flex flex-col gap-8">
+        <div className="flex flex-wrap items-end justify-between gap-4 w-full px-6 lg:px-8 mb-4">
+          <div className="flex flex-col items-start text-left">
+            <span className="text-[10px] font-bold tracking-[0.25em] text-purple-600 uppercase mb-2">
+              {section.subtitle || "Collection"}
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 font-outfit tracking-tight uppercase">
+              {section.title || coll.name}
+            </h2>
+            <div className="w-12 h-[3px] bg-purple-500 mt-3 rounded-full" />
+          </div>
+          <Link
+            href={`/shop?collection=${encodeURIComponent(coll.id)}`}
+            className="text-[10px] font-extrabold tracking-widest text-purple-600 hover:text-purple-800 uppercase border border-purple-200 hover:border-purple-400 px-4 py-2 rounded-full transition-colors"
+          >
+            View all →
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full px-6 lg:px-8">
+          {items.map((product) => renderProductCard(product))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSection = (section: HomeSection, firstInGroup = false) => {
+    if (section.section_type === "banner") return renderBannerSection(section, firstInGroup);
+    if (section.section_type === "collection") return renderCollectionSection(section);
+    return builtinSections[section.builtin_key || ""]?.() ?? null;
+  };
+
+  // Consecutive blocks inside the page share one white content area (as the
+  // original homepage did); the hero and perks bar sit outside it. The footer
+  // always closes the last content area.
+  const sectionGroups: { outer: boolean; sections: HomeSection[] }[] = [];
+  for (const section of homeSections.filter((s) => s.is_active)) {
+    const outer = section.section_type === "builtin" && OUTER_BUILTINS.has(section.builtin_key || "");
+    const last = sectionGroups[sectionGroups.length - 1];
+    if (last && !last.outer && !outer) last.sections.push(section);
+    else sectionGroups.push({ outer, sections: [section] });
+  }
+  if (sectionGroups.length === 0 || sectionGroups[sectionGroups.length - 1].outer) {
+    sectionGroups.push({ outer: false, sections: [] });
+  }
+
+  return (
+    <>
+      <div className="w-full bg-white font-outfit select-none pt-[70px] md:pt-[80px]">
+        {sectionGroups.map((group, gi) =>
+          group.outer ? (
+            <Fragment key={group.sections[0].id}>{renderSection(group.sections[0])}</Fragment>
+          ) : (
+            // Solid White Content Wrapper
+            <div
+              key={group.sections[0]?.id ?? "footer"}
+              className={`relative z-20 bg-white w-full px-4 sm:px-6 lg:px-8 pt-8 ${
+                gi === sectionGroups.length - 1 ? "pb-16 lg:pb-20" : "pb-4"
+              } max-w-[1700px] mx-auto`}
+            >
+              {group.sections.map((section, si) => (
+                <Fragment key={section.id}>{renderSection(section, si === 0)}</Fragment>
+              ))}
+
+              {/* Premium Floating 3D Footer */}
+              {gi === sectionGroups.length - 1 && <Footer />}
+            </div>
+          )
+        )}
+      </div>
 
     {/* Product Detail Modal */}
     {activeProduct && (
