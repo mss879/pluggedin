@@ -141,10 +141,21 @@ export async function POST(request: Request) {
 
     if (supabase) {
       const ids = requested.map((r) => r.id);
-      const { data: dbProducts, error: prodErr } = await supabase
+      let { data: dbProducts, error: prodErr } = await supabase
         .from("products")
         .select("id, name, price, weight_grams, stock, variants, colors")
         .in("id", ids);
+      // Stock/variants migration not run yet (42703 = unknown column): keep
+      // taking orders, with stock untracked.
+      if (prodErr?.code === "42703") {
+        console.warn("[orders] products.stock/variants missing — run the stock migration. Stock is not being tracked.");
+        const fallback = await supabase
+          .from("products")
+          .select("id, name, price, weight_grams, colors")
+          .in("id", ids);
+        dbProducts = (fallback.data || []).map((p) => ({ ...p, stock: null, variants: [] }));
+        prodErr = fallback.error;
+      }
 
       if (prodErr) {
         console.error("Supabase product lookup error:", prodErr);
@@ -326,7 +337,8 @@ export async function POST(request: Request) {
         total_weight_grams: totalWeightGrams,
         discount_code: appliedCode,
         discount_amount: discountAmount,
-        stock_reserved: stockLines.length > 0,
+        // Only set when stock was taken, so orders still save before the stock migration
+        ...(stockLines.length > 0 ? { stock_reserved: true } : {}),
         payment_method: cleanPayment,
         status: "pending",
       });
