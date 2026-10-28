@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { isAdminEmail } from "./admin-emails";
 
 /**
  * Server-only helpers for authorising admin API requests.
@@ -7,10 +8,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  * Admin access is two steps: a Supabase password sign-in for the admin email,
  * then an emailed 6-digit code (see /api/admin/2fa/*). A request is only fully
  * trusted once the Supabase session it carries (the `session_id` JWT claim)
- * has been recorded in `admin_verified_sessions`.
+ * has been recorded in `admin_verified_sessions`. The developer super admin
+ * (SUPER_ADMIN_EMAIL) skips the code: the database treats it as verified.
  */
-
-export const ADMIN_EMAIL = "admin@pluggedin.com";
 
 /** Inbox that receives the admin login codes. */
 export const ADMIN_2FA_EMAIL = process.env.ADMIN_2FA_EMAIL || "pluggedin58@gmail.com";
@@ -68,7 +68,7 @@ export async function getAdminSession(request: Request): Promise<AdminSession | 
 
   try {
     const { data: { user }, error } = await userClient.auth.getUser(token);
-    if (error || !user || user.email !== ADMIN_EMAIL) return null;
+    if (error || !user?.email || !isAdminEmail(user.email)) return null;
 
     // Safe to read claims now that Supabase has validated the token
     const sessionId = decodeJwtPayload(token)?.session_id;

@@ -4,8 +4,7 @@ import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-
-const ADMIN_EMAIL = "admin@pluggedin.com";
+import { isAdminEmail } from "@/lib/admin-emails";
 
 export default function AdminGate({
   children,
@@ -38,10 +37,10 @@ export default function AdminGate({
       }
 
       const { data, error } = await supabase.auth.getUser();
-      const isAdmin = !error && data?.user?.email === ADMIN_EMAIL;
+      const isAdmin = !error && isAdminEmail(data?.user?.email);
 
       // A password-only session isn't enough: the emailed 2FA code must have
-      // been entered for this session too.
+      // been entered for this session too (the super admin counts as verified).
       let verified = false;
       if (isAdmin) {
         try {

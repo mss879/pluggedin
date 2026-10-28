@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { isAdminEmail } from "@/lib/admin-emails";
 
 const RESEND_COOLDOWN_SECONDS = 30;
 
@@ -64,10 +65,25 @@ export default function AdminLoginPage() {
         }
 
         if (data.session) {
-          // Ensure that the logged in email is exactly the admin email
-          if (data.session.user.email !== "admin@pluggedin.com") {
+          // Ensure that the logged in email is an admin email
+          if (!isAdminEmail(data.session.user.email)) {
             await supabase.auth.signOut();
             throw new Error("Access denied: This email is not authorized as administrator.");
+          }
+
+          // Already verified (the developer super admin needs no emailed code)
+          const statusRes = await fetch("/api/admin/2fa/status", {
+            headers: { Authorization: `Bearer ${data.session.access_token}` },
+            cache: "no-store",
+          });
+          const status = await statusRes.json().catch(() => ({}));
+          if (statusRes.ok && status.verified === true) {
+            localStorage.setItem(
+              "pluggedin_admin_session",
+              JSON.stringify({ email: data.session.user.email, token: data.session.access_token, mode: "supabase" })
+            );
+            router.push("/admin");
+            return;
           }
 
           // Password OK — now require the emailed verification code
