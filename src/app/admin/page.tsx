@@ -2359,7 +2359,8 @@ export default function AdminDashboardPage() {
       {/* ------------------------- */}
       {/* LEFT SIDEBAR NAVIGATION */}
       {/* ------------------------- */}
-      <aside className="w-64 bg-white border-r border-slate-200/80 flex flex-col justify-between shrink-0 p-6 z-20">
+      {/* Scrolls (scrollbar hidden) when the menu is taller than a small laptop screen */}
+      <aside className="w-64 h-full bg-white border-r border-slate-200/80 flex flex-col justify-between gap-8 shrink-0 p-6 z-20 overflow-y-auto overscroll-contain scrollbar-hidden">
         <div className="flex flex-col gap-8">
           
           {/* Admin title */}

@@ -180,6 +180,16 @@ body {
   scrollbar-color: rgba(150, 116, 235, 0.2) transparent;
 }
 
+/* Scrollable with wheel / trackpad / touch, but no visible scrollbar */
+.scrollbar-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 /* Off-screen rendering optimizations (Largest Contentful Paint & INP support).
    This was `content-visibility: visible`, which is the CSS default and did
    nothing at all — the eight homepage sections carrying this class were still
